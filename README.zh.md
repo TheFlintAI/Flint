@@ -9,6 +9,11 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/TheFlintAI/Flint/stargazers"><img src="https://img.shields.io/github/stars/TheFlintAI/Flint?style=flat-square&color=yellow" alt="Stars" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/TheFlintAI/Flint?style=flat-square&color=blue" alt="License" /></a>
+</p>
+
+<p align="center">
   <a href="README.md">English</a>
 </p>
 
@@ -49,6 +54,10 @@ bun run dev
 ```
 
 需要 [Bun](https://bun.sh) 和 [Rust](https://rustup.rs)。
+
+## 联系方式
+
+邮箱：**formetaohy@gmail.com**
 
 ## 许可
 
