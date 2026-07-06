@@ -1,0 +1,7 @@
+name = "stock"
+displayName = { en = "Stock", zh = "股票" }
+version = "0.1.0"
+displayDescription = { en = "Real-time stock quotes, historical data, and market indices.", zh = "实时股票行情、历史数据、市场指数。" }
+icon = "TrendingUp"
+main = "./main.ts"
+permissions = ["network"]

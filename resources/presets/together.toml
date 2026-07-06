@@ -1,0 +1,153 @@
+[provider]
+builtinId = "together"
+name = { en = "Together AI", zh = "Together AI" }
+type = "openai-chat"
+defaultBaseUrl = "https://api.together.xyz/v1"
+homepage = "https://together.ai"
+requiresApiKey = true
+
+# ═══════════════════════════════════════════════════════════════
+# DeepSeek
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "deepseek-ai/DeepSeek-V4-Pro"
+name = "DeepSeek V4 Pro"
+contextLength = 1000000
+maxOutputTokens = 384000
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+[[provider.defaultModels]]
+id = "deepseek-ai/DeepSeek-V4-Flash"
+name = "DeepSeek V4 Flash"
+contextLength = 1000000
+maxOutputTokens = 384000
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "medium"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+# ═══════════════════════════════════════════════════════════════
+# Llama
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
+name = "Llama 4 Maverick 17B"
+contextLength = 1000000
+maxOutputTokens = 8192
+
+[[provider.defaultModels]]
+id = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+name = "Llama 4 Scout 17B"
+contextLength = 10000000
+maxOutputTokens = 8192
+
+[[provider.defaultModels]]
+id = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+name = "Llama 3.3 70B"
+contextLength = 131072
+maxOutputTokens = 32768
+
+# ═══════════════════════════════════════════════════════════════
+# Qwen
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "Qwen/Qwen3.7-Plus"
+name = "Qwen3.7 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+[[provider.defaultModels]]
+id = "Qwen/Qwen3.6-35B-A3B"
+name = "Qwen3.6 35B-A3B"
+contextLength = 256000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+# ═══════════════════════════════════════════════════════════════
+# Kimi
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "moonshotai/Kimi-K2.7-Code"
+name = "Kimi K2.7 Code"
+contextLength = 262144
+maxOutputTokens = 32768
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+# ═══════════════════════════════════════════════════════════════
+# GLM
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "zai-org/GLM-5.2"
+name = "GLM-5.2"
+contextLength = 1000000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+# ═══════════════════════════════════════════════════════════════
+# MiniMax
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "MiniMaxAI/MiniMax-M3"
+name = "MiniMax M3"
+contextLength = 1000000
+maxOutputTokens = 131072
+
+# ═══════════════════════════════════════════════════════════════
+# Mistral
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistralai/Mistral-Medium-3-5"
+name = "Mistral Medium 3.5"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "high"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.reasoning]
+enabled = true
+
+[[provider.defaultModels]]
+id = "mistralai/Mistral-Large-3-2512"
+name = "Mistral Large 3"
+contextLength = 262144
+maxOutputTokens = 65536

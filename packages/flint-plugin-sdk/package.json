@@ -1,0 +1,39 @@
+{
+  "name": "@flint/plugin-sdk",
+  "version": "2.0.0",
+  "description": "SDK for building Flint plugins — Web Worker runtime, virtual UI components, agent hooks",
+  "type": "module",
+  "license": "MIT",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": {
+    "flint-plugin": "./cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./testing": {
+      "types": "./index.d.ts",
+      "default": "./testing/index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "cli.js",
+    "types/",
+    "runtime/",
+    "builder/",
+    "testing/"
+  ],
+  "keywords": ["flint", "plugin", "ai", "agent", "web-worker"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flint/flint"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}

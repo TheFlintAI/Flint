@@ -1,0 +1,789 @@
+import { nanoid } from 'nanoid'
+import type {
+  AIModelConfig,
+  CompactBoundaryMeta,
+  CompactSummaryMeta,
+  ContentBlock,
+  ProviderConfig,
+  UnifiedMessage
+} from '../api/types'
+import { runTextRequest } from '@/lib/api/text-request'
+import {
+  RESPONSES_TASK_SCOPE_CONTEXT_COMPRESSION,
+  withAuxiliaryResponsesRequestPolicy
+} from '@/lib/api/responses-task-policy'
+import i18n from '@/locales'
+import { createLogger } from '@/lib/logger'
+import { toonEncode } from '../tools/tool-result-format'
+
+const log = createLogger('ContextCompression')
+
+export interface CompressionConfig {
+  enabled: boolean
+  /** Model's max context token count. */
+  contextLength: number
+  /** Full compression trigger threshold, clamped to 0.3 ~ 0.9. */
+  threshold: number
+  /** Optional pre-compression trigger threshold before buffer adjustments. */
+  preCompressThreshold?: number
+  /** Tokens reserved for summary/output headroom before trigger calculations. */
+  reservedOutputBudget?: number
+}
+
+export interface CompressionResult {
+  compressed: boolean
+  originalCount: number
+  newCount: number
+  messagesSummarized?: number
+}
+
+export const DEFAULT_CONTEXT_COMPRESSION_LIMIT = 200_000
+export const DEFAULT_CONTEXT_COMPRESSION_THRESHOLD = 0.8
+export const MIN_CONTEXT_COMPRESSION_THRESHOLD = 0.3
+export const MAX_CONTEXT_COMPRESSION_THRESHOLD = 0.9
+export const DEFAULT_CONTEXT_COMPRESSION_RESERVED_OUTPUT_TOKENS = 20_000
+export const CONTEXT_COMPRESSION_AUTO_BUFFER_TOKENS = 13_000
+export const CONTEXT_COMPRESSION_PRE_BUFFER_TOKENS = 20_000
+export const CONTEXT_COMPRESSION_PRE_GAP_TOKENS = 8_000
+
+const DEFAULT_PRECOMPRESS_THRESHOLD = 0.65
+const PRESERVE_RECENT_COUNT = 4
+const TOOL_RESULT_KEEP_RECENT = 6
+const MAX_COMPRESS_RETRIES = 2
+const MAX_CONSECUTIVE_FAILURES = 3
+const SAFE_BOUNDARY_SCAN_LIMIT = 10
+const TOOL_RESULT_CLEAR_CHAR_THRESHOLD = 200
+const SERIALIZED_TOOL_USE_INPUT_LIMIT = 500
+const SERIALIZED_TOOL_RESULT_LIMIT = 800
+const BASE_RETRY_DELAY_MS = 1_500
+
+const CLEARED_THINKING_PLACEHOLDER = i18n.t('contextCompression.clearedThinking', { ns: 'agent' })
+const COMPRESSION_SYSTEM_PROMPT = i18n.t('contextCompression.systemPrompt', { ns: 'agent' })
+
+/** Build a re-fetchable placeholder for a cleared tool result, preserving the
+ *  tool name and a key input hint so the model can re-run the tool to
+ *  regenerate the value instead of treating the placeholder as ground truth. */
+function buildClearedToolResultPlaceholder(name: string, hint: string): string {
+  return i18n.t('contextCompression.clearedToolResult', {
+    ns: 'agent',
+    name,
+    hint: hint ? hint.trim() : ''
+  })
+}
+
+/** Extract a short, human-readable hint from a tool's input for re-fetch. */
+function buildToolResultHint(name: string, input: Record<string, unknown>): string {
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+  switch (name) {
+    case 'Read':
+    case 'Write':
+    case 'Edit':
+    case 'LS':
+      return str(input.file_path) || str(input.path)
+    case 'Glob':
+    case 'Grep':
+      return str(input.pattern) || str(input.path)
+    case 'Bash':
+      return str(input.command)
+    case 'WebSearch':
+      return str(input.query)
+    case 'WebFetch':
+      return str(input.url)
+    default:
+      return ''
+  }
+}
+
+interface ToolUseRef {
+  name: string
+  hint: string
+}
+
+/** Scan messages and map every tool_use id to its name + re-fetch hint. */
+function buildToolUseRefMap(messages: UnifiedMessage[]): Map<string, ToolUseRef> {
+  const map = new Map<string, ToolUseRef>()
+  for (const message of messages) {
+    if (typeof message.content === 'string') continue
+    for (const block of message.content) {
+      if (block.type === 'tool_use' && block.id) {
+        const input = (block.input ?? {}) as Record<string, unknown>
+        map.set(block.id, { name: block.name, hint: buildToolResultHint(block.name, input) })
+      }
+    }
+  }
+  return map
+}
+
+let consecutiveFailures = 0
+
+export function resetCompressionFailures(): void {
+  consecutiveFailures = 0
+}
+
+export function clampCompressionThreshold(value?: number | null): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CONTEXT_COMPRESSION_THRESHOLD
+  }
+  return Math.min(
+    MAX_CONTEXT_COMPRESSION_THRESHOLD,
+    Math.max(MIN_CONTEXT_COMPRESSION_THRESHOLD, value)
+  )
+}
+
+export function resolveCompressionThreshold(
+  _modelConfig?: Pick<AIModelConfig, 'contextLength'> | null
+): number {
+  return DEFAULT_CONTEXT_COMPRESSION_THRESHOLD
+}
+
+export function resolveCompressionContextLength(
+  modelConfig?: Pick<AIModelConfig, 'contextLength'> | null
+): number {
+  const configuredContextLength =
+    typeof modelConfig?.contextLength === 'number' && modelConfig.contextLength > 0
+      ? modelConfig.contextLength
+      : DEFAULT_CONTEXT_COMPRESSION_LIMIT
+
+  return configuredContextLength
+}
+
+export function resolveCompressionReservedOutputBudget(
+  modelConfig?: Pick<AIModelConfig, 'maxOutputTokens'> | null
+): number {
+  const maxOutputTokens =
+    typeof modelConfig?.maxOutputTokens === 'number' && modelConfig.maxOutputTokens > 0
+      ? Math.floor(modelConfig.maxOutputTokens)
+      : DEFAULT_CONTEXT_COMPRESSION_RESERVED_OUTPUT_TOKENS
+  return Math.min(DEFAULT_CONTEXT_COMPRESSION_RESERVED_OUTPUT_TOKENS, maxOutputTokens)
+}
+
+export function getEffectiveContextWindow(config: CompressionConfig): number {
+  if (config.contextLength <= 0) return 0
+  const reserved = Math.max(
+    0,
+    config.reservedOutputBudget ?? DEFAULT_CONTEXT_COMPRESSION_RESERVED_OUTPUT_TOKENS
+  )
+  return Math.max(1, config.contextLength - reserved)
+}
+
+export function getCompressionTriggerTokens(config: CompressionConfig): number {
+  const effectiveWindow = getEffectiveContextWindow(config)
+  if (effectiveWindow <= 0) return 0
+  const ratioThreshold = Math.floor(effectiveWindow * config.threshold)
+  const bufferedThreshold = effectiveWindow - CONTEXT_COMPRESSION_AUTO_BUFFER_TOKENS
+  return Math.max(
+    1,
+    Math.min(ratioThreshold, bufferedThreshold > 0 ? bufferedThreshold : ratioThreshold)
+  )
+}
+
+export function getPreCompressionTriggerTokens(config: CompressionConfig): number {
+  const effectiveWindow = getEffectiveContextWindow(config)
+  if (effectiveWindow <= 0) return 0
+
+  const preThreshold = config.preCompressThreshold ?? DEFAULT_PRECOMPRESS_THRESHOLD
+  const ratioThreshold = Math.floor(effectiveWindow * preThreshold)
+  const fullThreshold = getCompressionTriggerTokens(config)
+  const candidates = [ratioThreshold]
+  const bufferedThreshold = effectiveWindow - CONTEXT_COMPRESSION_PRE_BUFFER_TOKENS
+  if (bufferedThreshold > 0) candidates.push(bufferedThreshold)
+  const gapThreshold = fullThreshold - CONTEXT_COMPRESSION_PRE_GAP_TOKENS
+  if (gapThreshold > 0) candidates.push(gapThreshold)
+  const threshold = Math.min(...candidates)
+  return Math.max(1, Math.min(threshold, Math.max(1, fullThreshold - 1)))
+}
+
+export function shouldCompress(inputTokens: number, config: CompressionConfig): boolean {
+  if (!config.enabled || config.contextLength <= 0) return false
+  if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) return false
+  return inputTokens >= getCompressionTriggerTokens(config)
+}
+
+export function shouldPreCompress(inputTokens: number, config: CompressionConfig): boolean {
+  if (!config.enabled || config.contextLength <= 0) return false
+  const preThreshold = getPreCompressionTriggerTokens(config)
+  const fullThreshold = getCompressionTriggerTokens(config)
+  return inputTokens >= preThreshold && inputTokens < fullThreshold
+}
+
+export function isCompactBoundaryMessage(message: UnifiedMessage): boolean {
+  return message.role === 'system' && !!message.meta?.compactBoundary
+}
+
+export function isCompactSummaryLikeMessage(message: UnifiedMessage): boolean {
+  return message.role === 'user' && !!message.meta?.compactSummary
+}
+
+export function extractUnifiedMessageText(message?: UnifiedMessage | null): string {
+  if (!message) return ''
+  if (typeof message.content === 'string') return message.content.trim()
+  if (!Array.isArray(message.content)) return ''
+  return message.content
+    .filter((block) => block.type === 'text')
+    .map((block) => (block.type === 'text' ? block.text : ''))
+    .join('\n')
+    .trim()
+}
+
+function splitCompactSummaryBlocks(text: string): string[] {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n+/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+}
+
+function isCompactSummaryTitleBlock(block: string): boolean {
+  const trimmed = block.trim()
+  if (!trimmed) return false
+  if (!/^\[[^\]\n]+]$/.test(trimmed)) {
+    return false
+  }
+  return (
+    /summary|compressed|compacted|memory/i.test(trimmed) ||
+    /[\u4e0a\u4e0b\u6587\u6458\u8981\u538b\u7f29]/u.test(trimmed)
+  )
+}
+
+function isCompactSummaryIntroBlock(block: string): boolean {
+  const normalized = block.replace(/\s+/g, ' ').trim()
+  if (!normalized || normalized.length > 320) {
+    return false
+  }
+  return [
+    /this task is being continued/i,
+    /continued from a previous conversation/i,
+    /the following summary covers/i,
+    /recent messages are preserved/i,
+    /\u672c\u6b21\u4f1a\u8bdd.*\u7ee7\u7eed/u,
+    /\u4ee5\u4e0b\u6458\u8981.*\u6d88\u606f/u,
+    /\u8fd1\u671f\u6d88\u606f.*\u4fdd\u7559/u
+  ].some((pattern) => pattern.test(normalized))
+}
+
+export function getCompactSummaryDisplayText(message: UnifiedMessage): string {
+  const text = extractUnifiedMessageText(message)
+  if (!text || !isCompactSummaryLikeMessage(message)) {
+    return text
+  }
+
+  const blocks = splitCompactSummaryBlocks(text)
+  if (blocks.length === 0) {
+    return text
+  }
+
+  let startIndex = 0
+  if (isCompactSummaryTitleBlock(blocks[startIndex]!)) {
+    startIndex += 1
+  }
+  if (startIndex < blocks.length - 1 && isCompactSummaryIntroBlock(blocks[startIndex]!)) {
+    startIndex += 1
+  }
+
+  return blocks.slice(startIndex).join('\n\n').trim() || text
+}
+
+export function mergeCompressedMessagesIntoConversation(
+  currentMessages: UnifiedMessage[],
+  compressedMessages?: UnifiedMessage[] | null
+): UnifiedMessage[] | null {
+  if (!compressedMessages || compressedMessages.length === 0) {
+    return null
+  }
+
+  const summaryIndex = compressedMessages.findIndex((message) =>
+    isCompactSummaryLikeMessage(message)
+  )
+  if (summaryIndex < 0) {
+    return null
+  }
+
+  const boundaryMessage = compressedMessages.find((message) => isCompactBoundaryMessage(message))
+  const preservedHeadId =
+    boundaryMessage?.meta?.compactBoundary?.preservedSegment?.headId ??
+    compressedMessages[summaryIndex + 1]?.id ??
+    null
+
+  const compressedIndexById = new Map(
+    compressedMessages.map((message, index) => [message.id, index])
+  )
+  const currentIndexById = new Map(currentMessages.map((message, index) => [message.id, index]))
+
+  const anchorId =
+    (preservedHeadId &&
+    compressedIndexById.has(preservedHeadId) &&
+    currentIndexById.has(preservedHeadId)
+      ? preservedHeadId
+      : null) ??
+    [...currentMessages].reverse().find((message) => compressedIndexById.has(message.id))?.id ??
+    null
+
+  if (!anchorId) {
+    return null
+  }
+
+  const compressedTailIndex = compressedIndexById.get(anchorId) ?? -1
+  const currentTailIndex = currentIndexById.get(anchorId) ?? -1
+
+  if (compressedTailIndex < 0 || currentTailIndex < 0) {
+    return null
+  }
+
+  return [
+    ...compressedMessages.slice(0, compressedTailIndex),
+    ...currentMessages.slice(currentTailIndex)
+  ]
+}
+
+export function createCompactBoundaryMessage(args: {
+  trigger: CompactBoundaryMeta['trigger']
+  preTokens: number
+  messagesSummarized: number
+  preservedMessages?: UnifiedMessage[]
+}): UnifiedMessage {
+  const preservedMessages = args.preservedMessages ?? []
+  const meta: CompactBoundaryMeta = {
+    trigger: args.trigger,
+    preTokens: args.preTokens,
+    messagesSummarized: args.messagesSummarized,
+    ...(preservedMessages.length > 0
+      ? {
+          preservedSegment: {
+            headId: preservedMessages[0]!.id,
+            anchorId: '',
+            tailId: preservedMessages[preservedMessages.length - 1]!.id
+          }
+        }
+      : {})
+  }
+
+  return {
+    id: nanoid(),
+    role: 'system',
+    content: 'Context compacted',
+    createdAt: Date.now(),
+    meta: { compactBoundary: meta }
+  }
+}
+
+export function createCompactSummaryMessage(args: {
+  summary: string
+  messagesSummarized: number
+  recentMessagesPreserved: boolean
+}): UnifiedMessage {
+  const summaryMeta: CompactSummaryMeta = {
+    messagesSummarized: args.messagesSummarized,
+    recentMessagesPreserved: args.recentMessagesPreserved
+  }
+
+  return {
+    id: nanoid(),
+    role: 'user',
+    content: i18n.t('contextCompression.summaryMessage', {
+      ns: 'agent',
+      count: args.messagesSummarized,
+      summary: args.summary
+    }),
+    createdAt: Date.now(),
+    meta: { compactSummary: summaryMeta }
+  }
+}
+
+export function preCompressMessages(messages: UnifiedMessage[]): UnifiedMessage[] {
+  if (messages.length <= TOOL_RESULT_KEEP_RECENT) return messages
+
+  const cutoff = messages.length - TOOL_RESULT_KEEP_RECENT
+  const toolUseRefs = buildToolUseRefMap(messages)
+  return messages.map((message, index) => {
+    if (index >= cutoff) return message
+    if (typeof message.content === 'string') return message
+
+    let changed = false
+    const newBlocks = message.content.map((block) => {
+      if (block.type === 'tool_result') {
+        const content =
+          typeof block.content === 'string' ? block.content : toonEncode(block.content)
+        if (content.length > TOOL_RESULT_CLEAR_CHAR_THRESHOLD) {
+          changed = true
+          const ref = block.toolUseId ? toolUseRefs.get(block.toolUseId) : undefined
+          const placeholder = ref
+            ? buildClearedToolResultPlaceholder(ref.name, ref.hint)
+            : buildClearedToolResultPlaceholder('tool', '')
+          return { ...block, content: placeholder }
+        }
+      }
+
+      if (block.type === 'thinking') {
+        changed = true
+        return { ...block, thinking: CLEARED_THINKING_PLACEHOLDER }
+      }
+
+      if (block.type === 'image') {
+        changed = true
+        return { type: 'text', text: '[image]' } as ContentBlock
+      }
+
+      return block
+    })
+
+    return changed ? { ...message, content: newBlocks } : message
+  })
+}
+
+export async function compressMessages(
+  messages: UnifiedMessage[],
+  providerConfig: ProviderConfig,
+  signal?: AbortSignal,
+  preserveCount = PRESERVE_RECENT_COUNT,
+  focusPrompt?: string,
+  pinnedContext?: string,
+  trigger: CompactBoundaryMeta['trigger'] = 'manual',
+  preTokens = 0
+): Promise<{ messages: UnifiedMessage[]; result: CompressionResult }> {
+  const originalCount = messages.length
+  if (originalCount < preserveCount + 2) {
+    return {
+      messages,
+      result: { compressed: false, originalCount, newCount: originalCount }
+    }
+  }
+
+  const boundaryIndex = findSafeCompactBoundary(messages, messages.length - preserveCount)
+  const messagesToCompress = messages.slice(0, boundaryIndex)
+  const messagesToPreserve = messages.slice(boundaryIndex)
+
+  if (messagesToCompress.length < 2) {
+    return {
+      messages,
+      result: { compressed: false, originalCount, newCount: originalCount }
+    }
+  }
+
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt <= MAX_COMPRESS_RETRIES; attempt += 1) {
+    try {
+      const inputMessages =
+        attempt === 0 ? messagesToCompress : truncateOldestMessages(messagesToCompress, attempt)
+      const originalTaskMessage = findOriginalTaskMessage(inputMessages)
+      const serialized = serializeCompressionInput(
+        inputMessages,
+        originalTaskMessage?.content,
+        pinnedContext
+      )
+      const rawSummary = await callSummarizer(serialized, providerConfig, signal, focusPrompt)
+      const formattedSummary = formatCompactSummary(rawSummary)
+      if (!formattedSummary.trim()) {
+        throw new Error(i18n.t('contextCompression.emptyResultError', { ns: 'agent' }))
+      }
+
+      const boundaryMessage = createCompactBoundaryMessage({
+        trigger,
+        preTokens,
+        messagesSummarized: messagesToCompress.length,
+        preservedMessages: messagesToPreserve
+      })
+      const summaryMessage = createCompactSummaryMessage({
+        summary: formattedSummary,
+        messagesSummarized: messagesToCompress.length,
+        recentMessagesPreserved: messagesToPreserve.length > 0
+      })
+
+      if (boundaryMessage.meta?.compactBoundary?.preservedSegment) {
+        boundaryMessage.meta.compactBoundary.preservedSegment.anchorId = summaryMessage.id
+      }
+
+      consecutiveFailures = 0
+
+      const compressedMessages = [boundaryMessage, summaryMessage, ...messagesToPreserve]
+      return {
+        messages: compressedMessages,
+        result: {
+          compressed: true,
+          originalCount,
+          newCount: compressedMessages.length,
+          messagesSummarized: messagesToCompress.length
+        }
+      }
+    } catch (error) {
+      lastError = error as Error
+      log.error(`Attempt ${attempt + 1} failed:`, error)
+      if (attempt < MAX_COMPRESS_RETRIES) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, BASE_RETRY_DELAY_MS * Math.pow(2, attempt))
+        )
+      }
+    }
+  }
+
+  consecutiveFailures += 1
+  log.error(
+    `All retries failed (consecutive: ${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`,
+    lastError
+  )
+
+  return {
+    messages,
+    result: { compressed: false, originalCount, newCount: originalCount }
+  }
+}
+
+function findSafeCompactBoundary(messages: UnifiedMessage[], initialBoundary: number): number {
+  let boundary = Math.max(1, Math.min(initialBoundary, messages.length - 1))
+
+  for (let attempts = 0; attempts < SAFE_BOUNDARY_SCAN_LIMIT; attempts += 1) {
+    const compressedToolUseIds = new Set<string>()
+    for (let index = 0; index < boundary; index += 1) {
+      const message = messages[index]
+      if (typeof message.content === 'string') continue
+      for (const block of message.content) {
+        if (block.type === 'tool_use' && block.id) {
+          compressedToolUseIds.add(block.id)
+        }
+      }
+    }
+
+    let hasSplit = false
+    for (let index = boundary; index < messages.length && !hasSplit; index += 1) {
+      const message = messages[index]
+      if (typeof message.content === 'string') continue
+      for (const block of message.content) {
+        if (
+          block.type === 'tool_result' &&
+          block.toolUseId &&
+          compressedToolUseIds.has(block.toolUseId)
+        ) {
+          hasSplit = true
+          break
+        }
+      }
+    }
+
+    if (!hasSplit) return boundary
+    boundary = Math.max(1, boundary - 1)
+  }
+
+  return boundary
+}
+
+function truncateOldestMessages(messages: UnifiedMessage[], attempt: number): UnifiedMessage[] {
+  const dropCount = Math.ceil(messages.length * 0.25 * attempt)
+  const result: UnifiedMessage[] = []
+  let dropped = 0
+  let keptFirstUser = false
+
+  for (const message of messages) {
+    if (message.role === 'system') {
+      result.push(message)
+      continue
+    }
+
+    if (!keptFirstUser && message.role === 'user') {
+      result.push(message)
+      keptFirstUser = true
+      continue
+    }
+
+    if (dropped < dropCount) {
+      dropped += 1
+      continue
+    }
+
+    result.push(message)
+  }
+
+  return result.length >= 2 ? result : messages
+}
+
+function formatCompactSummary(rawSummary: string): string {
+  let result = rawSummary
+  result = result.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+  const summaryMatch = result.match(/<summary>([\s\S]*?)<\/summary>/i)
+  if (summaryMatch) {
+    result = summaryMatch[1] ?? ''
+  }
+  return result.replace(/\n\n+/g, '\n\n').trim()
+}
+
+function serializeCompressionInput(
+  messages: UnifiedMessage[],
+  originalTaskContent?: UnifiedMessage['content'],
+  pinnedContext?: string
+): string {
+  const parts: string[] = []
+
+  if (originalTaskContent) {
+    parts.push('## Original Task')
+    parts.push(
+      typeof originalTaskContent === 'string'
+        ? originalTaskContent
+        : serializeMessageContent(originalTaskContent)
+    )
+  }
+
+  if (pinnedContext?.trim()) {
+    parts.push('## Pinned Plan Context')
+    parts.push(pinnedContext.trim())
+  }
+
+  parts.push('## Full Conversation History')
+  parts.push(serializeMessages(messages))
+
+  return parts.join('\n\n')
+}
+
+function serializeMessageContent(content: ContentBlock[]): string {
+  return content
+    .map((block) => {
+      switch (block.type) {
+        case 'text':
+          return block.text
+        case 'thinking':
+          return ''
+        case 'tool_use':
+          return i18n.t('contextCompression.toolCallLog', {
+            ns: 'agent',
+            name: block.name,
+            input: toonEncode(block.input).slice(0, SERIALIZED_TOOL_USE_INPUT_LIMIT)
+          })
+        case 'tool_result': {
+          const result =
+            typeof block.content === 'string' ? block.content : toonEncode(block.content)
+          const preview =
+            result.length > SERIALIZED_TOOL_RESULT_LIMIT
+              ? `${result.slice(0, SERIALIZED_TOOL_RESULT_LIMIT)}\n... [truncated, ${result.length} chars total]`
+              : result
+          return i18n.t('contextCompression.toolResultLog', {
+            ns: 'agent',
+            error: block.isError,
+            content: preview
+          })
+        }
+        case 'image':
+          return i18n.t('contextCompression.imageAttachment', { ns: 'agent' })
+        case 'image_error':
+          return `[Image error: ${block.message}]`
+        case 'agent_error':
+          return `[Agent error: ${block.message}]`
+        default:
+          return ''
+      }
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+function findOriginalTaskMessage(messages: UnifiedMessage[]): UnifiedMessage | null {
+  for (const message of messages) {
+    if (message.role !== 'user') continue
+    if (message.source === 'team') continue
+    if (isCompactSummaryLikeMessage(message)) continue
+
+    if (Array.isArray(message.content)) {
+      const hasHumanContent = message.content.some(
+        (block) => block.type === 'text' || block.type === 'image'
+      )
+      if (!hasHumanContent) continue
+    }
+
+    return message
+  }
+
+  return null
+}
+
+function serializeMessages(messages: UnifiedMessage[]): string {
+  const parts: string[] = []
+
+  for (const message of messages) {
+    const role = message.role.toUpperCase()
+
+    if (typeof message.content === 'string') {
+      if (message.content.trim()) {
+        parts.push(`[${role}]: ${message.content}`)
+      }
+      continue
+    }
+
+    const blockText = serializeMessageContent(message.content)
+    if (blockText.trim()) {
+      parts.push(`[${role}]: ${blockText}`)
+    }
+  }
+
+  return parts.join('\n\n')
+}
+
+async function callSummarizer(
+  serializedMessages: string,
+  providerConfig: ProviderConfig,
+  signal?: AbortSignal,
+  focusPrompt?: string
+): Promise<string> {
+  const config: ProviderConfig = {
+    ...providerConfig,
+    systemPrompt: COMPRESSION_SYSTEM_PROMPT,
+    thinkingEnabled: false
+  }
+
+  const focusInstruction = focusPrompt
+    ? i18n.t('contextCompression.specialFocus', { ns: 'agent', focusPrompt })
+    : ''
+
+  const messages: UnifiedMessage[] = [
+    {
+      id: 'compress-req',
+      role: 'user',
+      content: i18n.t('contextCompression.compressRequest', {
+        ns: 'agent',
+        focusInstruction,
+        content: serializedMessages
+      }),
+      createdAt: Date.now()
+    }
+  ]
+
+  const abortController = new AbortController()
+  const timeout = setTimeout(() => abortController.abort(), 120_000)
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeout)
+      abortController.abort()
+    } else {
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timeout)
+          abortController.abort()
+        },
+        { once: true }
+      )
+    }
+  }
+
+  let result = ''
+  try {
+    result = await runTextRequest({
+      provider: withAuxiliaryResponsesRequestPolicy(
+        config,
+        RESPONSES_TASK_SCOPE_CONTEXT_COMPRESSION
+      ),
+      messages,
+      signal: abortController.signal
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  result = result.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  if (!result) {
+    throw new Error(i18n.t('contextCompression.emptyResultError', { ns: 'agent' }))
+  }
+
+  const stripped = result.replace(/<\/?(?:analysis|summary)>/gi, '').trim()
+  if (!stripped) {
+    throw new Error(i18n.t('contextCompression.emptyResultError', { ns: 'agent' }))
+  }
+
+  return result
+}

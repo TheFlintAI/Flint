@@ -1,0 +1,7 @@
+name = "stats"
+displayName = { en = "Statistics", zh = "统计" }
+version = "0.1.0"
+displayDescription = { en = "Agent usage statistics dashboard with charts", zh = "Agent 使用统计仪表盘" }
+icon = "BarChart3"
+main = "./main.ts"
+permissions = []

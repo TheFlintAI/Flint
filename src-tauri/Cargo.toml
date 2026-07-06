@@ -1,0 +1,45 @@
+[package]
+name = "flint"
+version = "0.9.109"
+description = "Open-source desktop platform for multi-agent AI collaboration with local tools and workplace integration"
+authors = ["example.com"]
+edition = "2021"
+
+[lib]
+name = "flint_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+arboard = "3"
+base64 = "0.22"
+gif = "0.13"
+glob = "0.3"
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
+open = "5"
+portable-pty = "0.8"
+regex = "1"
+reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "json", "multipart", "default-tls", "system-proxy", "gzip", "deflate", "brotli", "http2", "charset"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shared_child = "1"
+flate2 = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+fastembed = "5"
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile = "3"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

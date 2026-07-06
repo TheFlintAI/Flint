@@ -1,0 +1,140 @@
+[provider]
+builtinId = "bigmodel"
+name = { en = "Zhipu", zh = "智谱" }
+type = "openai-chat"
+defaultBaseUrl = "https://open.bigmodel.cn/api/paas/v4"
+homepage = "https://bigmodel.cn"
+defaultModel = "glm-5.2"
+
+# ═══════════════════════════════════════════════════════════════
+# GLM-5.2 (June 2026, flagship, MIT license)
+# 744B MoE, ~40B active, 1M context, 128K max output
+# Code Arena #1 open-source, FrontierSWE 74.4
+# Reasoning effort: high | max (default max)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "glm-5.2"
+name = "GLM-5.2"
+contextLength = 1000000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["high", "max"]
+defaultReasoningEffort = "max"
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+# ═══════════════════════════════════════════════════════════════
+# GLM-5.1 (April 2026)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "glm-5.1"
+name = "GLM-5.1"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+# ═══════════════════════════════════════════════════════════════
+# GLM-5 Series (Feb 2026)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "glm-5"
+name = "GLM-5"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-5-turbo"
+name = "GLM-5 Turbo"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-5v-turbo"
+name = "GLM-5V Turbo"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+# ═══════════════════════════════════════════════════════════════
+# GLM-4.7 Series
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "glm-4.7"
+name = "GLM-4.7"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-4.7-flash"
+name = "GLM-4.7 Flash (Free)"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+# ═══════════════════════════════════════════════════════════════
+# Vision Models
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "glm-4.6v"
+name = "GLM-4.6V"
+contextLength = 128000
+maxOutputTokens = 32000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-4.6v-flash"
+name = "GLM-4.6V Flash (Free)"
+contextLength = 128000
+maxOutputTokens = 32000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"

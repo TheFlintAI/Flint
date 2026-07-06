@@ -1,0 +1,40 @@
+{
+  "include": [
+    "src/env.d.ts",
+    "src/**/*",
+    "src/**/*.tsx"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@flint/plugin-sdk": [
+        "packages/flint-plugin-sdk/index.d.ts"
+      ],
+      "@flint/plugin-sdk/*": [
+        "packages/flint-plugin-sdk/*"
+      ],
+      "@package": [
+        "package.json"
+      ]
+    }
+  }
+}

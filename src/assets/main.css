@@ -1,0 +1,578 @@
+﻿@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'katex/dist/katex.min.css';
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --animate-collapsible-down: collapsible-down 0.2s ease-out;
+  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+  --animate-progress: progress-bar 1.5s ease-in-out infinite;
+}
+
+@keyframes collapsible-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes progress-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@keyframes thinking-surface-sweep {
+  from {
+    transform: translateX(-160%) skewX(-20deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-20deg);
+  }
+}
+
+@keyframes ai-live-typewriter-node {
+  0% {
+    opacity: 0;
+  }
+  58% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ai-live-typewriter-delta-a {
+  0% {
+    opacity: 0;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ai-live-typewriter-delta-b {
+  0% {
+    opacity: 0;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+:root {
+  --background: hsl(0 0% 5.5%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(0 0% 5.5%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(0 0% 9%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(0 0% 9%);
+  --secondary: hsl(0 0% 14.9%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(0 0% 14.9%);
+  --muted-foreground: hsl(0 0% 63.9%);
+  --accent: hsl(0 0% 14.9%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 14.9%);
+  --input: hsl(0 0% 14.9%);
+  --ring: hsl(0 0% 83.1%);
+  --chart-1: hsl(220 70% 50%);
+  --chart-2: hsl(160 60% 45%);
+  --chart-3: hsl(30 80% 55%);
+  --chart-4: hsl(280 65% 60%);
+  --chart-5: hsl(340 75% 55%);
+  --sidebar: hsl(0 0% 2.5%);
+  --sidebar-foreground: hsl(0 0% 98%);
+  --sidebar-primary: hsl(0 0% 98%);
+  --sidebar-primary-foreground: hsl(0 0% 9%);
+  --sidebar-accent: hsl(0 0% 12%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border: hsl(0 0% 10%);
+  --sidebar-ring: hsl(0 0% 83.1%);
+  --workspace-sidebar-divider: color-mix(in srgb, var(--sidebar-border) 76%, black 24%);
+  --workspace-sidebar-row-hover-bg: color-mix(in srgb, var(--sidebar-accent) 82%, black 18%);
+  --workspace-sidebar-row-hover-border: color-mix(in srgb, var(--sidebar-border) 72%, black 28%);
+  --workspace-sidebar-row-active-bg: color-mix(in srgb, var(--sidebar-accent) 86%, white 14%);
+  --workspace-sidebar-row-active-border: color-mix(in srgb, var(--sidebar-border) 78%, white 22%);
+  --workspace-sidebar-row-active-shadow: 0 12px 24px -20px rgba(0, 0, 0, 0.45);
+  --activity-card-bg: color-mix(in srgb, var(--card) 88%, white 12%);
+  --activity-card-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --activity-card-divider: color-mix(in srgb, var(--border) 80%, transparent);
+  --activity-card-header-hover: color-mix(in srgb, var(--accent) 76%, transparent);
+  --activity-card-shadow: 0 18px 32px -24px rgba(0, 0, 0, 0.48);
+  --workspace-filetree-bg: var(--background);
+  --workspace-filetree-card-bg: var(--card);
+  --workspace-filetree-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --workspace-filetree-divider: color-mix(in srgb, var(--border) 80%, transparent);
+  --workspace-filetree-control-bg: color-mix(in srgb, var(--card) 88%, white 12%);
+  --workspace-filetree-control-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --workspace-filetree-row-hover-bg: color-mix(in srgb, var(--accent) 76%, transparent);
+  --workspace-filetree-row-hover-border: color-mix(in srgb, var(--border) 80%, transparent);
+  --workspace-filetree-row-expanded-bg: color-mix(in srgb, var(--accent) 82%, transparent);
+  --workspace-filetree-row-expanded-border: color-mix(in srgb, var(--border) 82%, transparent);
+  --workspace-filetree-row-active-bg: color-mix(in srgb, var(--foreground) 6%, var(--accent));
+  --workspace-filetree-row-active-border: color-mix(in srgb, var(--foreground) 12%, var(--border));
+  --workspace-filetree-row-active-shadow: 0 12px 22px -20px rgba(0, 0, 0, 0.42);
+  --workspace-filetree-chip-bg: color-mix(in srgb, var(--card) 82%, white 18%);
+  --workspace-filetree-chip-border: color-mix(in srgb, var(--border) 86%, transparent);
+  --workspace-filetree-chip-text: color-mix(
+    in srgb,
+    var(--foreground) 76%,
+    var(--muted-foreground) 24%
+  );
+  --workspace-filetree-empty-bg: color-mix(in srgb, var(--muted) 42%, transparent);
+  --workspace-filetree-guide: color-mix(in srgb, var(--border) 68%, transparent);
+  --composer-panel-bg: var(--accent);
+  --composer-panel-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --composer-panel-shadow: 0 20px 38px -28px rgba(0, 0, 0, 0.72), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --composer-toolbar-border: color-mix(in srgb, var(--border) 80%, transparent);
+  --composer-chip-bg: transparent;
+  --composer-chip-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --composer-chip-text: color-mix(in srgb, var(--foreground) 78%, var(--muted-foreground) 22%);
+  --composer-chip-hover: color-mix(in srgb, var(--accent) 76%, transparent);
+  --composer-placeholder: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
+  --radius: 0.625rem;
+  --app-background: var(--background);
+  --app-font-family:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --app-font-size: 16px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-size: var(--app-font-size);
+    height: 100%;
+  }
+  body {
+    @apply text-foreground;
+    background: var(--app-background);
+    font-family: var(--app-font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+  }
+  #root {
+    height: 100%;
+  }
+
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.25rem 0;
+  }
+
+  .katex-display > .katex {
+    white-space: nowrap;
+  }
+}
+
+/* Custom scrollbars — thin, auto-hide style */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.5 0 0 / 0.25) transparent;
+}
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0 0 / 0.2);
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0 0 / 0.45);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Auto-hide scrollbar — hidden until the container is hovered */
+.scrollbar-auto-hide {
+  scrollbar-width: none;
+}
+.scrollbar-auto-hide::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.scrollbar-auto-hide::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.scrollbar-auto-hide:hover {
+  scrollbar-width: thin;
+}
+.scrollbar-auto-hide:hover::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0 0 / 0.25);
+}
+.scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0 0 / 0.45);
+}
+
+/* Selection */
+::selection {
+  background: color-mix(in srgb, var(--accent-foreground) 20%, transparent);
+}
+
+/* Smooth global transitions */
+* {
+  scroll-behavior: smooth;
+}
+
+@layer components {
+
+  /* Text shimmer — adaptive highlight sweeps left → right across the text.
+     Uses OKLCH color-mix with currentColor so the peak auto-adapts to the
+     current text color (works in both light and dark modes).
+     background-size: 300% keeps the peak outside the visible window at both
+     animation endpoints, so the loop point (all currentColor) is seamless. */
+  @keyframes shimmer {
+    0%   { background-position-x: 100%; }
+    100% { background-position-x: 0%; }
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      100deg,
+      currentColor 0%,
+      currentColor 36%,
+      color-mix(in oklch, currentColor 55%, white 45%) 42%,
+      color-mix(in oklch, currentColor 25%, white 75%) 50%,
+      color-mix(in oklch, currentColor 55%, white 45%) 58%,
+      currentColor 64%,
+      currentColor 100%
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
+  }
+
+  .composer-flyout,
+  .composer-image-badge {
+    backdrop-filter: none;
+  }
+
+  .composer-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid var(--composer-chip-border);
+    background: var(--composer-chip-bg);
+    color: var(--composer-chip-text);
+    box-shadow: none;
+  }
+
+  .composer-image-badge {
+    border: 1px solid var(--composer-chip-border);
+    background: var(--composer-chip-bg);
+    color: var(--composer-chip-text);
+  }
+
+  .composer-image-badge button:hover {
+    background: var(--composer-chip-hover);
+    color: var(--foreground);
+  }
+
+  .composer-image-thumb {
+    border: 1px solid var(--composer-panel-border);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .composer-flyout {
+    border: 1px solid var(--composer-panel-border);
+    background: var(--composer-panel-bg);
+    box-shadow: var(--composer-panel-shadow);
+  }
+
+  .composer-flyout-header {
+    border-bottom: 1px solid var(--composer-toolbar-border);
+    background: transparent;
+  }
+
+  .composer-editor-placeholder {
+    color: var(--composer-placeholder);
+  }
+
+  .composer-editor-content {
+    position: relative;
+    z-index: 1;
+    color: var(--foreground);
+  }
+
+  .composer-file-ref {
+    border: 1px solid var(--composer-chip-border);
+    background: var(--composer-chip-bg);
+    color: var(--composer-chip-text);
+    box-shadow: none;
+  }
+
+  .composer-file-ref--highlighted {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  .composer-file-ref-action {
+    color: color-mix(in srgb, var(--composer-chip-text) 82%, transparent);
+  }
+
+  .composer-file-ref-action:hover {
+    background: var(--composer-chip-hover);
+    color: var(--foreground);
+  }
+
+  textarea.composer-aux-textarea {
+    border-color: var(--composer-chip-border);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .workspace-folder-sheet {
+    border-left-color: var(--workspace-filetree-border);
+    background: var(--workspace-filetree-bg);
+    color: var(--foreground);
+    box-shadow: none;
+  }
+
+  .workspace-folder-sheet-resize:hover {
+    background: color-mix(in srgb, var(--foreground) 12%, transparent);
+  }
+
+  .workspace-filetree-surface {
+    background: var(--workspace-filetree-card-bg);
+    color: var(--foreground);
+  }
+
+  .workspace-filetree-surface--card {
+    border: 1px solid var(--workspace-filetree-border);
+    box-shadow: var(--activity-card-shadow);
+  }
+
+  .workspace-filetree-surface--sheet {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .workspace-filetree-header {
+    border-bottom: 1px solid var(--workspace-filetree-divider);
+    background: transparent;
+  }
+
+  .workspace-filetree-footer {
+    border-top: 1px solid var(--workspace-filetree-divider);
+    background: transparent;
+  }
+
+  .workspace-filetree-input {
+    border-color: var(--workspace-filetree-control-border);
+    background: var(--workspace-filetree-control-bg);
+    box-shadow: none;
+  }
+
+  .workspace-filetree-row {
+    border: 1px solid transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .workspace-filetree-row--interactive:hover {
+    border-color: var(--workspace-filetree-row-hover-border);
+    background: var(--workspace-filetree-row-hover-bg);
+  }
+
+  .workspace-filetree-row--expanded {
+    border-color: var(--workspace-filetree-row-expanded-border);
+    background: var(--workspace-filetree-row-expanded-bg);
+  }
+
+  .workspace-filetree-row--active {
+    border-color: var(--workspace-filetree-row-active-border);
+    background: var(--workspace-filetree-row-active-bg);
+    box-shadow: var(--workspace-filetree-row-active-shadow);
+  }
+
+  .workspace-filetree-chip {
+    border: 1px solid var(--workspace-filetree-chip-border);
+    background: var(--workspace-filetree-chip-bg);
+    color: var(--workspace-filetree-chip-text);
+  }
+
+  .workspace-filetree-empty {
+    border: 1px solid var(--workspace-filetree-border);
+    background: var(--workspace-filetree-empty-bg);
+  }
+
+  .workspace-filetree-empty--dashed {
+    border-style: dashed;
+  }
+
+  .workspace-filetree-guide {
+    background: var(--workspace-filetree-guide);
+  }
+
+  .workspace-filetree-action {
+    color: color-mix(in srgb, var(--foreground) 62%, var(--muted-foreground) 38%);
+  }
+
+  .workspace-filetree-action:hover {
+    background: var(--workspace-filetree-row-hover-bg);
+    color: var(--foreground);
+  }
+
+  .workspace-sidebar-surface {
+    border-right-color: var(--workspace-sidebar-divider);
+  }
+
+  .workspace-sidebar-titlebar {
+    background: transparent;
+    border-bottom: 0;
+  }
+
+  .workspace-sidebar-row {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .workspace-sidebar-row--hover:hover {
+    background: var(--workspace-sidebar-row-hover-bg);
+    border-color: var(--workspace-sidebar-row-hover-border);
+  }
+
+  .workspace-sidebar-row--active {
+    background: var(--workspace-sidebar-row-active-bg);
+    border-color: var(--workspace-sidebar-row-active-border);
+    box-shadow: var(--workspace-sidebar-row-active-shadow);
+  }
+
+  .activity-card-shell {
+    border: 1px solid var(--activity-card-border);
+    background: var(--activity-card-bg);
+    box-shadow: var(--activity-card-shadow);
+  }
+
+  .activity-card-divider {
+    border-color: var(--activity-card-divider);
+  }
+
+  .activity-card-header {
+    border-bottom: 1px solid var(--activity-card-divider);
+  }
+
+  .activity-card-header--interactive:hover {
+    background: var(--activity-card-header-hover);
+  }
+}
+
+/* Title bar drag region */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Memory Panel ──────────────────────────────────────────────── */
+
+.memory-card {
+  @apply transition-all duration-200;
+}
+.memory-card:hover {
+  @apply shadow-sm;
+}
+
+/* Inline delete confirmation slide-in */
+.memory-delete-bar {
+  animation: memory-slide-in 150ms ease-out;
+}
+
+@keyframes memory-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 40px;
+  }
+}

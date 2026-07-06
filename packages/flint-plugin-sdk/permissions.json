@@ -1,0 +1,32 @@
+{
+  "permissions": [
+    "shell",
+    "fs",
+    "fs:read",
+    "fs:write",
+    "network",
+    "clipboard",
+    "clipboard:read",
+    "clipboard:write"
+  ],
+  "capabilityMap": {
+    "shell:exec": ["shell"],
+    "fs:read": ["fs", "fs:read"],
+    "fs:list": ["fs", "fs:read"],
+    "fs:write": ["fs", "fs:write"],
+    "fs:delete": ["fs", "fs:write"],
+    "network:fetch": ["network"],
+    "clipboard:read": ["clipboard", "clipboard:read"],
+    "clipboard:write": ["clipboard", "clipboard:write"]
+  },
+  "i18nKeys": {
+    "shell": "plugin.shell",
+    "fs": "plugin.files",
+    "fs:read": "plugin.fsRead",
+    "fs:write": "plugin.fsWrite",
+    "network": "plugin.network",
+    "clipboard": "plugin.clipboard",
+    "clipboard:read": "plugin.clipboardRead",
+    "clipboard:write": "plugin.clipboardWrite"
+  }
+}

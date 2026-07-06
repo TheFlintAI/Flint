@@ -1,0 +1,76 @@
+{
+  "action": {
+    "cancel": "取消",
+    "delete": "删除",
+    "save": "保存",
+    "confirm": "确认",
+    "close": "关闭",
+    "copy": "复制",
+    "copyPath": "复制路径",
+    "copyToClipboard": "复制到剪贴板",
+    "download": "下载",
+    "rename": "重命名",
+    "refresh": "刷新",
+    "clear": "清除",
+    "allow": "允许",
+    "deny": "拒绝",
+    "undo": "撤销",
+    "unpin": "取消置顶",
+    "showMore": "显示更多",
+    "showLess": "收起",
+    "more": "更多"
+  },
+  "status": {
+    "loading": "加载中"
+  },
+  "window": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "time": {
+    "mAgo": "{{count}}分钟前",
+    "hAgo": "{{count}}小时前",
+    "sAgo": "{{count}}秒前"
+  },
+  "unit": {
+    "tokens": "tokens",
+    "cached": "缓存",
+    "reasoning": "推理",
+    "files": "文件",
+    "folders": "文件夹",
+    "matches": "匹配"
+  },
+  "stepper": {
+    "increment": "增加",
+    "decrement": "减少"
+  },
+  "command": {
+    "palette": "命令面板",
+    "searchPlaceholder": "搜索要执行的命令..."
+  },
+  "search": {
+    "searching": "搜索中...",
+    "noResults": "未找到结果",
+    "enterMinChars": "请输入至少 {{count}} 个字符"
+  },
+  "chart": {
+    "noData": "暂无数据"
+  },
+  "table": {
+    "noData": "暂无数据"
+  },
+  "tags": {
+    "noItems": "暂无项目",
+    "remove": "移除",
+    "added": "已添加",
+    "add": "添加"
+  },
+  "app": {
+    "errors": {
+      "unhandledTitle": "未处理的错误",
+      "recoveredReducedMemory": "前端已在低内存模式下恢复"
+    }
+  }
+}

@@ -1,0 +1,92 @@
+[provider]
+builtinId = "qwen-coding"
+name = { en = "Qwen Coding Plan", zh = "通义千问（套餐）" }
+type = "anthropic"
+defaultBaseUrl = "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+homepage = "https://dashscope.aliyun.com"
+defaultEnabled = false
+userAgent = "claude-cli/2.1.71 (external, cli)"
+
+[[provider.defaultModels]]
+id = "qwen3.7-plus"
+name = "Qwen3.7 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "qwen3.6-plus"
+name = "Qwen3.6 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "qwen3-coder-plus"
+name = "Qwen3 Coder Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+[provider.defaultModels.thinkingConfig.disabledBodyParams]
+enable_thinking = false
+
+[[provider.defaultModels]]
+id = "qwen3-coder-next"
+name = "Qwen3 Coder Next"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = false
+
+[[provider.defaultModels]]
+id = "qwen3-max-2026-01-23"
+name = "Qwen3 Max"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+
+[[provider.defaultModels]]
+id = "kimi-k2.7-code"
+name = "Kimi K2.7 Code"
+contextLength = 262144
+maxOutputTokens = 32768
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+forceTemperature = 1.0
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-5.2"
+name = "GLM-5.2"
+contextLength = 1000000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "MiniMax-M3"
+name = "MiniMax M3"
+contextLength = 1000000
+maxOutputTokens = 131072

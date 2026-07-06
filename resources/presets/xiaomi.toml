@@ -1,0 +1,67 @@
+[provider]
+builtinId = "xiaomi"
+name = { en = "Xiaomi", zh = "小米" }
+type = "openai-chat"
+defaultBaseUrl = "https://api.xiaomimimo.com/v1"
+homepage = "https://platform.xiaomimimo.com/"
+defaultModel = "mimo-v2.5-pro"
+
+# ═══════════════════════════════════════════════════════════════
+# MiMo V2.5 (April 2026, MIT license)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mimo-v2.5-pro"
+name = "MiMo V2.5 Pro"
+contextLength = 1000000
+maxOutputTokens = 131072
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "mimo-v2.5"
+name = "MiMo V2.5"
+contextLength = 1000000
+maxOutputTokens = 131072
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+# ═══════════════════════════════════════════════════════════════
+# MiMo V2
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mimo-v2-omni"
+name = "MiMo V2 Omni"
+contextLength = 262144
+maxOutputTokens = 131072
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "mimo-v2-flash"
+name = "MiMo V2 Flash"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"

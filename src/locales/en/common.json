@@ -1,0 +1,76 @@
+{
+  "action": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "save": "Save",
+    "confirm": "Confirm",
+    "close": "Close",
+    "copy": "Copy",
+    "copyPath": "Copy Path",
+    "copyToClipboard": "Copy to clipboard",
+    "download": "Download",
+    "rename": "Rename",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "allow": "Allow",
+    "deny": "Deny",
+    "undo": "Undo",
+    "unpin": "Unpin",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "more": "More"
+  },
+  "status": {
+    "loading": "Loading"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "time": {
+    "mAgo": "{{count}}m ago",
+    "hAgo": "{{count}}h ago",
+    "sAgo": "{{count}}s ago"
+  },
+  "unit": {
+    "tokens": "tokens",
+    "cached": "cached",
+    "reasoning": "reasoning",
+    "files": "files",
+    "folders": "folders",
+    "matches": "matches"
+  },
+  "stepper": {
+    "increment": "Increment",
+    "decrement": "Decrement"
+  },
+  "command": {
+    "palette": "Command Palette",
+    "searchPlaceholder": "Search for a command to run..."
+  },
+  "search": {
+    "searching": "Searching...",
+    "noResults": "No results found",
+    "enterMinChars": "Enter at least {{count}} characters"
+  },
+  "chart": {
+    "noData": "No data"
+  },
+  "table": {
+    "noData": "No data"
+  },
+  "tags": {
+    "noItems": "No items",
+    "remove": "Remove",
+    "added": "Added",
+    "add": "Add"
+  },
+  "app": {
+    "errors": {
+      "unhandledTitle": "Unhandled Error",
+      "recoveredReducedMemory": "Frontend recovered in reduced-memory mode"
+    }
+  }
+}
