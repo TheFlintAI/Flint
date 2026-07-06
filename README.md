@@ -47,8 +47,8 @@ Flint was designed with extensibility in mind from day one. For example, the bui
 ## Getting Started
 
 ```bash
-git clone https://github.com/flint/flint.git
-cd flint
+git clone https://github.com/TheFlintAI/Flint.git
+cd Flint
 bun install
 bun run dev
 ```
