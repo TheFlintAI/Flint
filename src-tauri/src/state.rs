@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use std::process::ChildStdin;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::memory::manager::MemorySystem;
 use crate::plugin::PluginManager;
@@ -20,23 +20,12 @@ pub(crate) struct AppState {
     pub(crate) file_watchers: Mutex<BTreeMap<String, Arc<AtomicBool>>>,
     pub(crate) plugin_manager: PluginManager,
     pub(crate) preset_manager: PresetManager,
-    pub(crate) memory: MemorySystem,
+    pub(crate) memory: OnceLock<MemorySystem>,
 }
 
 impl AppState {
     pub(crate) fn load() -> Self {
         let plugin_state_path = flint_path("plugin-state.json");
-        let memory_db_path = flint_path("memory.db");
-
-        // Resolve embedding model directory.
-        // In development: <project_root>/resources/embeddings/embeddinggemma-300m
-        // In production: resolved via Tauri resource path (future).
-        let model_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("resources")
-            .join("embeddings")
-            .join("embeddinggemma-300m");
 
         Self {
             processes: Arc::new(Mutex::new(BTreeMap::new())),
@@ -45,7 +34,20 @@ impl AppState {
             file_watchers: Mutex::new(BTreeMap::new()),
             plugin_manager: PluginManager::new(plugin_state_path),
             preset_manager: PresetManager::new(),
-            memory: MemorySystem::new(&memory_db_path, &model_dir),
+            memory: OnceLock::new(),
+        }
+    }
+
+    /// Initialize the memory system with the given paths.
+    /// Must be called once during app setup before any memory commands are used.
+    pub(crate) fn init_memory(&self, db_path: &Path, model_dir: &Path) {
+        match MemorySystem::new(db_path, model_dir) {
+            Ok(ms) => {
+                let _ = self.memory.set(ms);
+            }
+            Err(e) => {
+                tracing::warn!("Memory system not available: {e}");
+            }
         }
     }
 }

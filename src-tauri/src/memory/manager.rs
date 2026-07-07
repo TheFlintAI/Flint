@@ -19,12 +19,12 @@ impl MemorySystem {
     /// `db_path` — path to the SQLite database file (e.g. `~/.flint/memory.db`).
     /// `model_dir` — directory containing the local embedding model files.
     ///
-    /// Panics if the model files cannot be loaded.
-    pub(crate) fn new(db_path: &Path, model_dir: &Path) -> Self {
+    /// Returns an error if the database or model files cannot be loaded.
+    pub(crate) fn new(db_path: &Path, model_dir: &Path) -> Result<Self, String> {
         let store = MemoryStore::new(db_path)
-            .expect("Failed to initialize memory store");
+            .map_err(|e| format!("Failed to initialize memory store: {e}"))?;
         let embedding = LocalEmbedding::new(model_dir)
-            .expect("Failed to load embedding model from local files");
+            .map_err(|e| format!("Failed to load embedding model: {e}"))?;
 
         tracing::info!(
             "Memory system initialized: db={}, model={}, dim={}",
@@ -33,10 +33,10 @@ impl MemorySystem {
             embedding.dim(),
         );
 
-        Self {
+        Ok(Self {
             store,
             embedding: Mutex::new(embedding),
-        }
+        })
     }
 
     fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {

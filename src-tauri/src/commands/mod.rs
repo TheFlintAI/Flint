@@ -374,6 +374,19 @@ pub fn run() {
             emit_app_command
         ])
         .setup(|_app| {
+            // Initialize memory system. The embedding model is bundled as a
+            // resource and resolved via Tauri in both dev and production.
+            let memory_db_path = flint_path("memory.db");
+            let model_dir = _app
+                .path()
+                .resolve(
+                    "embeddings/embeddinggemma-300m",
+                    tauri::path::BaseDirectory::Resource,
+                )
+                .expect("Failed to resolve embedding model resource path");
+            let state = _app.state::<AppState>();
+            state.init_memory(&memory_db_path, &model_dir);
+
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = _app.get_webview_window("main") {

@@ -17,7 +17,10 @@ pub(crate) async fn handle_memory_channel(
     channel: &str,
     args: &[Value],
 ) -> Result<Value, String> {
-    let db = &state.memory;
+    let db = state
+        .memory
+        .get()
+        .ok_or_else(|| "Memory system not initialized".to_string())?;
     let r = match channel {
         "memory:list" => serde_json::to_value(db.list(parse_first_arg(args)?)?),
         "memory:read" => serde_json::to_value(db.read(&id!(args))?),
