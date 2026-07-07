@@ -2,10 +2,9 @@
   "files": [],
   "references": [{ "path": "./tsconfig.web.json" }],
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@package": ["package.json"]
+      "@/*": ["./src/*"],
+      "@package": ["./package.json"]
     }
   }
 }

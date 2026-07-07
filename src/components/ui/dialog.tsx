@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { XIcon } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 
@@ -66,7 +66,7 @@ function DialogContent({
             data-slot="dialog-close"
             className="ring-offset-background focus:ring-ring/20 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-1 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
-            <XIcon />
+            <X />
             <span className="sr-only">{t('action.close')}</span>
           </DialogPrimitive.Close>
         )}

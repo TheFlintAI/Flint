@@ -21,19 +21,18 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@flint/plugin-sdk": [
-        "packages/flint-plugin-sdk/index.d.ts"
+        "./packages/flint-plugin-sdk/index.d.ts"
       ],
       "@flint/plugin-sdk/*": [
-        "packages/flint-plugin-sdk/*"
+        "./packages/flint-plugin-sdk/*"
       ],
       "@package": [
-        "package.json"
+        "./package.json"
       ]
     }
   }

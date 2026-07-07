@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ImageIcon, X } from 'lucide-react'
+import { Image, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,7 @@ export function ImageAttachmentStrip({
             }}
             aria-label={t('userMessage.imagePreview')}
           >
-            <ImageIcon className="size-3 shrink-0" />
+            <Image className="size-3 shrink-0" />
             <span className="max-w-[120px] truncate">{img.mediaType.split('/')[1]?.toUpperCase() || t('userMessage.imageAttachment')}</span>
             <button
               type="button"
