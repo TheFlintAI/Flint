@@ -23,3 +23,7 @@ execFileSync('bun', ['run', 'typecheck'], { cwd: root, stdio: 'inherit' })
 const tauriArgs = ['build', ...args]
 console.log(`[build] tauri ${tauriArgs.join(' ')}`)
 execFileSync('tauri', tauriArgs, { cwd: join(root, 'src-tauri'), stdio: 'inherit' })
+
+// Step 3: move distributable files to dist/
+console.log('[build] dist...')
+execFileSync('bun', ['run', join(root, 'scripts', 'dist.mjs')], { cwd: root, stdio: 'inherit' })

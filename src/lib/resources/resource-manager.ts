@@ -4,16 +4,25 @@
  */
 import { tauriCommands } from '@/services/tauri-api/command-client'
 import { TAURI_COMMANDS } from '@/services/tauri-api/command-channels'
+import { resourceDir as tauriResourceDir } from '@tauri-apps/api/path'
 
 // Paths
 
 let _cachedHomeDir: string | null = null
+let _cachedResourceDir: string | null = null
 
 async function getHomeDir(): Promise<string> {
   if (!_cachedHomeDir) {
     _cachedHomeDir = await tauriCommands.invoke<string>(TAURI_COMMANDS.APP_HOMEDIR)
   }
   return _cachedHomeDir
+}
+
+async function getResourceDir(): Promise<string> {
+  if (!_cachedResourceDir) {
+    _cachedResourceDir = await tauriResourceDir()
+  }
+  return _cachedResourceDir
 }
 
 async function flintDir(): Promise<string> {
@@ -24,17 +33,16 @@ async function resourceDir(kind: string): Promise<string> {
   return `${await flintDir()}/${kind}`
 }
 
-function bundledResourceDir(kind: string): string {
-  // In Tauri dev mode, resources/ is relative to the current working directory
-  return `resources/${kind}`
+async function bundledResourceDir(kind: string): Promise<string> {
+  return `${await getResourceDir()}/${kind}`
 }
 
 async function skillsRoot(): Promise<string> {
   return `${await flintDir()}/skills`
 }
 
-function bundledSkillsDir(): string {
-  return 'resources/skills'
+async function bundledSkillsDir(): Promise<string> {
+  return `${await getResourceDir()}/skills`
 }
 
 // Markdown helpers
@@ -169,37 +177,11 @@ export interface SkillInfo {
   enabled: boolean
 }
 
-export interface AgentInfo {
-  name: string
-  description: string
-  icon?: string
-  allowedTools?: string[]
-  disallowedTools?: string[]
-  maxIterations?: number
-  maxTurns?: number
-  background?: boolean
-  model?: string
-  temperature?: number
-  initialPrompt?: string
-  systemPrompt: string
-}
-
-export interface ManagedResourceItem {
-  id: string
-  name: string
-  summary: string
-  description: string
-  path: string
-  source: 'user' | 'bundled'
-  editable: boolean
-  effective: boolean
-}
-
-// Prompts / Commands
+// Prompts
 
 async function listMarkdownNames(dir: string): Promise<string[]> {
   const userNames = new Set<string>()
-  const bundledPath = bundledResourceDir(dir.split('/').pop() ?? dir)
+  const bundledPath = await bundledResourceDir(dir.split('/').pop() ?? dir)
 
   // User dir
   try {
@@ -227,12 +209,15 @@ async function listMarkdownNames(dir: string): Promise<string[]> {
 async function readNamedMarkdown(kind: string, name: string): Promise<string> {
   const fileName = markdownFileName(name)
   const userPath = `${await resourceDir(kind)}/${fileName}`
-  const bundledPath = `${bundledResourceDir(kind)}/${fileName}`
+  const bundledPath = `${await bundledResourceDir(kind)}/${fileName}`
 
   if (await fileExists(userPath)) {
     return readTextFile(userPath)
   }
-  return readTextFile(bundledPath)
+  if (await fileExists(bundledPath)) {
+    return readTextFile(bundledPath)
+  }
+  throw new Error(`Resource not found: ${kind}/${fileName}`)
 }
 
 export async function listPrompts(): Promise<string[]> {
@@ -241,106 +226,6 @@ export async function listPrompts(): Promise<string[]> {
 
 export async function loadPrompt(name: string): Promise<string> {
   return readNamedMarkdown('prompts', name)
-}
-
-export async function listCommands(): Promise<Array<{ name: string; summary: string }>> {
-  const names = await listMarkdownNames(await resourceDir('commands'))
-  return Promise.all(
-    names.map(async name => {
-      const content = await readNamedMarkdown('commands', name).catch(() => '')
-      return { name, summary: summarizeMarkdown(content) }
-    })
-  )
-}
-
-export async function loadCommand(name: string): Promise<string> {
-  return readNamedMarkdown('commands', name)
-}
-
-// Managed resources (agents/commands CRUD)
-
-export async function listManagedItems(kind: 'agents' | 'commands'): Promise<ManagedResourceItem[]> {
-  const dir = await resourceDir(kind)
-  const bundledDir = bundledResourceDir(kind)
-  const items: ManagedResourceItem[] = []
-
-  for (const [source, editable, baseDir] of [
-    ['user', true, dir],
-    ['bundled', false, bundledDir]
-  ] as const) {
-    try {
-      const names = await listDir(baseDir)
-      for (const entryName of names) {
-        if (!entryName.endsWith('.md')) continue
-        const name = entryName.replace(/\.md$/, '')
-        const path = `${baseDir}/${entryName}`
-        const content = await readTextFile(path).catch(() => '')
-        items.push({
-          id: `${source}:${path}`,
-          name,
-          summary: summarizeMarkdown(content),
-          description: extractFrontmatterString(content, 'description') ?? summarizeMarkdown(content),
-          path,
-          source,
-          editable,
-          effective: true
-        })
-      }
-    } catch { /* dir may not exist */ }
-  }
-
-  return items
-}
-
-export async function readManagedResource(kind: 'agents' | 'commands', name: string): Promise<string> {
-  return readNamedMarkdown(kind, name)
-}
-
-export async function createManagedResource(kind: 'agents' | 'commands', name: string, content?: string): Promise<string> {
-  const dir = await resourceDir(kind)
-  await ensureDir(dir)
-  const file = `${dir}/${markdownFileName(name)}`
-  const body = content ?? `# ${name}\n`
-  await writeTextFile(file, body)
-  return file
-}
-
-export async function saveManagedResource(kind: 'agents' | 'commands', name: string, content: string): Promise<void> {
-  const dir = await resourceDir(kind)
-  await ensureDir(dir)
-  const file = `${dir}/${markdownFileName(name)}`
-  await writeTextFile(file, content)
-}
-
-// Agents
-
-export async function listAgents(): Promise<AgentInfo[]> {
-  const names = await listMarkdownNames(await resourceDir('agents'))
-  const agents: AgentInfo[] = []
-
-  for (const name of names) {
-    try {
-      const content = await readNamedMarkdown('agents', name)
-      agents.push({
-        name: extractFrontmatterString(content, 'name') ?? name,
-        description: extractFrontmatterString(content, 'description') ?? summarizeMarkdown(content),
-        icon: extractFrontmatterString(content, 'icon'),
-        allowedTools: extractFrontmatterList(content, 'allowedTools'),
-        disallowedTools: extractFrontmatterList(content, 'disallowedTools'),
-        maxIterations: extractFrontmatterNumber(content, 'maxIterations'),
-        maxTurns: extractFrontmatterNumber(content, 'maxTurns'),
-        background: extractFrontmatterBool(content, 'background'),
-        model: extractFrontmatterString(content, 'model'),
-        temperature: extractFrontmatterNumber(content, 'temperature'),
-        initialPrompt: extractFrontmatterString(content, 'initialPrompt'),
-        systemPrompt: stripFrontmatter(content).trim()
-      })
-    } catch {
-      // Skip broken files
-    }
-  }
-
-  return agents
 }
 
 // Skills
@@ -405,7 +290,7 @@ async function scanSkillDir(dir: string, skills: SkillInfo[], seen: Set<string>)
 }
 
 export async function listSkills(): Promise<SkillInfo[]> {
-  const roots = [await skillsRoot(), bundledSkillsDir()]
+  const roots = [await skillsRoot(), await bundledSkillsDir()]
   const skills: SkillInfo[] = []
   const seen = new Set<string>()
 
@@ -450,19 +335,26 @@ export async function readSkill(name: string, workspacePath?: string): Promise<{
     for (const skillsDir of [`${workspacePath}/.claude/skills`, `${workspacePath}/.agents/skills`]) {
       const wsPath = `${skillsDir}/${name}/SKILL.md`
       if (await fileExists(wsPath)) {
-        return { content: await readTextFile(wsPath), path: wsPath }
+        const content = await readTextFile(wsPath)
+        if (content) return { content, path: wsPath }
       }
     }
   }
 
   const dir = await skillDir(name)
   const userPath = `${dir}/SKILL.md`
-  const bundledPath = `${bundledSkillsDir()}/${name}/SKILL.md`
-
   if (await fileExists(userPath)) {
-    return { content: await readTextFile(userPath), path: userPath }
+    const content = await readTextFile(userPath)
+    if (content) return { content, path: userPath }
   }
-  return { content: await readTextFile(bundledPath), path: bundledPath }
+
+  const bundledPath = `${await bundledSkillsDir()}/${name}/SKILL.md`
+  if (await fileExists(bundledPath)) {
+    const content = await readTextFile(bundledPath)
+    if (content) return { content, path: bundledPath }
+  }
+
+  throw new Error(`SKILL.md not found for skill "${name}"`)
 }
 
 export async function deleteSkill(name: string): Promise<void> {

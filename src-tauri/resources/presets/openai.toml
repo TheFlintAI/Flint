@@ -1,0 +1,129 @@
+[provider]
+builtinId = "openai"
+name = { en = "OpenAI", zh = "OpenAI" }
+type = "openai-chat"
+defaultBaseUrl = "https://api.openai.com/v1"
+homepage = "https://openai.com"
+supportsStreamOptions = true
+supportsPromptCacheKey = true
+supportsStrictSchemas = true
+supportsToolChoice = true
+
+# ═══════════════════════════════════════════════════════════════
+# GPT-5.5 Series (April 2026, current flagship)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "gpt-5.5"
+name = "GPT-5.5"
+contextLength = 1050000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "medium"
+
+[[provider.defaultModels]]
+id = "gpt-5.5-pro"
+name = "GPT-5.5 Pro"
+contextLength = 1050000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "high"
+
+# ═══════════════════════════════════════════════════════════════
+# GPT-5.4 Series (March 2026)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "gpt-5.4"
+name = "GPT-5.4"
+contextLength = 1050000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "medium"
+
+[[provider.defaultModels]]
+id = "gpt-5.4-pro"
+name = "GPT-5.4 Pro"
+contextLength = 1050000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "high"
+
+[[provider.defaultModels]]
+id = "gpt-5.4-mini"
+name = "GPT-5.4 Mini"
+contextLength = 400000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "medium"
+
+[[provider.defaultModels]]
+id = "gpt-5.4-nano"
+name = "GPT-5.4 Nano"
+contextLength = 400000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "low", "medium", "high"]
+defaultReasoningEffort = "medium"
+
+# ═══════════════════════════════════════════════════════════════
+# Specialized
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "gpt-5.3-codex"
+name = "GPT-5.3 Codex"
+contextLength = 400000
+maxOutputTokens = 128000
+supportsThinking = true
+type = "openai-responses"
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["low", "medium", "high", "xhigh"]
+defaultReasoningEffort = "medium"
+
+# ═══════════════════════════════════════════════════════════════
+# Image Generation
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "gpt-image-2"
+name = "GPT Image 2"
+category = "image"
+type = "openai-images"
+
+[[provider.defaultModels]]
+id = "gpt-image-1"
+name = "GPT Image 1"
+category = "image"
+type = "openai-images"
+
+# ═══════════════════════════════════════════════════════════════
+# Speech
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "gpt-4o-transcribe"
+name = "GPT-4o Transcribe"
+category = "speech"
+
+[[provider.defaultModels]]
+id = "gpt-4o-mini-transcribe"
+name = "GPT-4o Mini Transcribe"
+category = "speech"

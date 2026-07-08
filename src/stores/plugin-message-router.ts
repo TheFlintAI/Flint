@@ -16,7 +16,8 @@ import { invokePlugin } from '@/lib/plugin/tauri-invoke'
 import {
   PLUGIN_METHOD,
   HOST_METHOD,
-  STORE_METHOD,
+  KV_METHOD,
+  CONFIG_METHOD,
 } from '@/lib/plugin/plugin-protocol'
 import { usePluginStore, getWorkerManager, type PluginToolInfo } from './plugin-store'
 import { toolRegistry } from '@/lib/agent/tool-registry'
@@ -42,12 +43,12 @@ export function handleWorkerMessage(pluginId: string, msg: PluginMessage): void 
 
 async function handlePluginRequest(pluginId: string, msg: PluginRequest): Promise<void> {
   switch (msg.method) {
-    case STORE_METHOD.SETTINGS_GET:
-    case STORE_METHOD.SETTINGS_SET:
-    case STORE_METHOD.GET:
-    case STORE_METHOD.SET:
-    case STORE_METHOD.DELETE:
-    case STORE_METHOD.KEYS:
+    case CONFIG_METHOD.GET:
+    case CONFIG_METHOD.SET:
+    case KV_METHOD.GET:
+    case KV_METHOD.SET:
+    case KV_METHOD.DELETE:
+    case KV_METHOD.KEYS:
       await handleStoreRequest(pluginId, msg)
       break
 
@@ -71,10 +72,10 @@ async function handleStoreRequest(pluginId: string, msg: PluginRequest): Promise
   try {
     let result: unknown
     switch (method) {
-      case STORE_METHOD.SETTINGS_GET:
+      case CONFIG_METHOD.GET:
         result = usePluginStore.getState().getPluginSettings(pluginId)
         break
-      case STORE_METHOD.SETTINGS_SET: {
+      case CONFIG_METHOD.SET: {
         const data = (msg.params?.data as Record<string, unknown>) ?? {}
         for (const [key, value] of Object.entries(data)) {
           await usePluginStore.getState().updateSetting(pluginId, key, value)
@@ -82,13 +83,13 @@ async function handleStoreRequest(pluginId: string, msg: PluginRequest): Promise
         result = true
         break
       }
-      case STORE_METHOD.GET: {
+      case KV_METHOD.GET: {
         const state = await invokePlugin<Record<string, unknown>>(TAURI_COMMANDS.PLUGIN_GET_STATE, { pluginId })
         const key = msg.params?.key as string | undefined
         result = key !== undefined ? state?.[key] : state
         break
       }
-      case STORE_METHOD.SET:
+      case KV_METHOD.SET:
         await invokePlugin(TAURI_COMMANDS.PLUGIN_SET_STATE, {
           pluginId,
           key: msg.params?.key as string,
@@ -96,14 +97,14 @@ async function handleStoreRequest(pluginId: string, msg: PluginRequest): Promise
         })
         result = undefined
         break
-      case STORE_METHOD.DELETE:
+      case KV_METHOD.DELETE:
         await invokePlugin(TAURI_COMMANDS.PLUGIN_DELETE_STATE, {
           pluginId,
           key: msg.params?.key as string,
         })
         result = undefined
         break
-      case STORE_METHOD.KEYS: {
+      case KV_METHOD.KEYS: {
         const state = await invokePlugin<Record<string, unknown>>(TAURI_COMMANDS.PLUGIN_GET_STATE, { pluginId })
         result = state ? Object.keys(state) : []
         break
@@ -161,28 +162,28 @@ function handlePluginNotify(pluginId: string, msg: PluginNotify): void {
       break
     }
 
-    case PLUGIN_METHOD.UI_REGISTER_TAB: {
+    case PLUGIN_METHOD.VIEW_REGISTER: {
       const { id, label, icon } = (msg.params ?? {}) as {
         id?: string
         label?: LocalizedString
         icon?: string
       }
       if (id && label) {
-        wm.registerTab(pluginId, id, label, icon ?? '')
+        wm.registerView(pluginId, id, label, icon ?? '')
         usePluginStore.setState((state) => ({
-          pluginTabs: {
-            ...state.pluginTabs,
-            [pluginId]: wm.getTabs(pluginId)
+          pluginViews: {
+            ...state.pluginViews,
+            [pluginId]: wm.getViews(pluginId)
           }
         }))
       }
       break
     }
 
-    case PLUGIN_METHOD.UI_REFRESH_TAB: {
-      const tabId = (msg.params?.id as string) ?? ''
-      if (tabId) {
-        usePluginStore.getState().loadTabVNode(pluginId, tabId)
+    case PLUGIN_METHOD.VIEW_REFRESH: {
+      const viewId = (msg.params?.id as string) ?? ''
+      if (viewId) {
+        usePluginStore.getState().loadViewVNode(pluginId, viewId)
       }
       break
     }

@@ -41,6 +41,7 @@ pub(crate) fn terminal_create(
         input.command = default_shell();
     }
     let id = next_process_id(state, "term")?;
+    tracing::debug!("[terminal:create] id={id} cmd={}", input.command);
     spawn_terminal_pty(window, state, id, input)
 }
 
@@ -290,6 +291,7 @@ fn spawn_terminal_exit_poller(
             continue;
         };
         let code = status.exit_code() as i32;
+        tracing::debug!("[terminal:exit] id={id} code={code}");
         if let Ok(mut guard) = exit_code.lock() {
             *guard = Some(code);
         }
@@ -364,8 +366,10 @@ pub(crate) fn terminal_kill(
         .map_err(|error| error.to_string())?
         .remove(&input.id);
     let Some(task) = task else {
+        tracing::warn!("[terminal:kill] id={} not found", input.id);
         return Ok(json!({ "success": false, "error": "Terminal not found" }));
     };
+    tracing::debug!("[terminal:kill] id={}", input.id);
     task.child
         .lock()
         .map_err(|error| error.to_string())?

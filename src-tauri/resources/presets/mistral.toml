@@ -1,0 +1,82 @@
+[provider]
+builtinId = "mistral"
+name = { en = "Mistral AI", zh = "Mistral AI" }
+type = "openai-chat"
+defaultBaseUrl = "https://api.mistral.ai/v1"
+homepage = "https://mistral.ai"
+
+# ═══════════════════════════════════════════════════════════════
+# Mistral Medium 3.5 (April 2026, flagship)
+# 128B dense, 256K context, SWE-Bench 77.6%
+# Unified reasoning + coding architecture (absorbs Codestral)
+# Reasoning effort: none | high
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistral-medium-3-5"
+name = "Mistral Medium 3.5"
+contextLength = 256000
+maxOutputTokens = 65536
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "high"]
+defaultReasoningEffort = "high"
+
+# ═══════════════════════════════════════════════════════════════
+# Mistral Large 3 (Dec 2025)
+# 675B MoE, 41B active (native thinking, no reasoning_effort param)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistral-large-3-2512"
+name = "Mistral Large 3"
+contextLength = 262144
+maxOutputTokens = 65536
+# Native thinking — no reasoning_effort param, thinking is always on
+
+# ═══════════════════════════════════════════════════════════════
+# Mistral Small 4 (March 2026, Apache 2.0)
+# 119B MoE, 6B active
+# Reasoning effort: none | high
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistral-small-4"
+name = "Mistral Small 4"
+contextLength = 128000
+maxOutputTokens = 32768
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+reasoningEffortLevels = ["none", "high"]
+defaultReasoningEffort = "high"
+
+# ═══════════════════════════════════════════════════════════════
+# Mistral Small 3.2 (24B)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistral-small-3.2"
+name = "Mistral Small 3.2"
+contextLength = 128000
+maxOutputTokens = 32768
+
+# ═══════════════════════════════════════════════════════════════
+# Vision
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "pixtral-large-2512"
+name = "Pixtral Large"
+contextLength = 128000
+supportsVision = true
+
+# ═══════════════════════════════════════════════════════════════
+# Embedding
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "mistral-embed"
+name = "Mistral Embed"
+category = "embedding"

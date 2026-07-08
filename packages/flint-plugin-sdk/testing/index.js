@@ -10,30 +10,40 @@ import { createVNodeFactory } from '../runtime/vnode-factory.js'
 import { textUtils } from '../runtime/text.js'
 
 export function createTestPlugin({ pluginId = 'test-plugin' } = {}) {
-  const _store = new Map()
-  const _settingsStore = new Map()
+  const _kvStore = new Map()
+  const _configStore = new Map()
   const _activateCbs = []
   const _deactivateCbs = []
   const _hookFns = []
   const _toolExecutors = {}
-  const _settingsChangeCbs = []
+  const _configChangeCbs = []
 
   const _vnodeApi = createVNodeFactory()
 
-  // ── UI ──────────────────────────────────────────────────────────────────
+  // ── View ─────────────────────────────────────────────────────────────────
 
-  const _uiActionCbs = []
-
-  const ui = {
-    _tabs: {},
-    ..._vnodeApi,
-
-    tab(id, label, icon, render) {
-      this._tabs[id] = { label, icon, render }
+  const _view = {
+    _views: {},
+    register(id, label, icon, render) {
+      this._views[id] = { label, icon, render }
     },
     refresh(id) {
       // noop in test — render is called synchronously
     },
+    _renderView(id) {
+      const view = this._views[id]
+      if (view && typeof view.render === 'function') return view.render()
+      return null
+    },
+  }
+
+  // ── UI ───────────────────────────────────────────────────────────────────
+
+  const _uiActionCbs = []
+
+  const ui = {
+    ..._vnodeApi,
+
     onAction(cb) {
       _uiActionCbs.push(cb)
       return { dispose() { const i = _uiActionCbs.indexOf(cb); if (i >= 0) _uiActionCbs.splice(i, 1) } }
@@ -108,25 +118,26 @@ export function createTestPlugin({ pluginId = 'test-plugin' } = {}) {
       },
     },
 
+    view: _view,
     ui,
 
-    store: {
-      async get(key)     { return _store.get(key) },
-      async set(key, val) { _store.set(key, val) },
-      async delete(key)  { _store.delete(key) },
-      async keys()       { return [..._store.keys()] },
+    kv: {
+      async get(key)     { return _kvStore.get(key) },
+      async set(key, val) { _kvStore.set(key, val) },
+      async delete(key)  { _kvStore.delete(key) },
+      async keys()       { return [..._kvStore.keys()] },
     },
 
-    settings: {
-      _store: _settingsStore,
-      async get() { return Object.fromEntries(_settingsStore) },
-      async set(data) { for (const [k, v] of Object.entries(data)) { _settingsStore.set(k, v) } },
+    config: {
+      _store: _configStore,
+      async get() { return Object.fromEntries(_configStore) },
+      async set(data) { for (const [k, v] of Object.entries(data)) { _configStore.set(k, v) } },
       onChange(cb) {
-        _settingsChangeCbs.push(cb)
-        return { dispose() { const i = _settingsChangeCbs.indexOf(cb); if (i >= 0) _settingsChangeCbs.splice(i, 1) } }
+        _configChangeCbs.push(cb)
+        return { dispose() { const i = _configChangeCbs.indexOf(cb); if (i >= 0) _configChangeCbs.splice(i, 1) } }
       },
       _notify(data) {
-        for (const cb of _settingsChangeCbs) { try { cb(data) } catch (_) {} }
+        for (const cb of _configChangeCbs) { try { cb(data) } catch (_) {} }
       },
     },
 

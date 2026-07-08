@@ -1,0 +1,82 @@
+[provider]
+builtinId = "baidu-coding"
+name = { en = "Baidu Coding Plan", zh = "百度千帆（套餐）" }
+type = "anthropic"
+defaultBaseUrl = "https://qianfan.baidubce.com/anthropic/coding"
+homepage = "https://cloud.baidu.com/product/codingplan.html"
+defaultEnabled = false
+
+[[provider.defaultModels]]
+id = "deepseek-v4-flash"
+name = "DeepSeek V4 Flash"
+contextLength = 1000000
+maxOutputTokens = 384000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+enable_thinking = true
+
+[[provider.defaultModels]]
+id = "deepseek-v3.2"
+name = "DeepSeek V3.2"
+contextLength = 163840
+maxOutputTokens = 8192
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+enable_thinking = true
+
+[[provider.defaultModels]]
+id = "glm-5.2"
+name = "GLM-5.2"
+contextLength = 1000000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-5.1"
+name = "GLM-5.1"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "glm-4.7"
+name = "GLM-4.7"
+contextLength = 200000
+maxOutputTokens = 128000
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "kimi-k2.7-code"
+name = "Kimi K2.7 Code"
+contextLength = 262144
+maxOutputTokens = 32768
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+forceTemperature = 1.0
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+type = "enabled"
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+type = "disabled"
+
+[[provider.defaultModels]]
+id = "MiniMax-M3"
+name = "MiniMax M3"
+contextLength = 1000000
+maxOutputTokens = 131072

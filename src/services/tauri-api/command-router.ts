@@ -38,8 +38,6 @@ export function isNonNativeCommand(channel: string): boolean {
     channel.startsWith('agent:prompt:') ||
     channel.startsWith('team-runtime:') ||
     channel.startsWith('skills:') ||
-    channel.startsWith('agents:') ||
-    channel.startsWith('commands:') ||
     channel.startsWith('prompts:')
   )
 }
@@ -66,9 +64,9 @@ export async function handleNonNativeCommand(
     return handleTeamCommand(channel, args)
   }
 
-  // skills:*, agents:*, commands:*, prompts:* resource commands
+  // skills:*, agents:*, prompts:* resource commands
   if (channel.startsWith('skills:') || channel.startsWith('agents:') ||
-      channel.startsWith('commands:') || channel.startsWith('prompts:')) {
+      channel.startsWith('prompts:')) {
     return handleResourceCommand(channel, args)
   }
 
@@ -464,16 +462,6 @@ async function handleResourceCommand(channel: string, args: unknown[]): Promise<
   switch (channel) {
     case 'prompts:list': return rm.listPrompts()
     case 'prompts:load': { const content = await rm.loadPrompt(str0); return { content } }
-    case 'commands:list': return rm.listCommands()
-    case 'commands:load': { const content = await rm.loadCommand(str0); return { content } }
-    case 'commands:manage-list': return rm.listManagedItems('commands')
-    case 'commands:manage-read': { const content = await rm.readManagedResource('commands', str0); return { content } }
-    case 'commands:manage-create': { const path = await rm.createManagedResource('commands', str0, a0?.content as string); return { success: true, path } }
-    case 'commands:manage-save': { await rm.saveManagedResource('commands', str0, (a0?.content as string) ?? ''); return { success: true } }
-    case 'agents:list': return rm.listAgents()
-    case 'agents:manage-list': return rm.listManagedItems('agents')
-    case 'agents:manage-read': { const content = await rm.readManagedResource('agents', str0); return { content } }
-    case 'agents:manage-save': { await rm.saveManagedResource('agents', str0, (a0?.content as string) ?? ''); return { success: true } }
     case 'skills:list': return rm.listSkills()
     case 'skills:load': {
       const result = await rm.readSkill(str0, a0?.workspace as string | undefined)

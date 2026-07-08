@@ -5,22 +5,6 @@ import type {
   TeamRuntimePermissionMode
 } from '@/protocols/team-runtime-types'
 
-// --- Agent Definition (shared across teams and skill panels) ---
-
-export interface AgentDefinition {
-  name: string
-  description: string
-  icon?: string
-  systemPrompt: string
-  tools: string[]
-  disallowedTools: string[]
-  maxTurns: number
-  initialPrompt?: string
-  background?: boolean
-  model?: string
-  temperature?: number
-}
-
 // --- Team Types ---
 
 export type TeamMemberStatus = 'working' | 'idle' | 'waiting' | 'stopped' | 'completed' | 'failed'
@@ -29,7 +13,6 @@ export interface TeamMember {
   id: string
   name: string
   model: string
-  agentName?: string
   role?: 'lead' | 'worker'
   status: TeamMemberStatus
   currentTaskId: string | null

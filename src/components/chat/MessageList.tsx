@@ -115,7 +115,6 @@ function buildTeamMemberRenderSignature(team: ActiveTeam): string {
       [
         member.id,
         member.name,
-        member.agentName ?? '',
         member.role ?? '',
         member.status,
         String(member.iteration),

@@ -11,12 +11,10 @@ import { MessageQueue } from '../types'
 import type { AgentLoopConfig } from '../types'
 import type { UnifiedMessage, ProviderConfig, TokenUsage } from '@/lib/api/types'
 import type { MemoryIndexSnapshot } from '@/protocols/memory-types'
-import type { ToolContext } from '@/lib/tools/tool-types'
 import type { TeamRuntimeMessageRecord } from '@/protocols/team-runtime-types'
 import type { TeamTask, TeamMemberStatus } from './types'
 import { buildRuntimeCompression } from '../context-compression-runtime'
-import { agentRegistry } from './agent-registry'
-import { resolveAgentTools, LEAD_ONLY_TOOLS } from './agent-tools'
+import { LEAD_ONLY_TOOLS, MANDATORY_AGENT_DISALLOWED_TOOLS } from './agent-tools'
 import { requestFallbackReport, runSharedAgentRuntime } from '../shared-runtime'
 import { appendTeamRuntimeMessage } from '@/services/tauri-api/team-runtime'
 import { requestTeammatePermission, stopWorkerPermissionPoller } from './permission-client'
@@ -26,7 +24,6 @@ import { DEFAULT_AGENT_MAX_TURNS, resolveAgentMaxTurns, resolveAgentTemperature 
 import { resolveProjectMemoryTextFileForTarget } from '../project-memory'
 import { loadMemoryIndex } from '../memory-files'
 import { COMPLETE_WORK_TOOL_NAME } from './tools/complete-work'
-import { refreshAgentRegistry } from './agent-catalog'
 import { refreshSkillTools } from '@/lib/tools/skill-tool'
 import { createLogger } from '@/lib/logger'
 
@@ -97,7 +94,6 @@ interface RunTeammateOptions {
   prompt: string
   taskId: string | undefined
   model: string | null
-  agentName: string | null
   workingFolder?: string
   sshConnectionId?: string
 }
@@ -112,7 +108,7 @@ interface SingleTaskResult {
 }
 
 export async function runTeammate(options: RunTeammateOptions): Promise<void> {
-  const { memberId, memberName, model, agentName, workingFolder, sshConnectionId } = options
+  const { memberId, memberName, model, workingFolder, sshConnectionId } = options
   let { prompt } = options
   const chatTaskId: string | undefined = options.taskId
 
@@ -121,16 +117,15 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
   const abortController = new AbortController()
   teammateAbortControllers.set(memberId, abortController)
 
-  log.debug('teammate starting', { memberName, taskId, model, agentName, workingFolder })
+  log.debug('teammate starting', { memberName, taskId, model, workingFolder })
 
   await refreshSkillTools()
-  await refreshAgentRegistry()
 
-  const baseToolDefs = toolRegistry.getDefinitions().filter((tool) => !LEAD_ONLY_TOOLS.has(tool.name))
-  const agentDefinition = agentName ? agentRegistry.get(agentName) : undefined
-  const toolDefs = agentDefinition
-    ? resolveAgentTools(agentDefinition, baseToolDefs).tools
-    : baseToolDefs
+  const disallowedSet = new Set(MANDATORY_AGENT_DISALLOWED_TOOLS)
+  const baseToolDefs = toolRegistry.getDefinitions().filter(
+    (tool) => !LEAD_ONLY_TOOLS.has(tool.name) && !disallowedSet.has(tool.name)
+  )
+  const toolDefs = baseToolDefs
 
   const messageQueue = new MessageQueue()
 
@@ -200,7 +195,6 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
       taskId,
       chatTaskId,
       model,
-      agentName,
       workingFolder,
       sshConnectionId,
       abortController,
@@ -259,7 +253,6 @@ async function runSingleTaskLoop(opts: {
   taskId: string | undefined
   chatTaskId?: string
   model: string | null
-  agentName: string | null
   workingFolder?: string
   sshConnectionId?: string
   abortController: AbortController
@@ -273,7 +266,6 @@ async function runSingleTaskLoop(opts: {
     taskId,
     chatTaskId,
     model,
-    agentName,
     workingFolder,
     sshConnectionId,
     abortController,
@@ -283,20 +275,19 @@ async function runSingleTaskLoop(opts: {
 
   const settings = useSettingsStore.getState()
   const providerState = useProviderStore.getState()
-  const activeProviderId = providerState.activeProviderId
-  if (activeProviderId) {
-    const provider = providerState.providers.find(p => p.id === activeProviderId)
-    if (!provider || !provider.apiKey) throw new Error('API key required. Please configure in Settings.')
-  }
 
-  const activeConfig = providerState.getActiveProviderConfig()
+  // Resolve model tier: 'aux' uses auxiliary model, otherwise uses main model
+  const activeConfig = model === 'aux'
+    ? providerState.getAuxProviderConfig()
+    : providerState.getActiveProviderConfig()
   const effectiveModel =
-    model && model !== 'default' ? model : (activeConfig?.model ?? settings.model)
+    model && model !== 'default' && model !== 'aux' && model !== 'main'
+      ? model
+      : (activeConfig?.model ?? settings.model)
   const effectiveMaxTokens = useProviderStore
     .getState()
     .getActiveModelMaxOutputTokens(effectiveModel)
-  const agentDefinition = agentName ? agentRegistry.get(agentName) : undefined
-  const agentTemperature = resolveAgentTemperature(agentDefinition?.temperature)
+  const agentTemperature = resolveAgentTemperature(undefined)
   const providerConfig: ProviderConfig = activeConfig
     ? {
         ...activeConfig,
@@ -314,19 +305,12 @@ async function runSingleTaskLoop(opts: {
       }
 
   if (toolDefs.length === 0) {
-    throw new Error(
-      agentName
-        ? `No tools available for teammate agent "${agentName}".`
-        : 'No tools available for teammate.'
-    )
+    throw new Error('No tools available for teammate.')
   }
 
   const team = useTeamStore.getState().activeTeam
   const teamTaskId = team?.taskId
   const taskInfo = teamTaskId && team ? team.tasks.find((task) => task.id === teamTaskId) : null
-  const effectivePrompt = agentDefinition?.initialPrompt
-    ? `${agentDefinition.initialPrompt}\n\n${prompt}`
-    : prompt
 
   const environmentContext = resolveEnvironmentContext({ workingFolder, sshConnectionId })
 
@@ -355,7 +339,7 @@ async function runSingleTaskLoop(opts: {
   const workerTask = taskInfo
     ? { id: taskInfo.id, subject: taskInfo.subject, description: taskInfo.description }
     : null
-  const baseWorkerPrompt = await buildWorkerSystemPrompt({
+  const systemPrompt = await buildWorkerSystemPrompt({
     workingFolder,
     language: settings.language,
     environmentContext,
@@ -363,22 +347,17 @@ async function runSingleTaskLoop(opts: {
     memorySnapshot,
     toolDefs,
     workerTask,
-    workerInstructions: effectivePrompt,
+    workerInstructions: prompt,
     teamName: team?.name,
     memberName,
     permissionMode: team?.permissionMode
   })
-  const systemPrompt = agentDefinition?.systemPrompt
-    ? `${agentDefinition.systemPrompt}\n\n${baseWorkerPrompt}`
-    : baseWorkerPrompt
   providerConfig.systemPrompt = systemPrompt
 
   let capturedFinal: UnifiedMessage[] = []
   const compression = buildRuntimeCompression(providerConfig, abortController.signal)
   const loopConfig: AgentLoopConfig = {
-    maxIterations: resolveAgentMaxTurns(
-      agentDefinition?.maxTurns ?? DEFAULT_TEAMMATE_MAX_ITERATIONS
-    ),
+    maxIterations: resolveAgentMaxTurns(DEFAULT_TEAMMATE_MAX_ITERATIONS),
     provider: providerConfig,
     tools: toolDefs,
     systemPrompt,

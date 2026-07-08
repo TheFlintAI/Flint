@@ -2,8 +2,7 @@ export const DEFAULT_AGENT_MAX_TURNS = 12
 
 /**
  * Default sampling temperature for sub-agents. Sub-agents do tool use and code
- * edits where reliability matters more than creativity, so default low. A
- * specific agent definition may override via `AgentDefinition.temperature`.
+ * edits where reliability matters more than creativity, so default low.
  */
 export const DEFAULT_AGENT_TEMPERATURE = 0.2
 

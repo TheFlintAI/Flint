@@ -125,19 +125,6 @@ export const TAURI_COMMANDS = {
   PROMPTS_LIST: 'prompts:list',
   PROMPTS_LOAD: 'prompts:load',
 
-  // Agents
-  AGENTS_MANAGE_LIST: 'agents:manage-list',
-  AGENTS_MANAGE_READ: 'agents:manage-read',
-  AGENTS_MANAGE_SAVE: 'agents:manage-save',
-
-  // Commands
-  COMMANDS_LIST: 'commands:list',
-  COMMANDS_LOAD: 'commands:load',
-  COMMANDS_MANAGE_LIST: 'commands:manage-list',
-  COMMANDS_MANAGE_READ: 'commands:manage-read',
-  COMMANDS_MANAGE_CREATE: 'commands:manage-create',
-  COMMANDS_MANAGE_SAVE: 'commands:manage-save',
-
   // Clipboard
   CLIPBOARD_WRITE_IMAGE: 'clipboard:write-image',
   WINDOW_CAPTURE_REGION: 'window:capture-region',

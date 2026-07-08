@@ -458,7 +458,6 @@
     "failed": "压缩失败"
   },
   "errors": {
-    "commandUnavailable": "命令不可用",
     "apiKeyRequired": "需要 API Key",
     "configureProvider": "请在设置中配置 AI 服务商",
     "authenticationRequired": "需要认证",

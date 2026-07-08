@@ -4,7 +4,6 @@ import {
   type EditableUserMessageDraft,
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
-import type { SystemCommandSnapshot } from '@/lib/commands/system-command'
 
 // Types
 
@@ -23,7 +22,6 @@ export interface QueuedTaskMessage {
   id: string
   text: string
   images?: ImageAttachment[]
-  command?: SystemCommandSnapshot | null
   source?: MessageSource
   options?: SendMessageOptions
   createdAt: number
@@ -33,7 +31,6 @@ export interface PendingTaskMessageItem {
   id: string
   text: string
   images: ImageAttachment[]
-  command: SystemCommandSnapshot | null
   createdAt: number
 }
 
@@ -85,7 +82,6 @@ function toPendingItem(msg: QueuedTaskMessage): PendingTaskMessageItem {
     id: msg.id,
     text: msg.text,
     images: cloneImageAttachments(msg.images),
-    command: msg.command ?? null,
     createdAt: msg.createdAt
   }
 }
@@ -116,7 +112,6 @@ export function enqueuePendingTaskMessage(
       createdAt: Date.now(),
       text: msg.text,
       images: cloneOptionalImageAttachments(msg.images),
-      command: msg.command ?? null,
       source: msg.source,
       options: msg.options ? { ...msg.options } : undefined
     }
@@ -134,7 +129,6 @@ export function dequeuePendingTaskMessage(taskId: string): QueuedTaskMessage | n
     ...head,
     text: head.text,
     images: cloneOptionalImageAttachments(head.images),
-    command: head.command ?? null,
     options: head.options ? { ...head.options } : undefined
   }
 }
@@ -189,8 +183,7 @@ export function updatePendingTaskMessageDraft(
     return {
       ...msg,
       text: draft.text,
-      images: cloneOptionalImageAttachments(draft.images),
-      command: draft.command
+      images: cloneOptionalImageAttachments(draft.images)
     }
   })
   if (!changed) return false

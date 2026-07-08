@@ -33,7 +33,6 @@ import {
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
 import { selectFileTextToPlainText } from '@/lib/chat/select-file-tags'
-import { SystemCommandCard } from './SystemCommandCard'
 import { SelectFileInlineText } from './SelectFileInlineText'
 import { createLogger } from '@/lib/logger'
 
@@ -216,12 +215,9 @@ export function UserMessage({
   const currentDraft = useMemo(() => extractEditableUserMessageDraft(content), [content])
   const plainText = currentDraft.text
   const allImages = currentDraft.images
-  const command = currentDraft.command
   const displayText = plainText
   const copyBodyText = selectFileTextToPlainText(displayText)
-  const copyText = command
-    ? `/${command.name}${copyBodyText ? ` ${copyBodyText}` : ''}`
-    : copyBodyText
+  const copyText = copyBodyText
 
   const memoizedTokens = useMemoizedTokens(displayText)
 
@@ -266,7 +262,6 @@ export function UserMessage({
       <div className="w-full">
         <div className={`${USER_MESSAGE_BUBBLE_CLASS} w-full relative`}>
           {contextSnapshot && <MessageContextBadges snapshot={contextSnapshot} />}
-          {command && <SystemCommandCard command={command} />}
           {displayText && (
             <div className="text-base leading-relaxed">
               <SelectFileInlineText text={displayText} />

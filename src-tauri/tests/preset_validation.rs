@@ -116,7 +116,7 @@ struct TomlWrapper {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const PRESETS_DIR: &str = "../resources/presets";
+const PRESETS_DIR: &str = "resources/presets";
 const VALID_PROVIDER_TYPES: &[&str] = &[
     "openai-chat",
     "openai-responses",

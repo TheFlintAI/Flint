@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::error::Error as StdError;
 use std::io::Read;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::Window;
 
 /// Format an error with its full source chain (for better diagnostics).
@@ -35,12 +35,12 @@ pub struct ApiRequestArgs {
 }
 
 pub fn request(request: ApiRequestArgs) -> Result<Value, String> {
+    let method = request.method.as_deref().unwrap_or("GET");
+    let started = Instant::now();
+    tracing::debug!("[http] {} {}", method, request.url);
     let client = build_http_client(request.allow_insecure_tls.unwrap_or(false))?;
     let mut builder = client.request(
-        request
-            .method
-            .as_deref()
-            .unwrap_or("GET")
+        method
             .parse()
             .map_err(|error| format!("invalid HTTP method: {error}"))?,
         &request.url,
@@ -56,8 +56,14 @@ pub fn request(request: ApiRequestArgs) -> Result<Value, String> {
     if let Some(timeout_ms) = request.timeout_ms {
         builder = builder.timeout(Duration::from_millis(timeout_ms.max(1)));
     }
-    let response = builder.send().map_err(|error| format_error_chain(&error))?;
+    let response = builder.send().map_err(|error| {
+        let msg = format_error_chain(&error);
+        tracing::warn!("[http] {} {} failed: {msg}", method, request.url);
+        msg
+    })?;
     let status = response.status().as_u16();
+    let elapsed_ms = started.elapsed().as_millis();
+    tracing::debug!("[http] {} {} -> {status} ({elapsed_ms}ms)", method, request.url);
     let headers = response
         .headers()
         .iter()
@@ -103,8 +109,10 @@ where
             .request_id
             .clone()
             .unwrap_or_else(|| format!("api-stream-{}", started_millis()));
+        tracing::debug!("[http:stream] {} {} (id={request_id})", request.method.as_deref().unwrap_or("POST"), request.url);
         let result = run_http_stream(&window, &request_id, request, emit);
         if let Err(error) = result {
+            tracing::warn!("[http:stream] {request_id} failed: {error}");
             let _ = emit(
                 &window,
                 "api:stream-error",

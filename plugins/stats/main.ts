@@ -50,7 +50,7 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Restore persisted stats ─────────────────────────────────────────────
 
-$plugin.store.get<StatsData>('stats').then((saved) => {
+$plugin.kv.get<StatsData>('stats').then((saved) => {
   if (saved && typeof saved.totalLoops === 'number') {
     stats = saved
   }
@@ -133,7 +133,7 @@ function scheduleTabUpdate() {
   if (updateTimer) return
   updateTimer = setTimeout(() => {
     updateTimer = null
-    $plugin.ui.refresh('dashboard')
+    $plugin.view.refresh('dashboard')
   }, 500)
 }
 
@@ -141,13 +141,13 @@ function schedulePersist() {
   if (persistTimer) return
   persistTimer = setTimeout(() => {
     persistTimer = null
-    $plugin.store.set('stats', stats)
+    $plugin.kv.set('stats', stats)
   }, 5000)
 }
 
 // ── Register UI Tab ────────────────────────────────────────────────────
 
-$plugin.ui.tab('dashboard', { en: 'Statistics', zh: '统计' }, 'BarChart3', () => {
+$plugin.view.register('dashboard', { en: 'Statistics', zh: '统计' }, 'BarChart3', () => {
   const totalTokens = stats.totalInputTokens + stats.totalOutputTokens
 
   const toolDist = Object.entries(stats.toolCallCounts)
@@ -174,7 +174,7 @@ $plugin.ui.tab('dashboard', { en: 'Statistics', zh: '统计' }, 'BarChart3', () 
     ]),
 
     $plugin.ui.heading({ en: 'Token Trend', zh: '令牌趋势' }),
-    $plugin.ui.area({
+    $plugin.ui.chart.area({
       data: stats.tokenTimeline.slice(-50),
       xKey: 'time',
       yKey: 'input',
@@ -183,7 +183,7 @@ $plugin.ui.tab('dashboard', { en: 'Statistics', zh: '统计' }, 'BarChart3', () 
     $plugin.ui.heading({ en: 'Tool Distribution', zh: '工具分布' }),
     toolDist.length > 0
       ? $plugin.ui.grid({ cols: 2 }, [
-          $plugin.ui.pie({ data: toolDist, nameKey: 'name', dataKey: 'count' }),
+          $plugin.ui.chart.pie({ data: toolDist, nameKey: 'name', dataKey: 'count' }),
           $plugin.ui.table({
             columns: [
               { key: 'name', label: { en: 'Tool', zh: '工具' } },

@@ -29,9 +29,9 @@ function disposeAllTimers() {
   timers.clear()
 }
 
-// ── Tab registry ───────────────────────────────────────────────────────────
+// ── View registry ──────────────────────────────────────────────────────────
 
-const tabs = {}
+const views = {}
 
 // ── VNode factory ──────────────────────────────────────────────────────────
 
@@ -61,7 +61,6 @@ const deactivateCbs = []
 function dispatch(msg) {
   switch (msg.method) {
     case 'lifecycle.activate':
-      // Store plugin metadata sent by host
       if (msg.params && msg.params.meta) meta = msg.params.meta
       for (const cb of activateCbs) {
         Promise.resolve().then(() => cb()).catch(err => {
@@ -79,18 +78,18 @@ function dispatch(msg) {
       }
       reply(msg.id, true)
       return
-    case 'ui.renderTab': {
-      const tabId = msg.params && msg.params.tabId
-      const tab = tabs[tabId]
-      if (tab && typeof tab.render === 'function') {
+    case 'view.render': {
+      const viewId = msg.params && msg.params.viewId
+      const view = views[viewId]
+      if (view && typeof view.render === 'function') {
         try {
-          const vnode = tab.render()
+          const vnode = view.render()
           reply(msg.id, vnode)
         } catch (err) {
           reject(msg.id, -1, err instanceof Error ? err.message : String(err))
         }
       } else {
-        reject(msg.id, -2, `Tab not found: ${tabId}`)
+        reject(msg.id, -2, `View not found: ${viewId}`)
       }
       return
     }
@@ -102,18 +101,28 @@ function dispatch(msg) {
   }
 }
 
-// ── UI object ──────────────────────────────────────────────────────────────
+// ── View management (tab registration & refresh) ───────────────────────────
+
+const view = {
+  register(id, label, icon, render) {
+    views[id] = { label, icon, render }
+    post('view.register', { id, label, icon })
+  },
+  refresh(id) {
+    if (id !== undefined) {
+      post('view.refresh', { id })
+    } else {
+      for (const viewId of Object.keys(views)) {
+        post('view.refresh', { id: viewId })
+      }
+    }
+  },
+}
+
+// ── UI component factories ─────────────────────────────────────────────────
 
 const ui = {
   ...vnodeFactory,
-
-  tab(id, label, icon, render) {
-    tabs[id] = { label, icon, render }
-    post('ui.registerTab', { id, label, icon })
-  },
-  refresh(id) {
-    post('ui.refreshTab', { id })
-  },
 
   /**
    * Register form action handlers.
@@ -186,6 +195,10 @@ globalThis.$plugin = {
     }
   },
 
+  /** View management — register views, trigger re-renders. */
+  view,
+
+  /** Component factories — display, layout, chart, and interactive input components. */
   ui,
 
   /**
@@ -218,7 +231,7 @@ globalThis.$plugin = {
    */
   fmt: {
     number(value, decimals = 2) {
-      return isFinite(value) ? value.toFixed(decimals) : '—' // —
+      return isFinite(value) ? value.toFixed(decimals) : '—'
     },
     change(value, decimals = 2) {
       if (!isFinite(value)) return '—'
@@ -230,34 +243,38 @@ globalThis.$plugin = {
     },
   },
 
-  store: {
-    get(key)     { return call('store.get', { key }) },
-    set(key, val) { return call('store.set', { key, value: val }) },
-    delete(key)  { return call('store.delete', { key }) },
-    keys()       { return call('store.keys', {}) },
+  /** Persistent key-value store (Tauri-backed). */
+  kv: {
+    get(key)      { return call('kv.get', { key }) },
+    set(key, val) { return call('kv.set', { key, value: val }) },
+    delete(key)   { return call('kv.delete', { key }) },
+    keys()        { return call('kv.keys', {}) },
   },
 
+  /**
+   * Reactive session state. State mutations are synchronous — use `flush()` to
+   * trigger UI re-render after all state changes + async data loading are complete.
+   *
+   *   const $s = $plugin.state.define({ count: 0, label: 'hello' })
+   *   $s.get('count')        // read
+   *   $s.set('count', 5)     // write single key (no UI refresh)
+   *   $s.patch({ a:1, b:2 }) // write multiple keys (no UI refresh)
+   *   $s.flush()             // trigger UI re-render for all views
+   *   await $s.load()        // restore all keys from plugin config
+   *   await $s.save()        // persist all keys to plugin config
+   *   await $s.save(['count']) // persist specific keys
+   */
   state: {
-    /**
-     * Reactive K/V store. State mutations are synchronous — use `flush()` to
-     * trigger UI re-render after all state changes + async data loading are
-     * complete.
-     *
-     *   const $s = $plugin.state.define({ count: 0, label: 'hello' })
-     *   $s.get('count')        // read
-     *   $s.set('count', 5)     // write single key (no UI refresh)
-     *   $s.patch({ a:1, b:2 }) // write multiple keys (no UI refresh)
-     *   $s.flush()             // trigger UI re-render for all tabs
-     *   await $s.load()        // restore all keys from plugin settings
-     *   await $s.save()        // persist all keys
-     *   await $s.save(['count']) // persist specific keys
-     */
     define(schema) {
       const state = { ...schema }
 
-      function flushTabs() {
-        for (const tabId of Object.keys(tabs)) {
-          post('ui.refreshTab', { id: tabId })
+      function flush(viewId) {
+        if (viewId !== undefined) {
+          post('view.refresh', { id: viewId })
+        } else {
+          for (const id of Object.keys(views)) {
+            post('view.refresh', { id })
+          }
         }
       }
 
@@ -265,12 +282,11 @@ globalThis.$plugin = {
         get(key) { return state[key] },
         set(key, value) { state[key] = value },
         patch(obj) { Object.assign(state, obj) },
-        /** Trigger UI re-render for all registered tabs. */
-        flush() { flushTabs() },
+        flush,
         getAll() { return { ...state } },
         async load() {
           try {
-            const saved = await call('settings.get', {})
+            const saved = await call('config.get', {})
             if (saved && typeof saved === 'object') {
               for (const key of Object.keys(schema)) {
                 if (key in saved) state[key] = saved[key]
@@ -281,18 +297,19 @@ globalThis.$plugin = {
         async save(keys) {
           const data = {}
           for (const key of (keys || Object.keys(schema))) data[key] = state[key]
-          await call('settings.set', { data })
+          await call('config.set', { data })
         },
       }
     },
   },
 
-  settings: {
-    get() { return call('settings.get', {}) },
-    set(data) { return call('settings.set', { data }) },
+  /** Plugin configuration (persistent settings). */
+  config: {
+    get() { return call('config.get', {}) },
+    set(data) { return call('config.set', { data }) },
     onChange(cb) {
-      post('hook.subscribe', { event: 'settings.changed' })
-      const inner = on('settings.changed', cb)
+      post('hook.subscribe', { event: 'config.changed' })
+      const inner = on('config.changed', cb)
       return { dispose() { inner.dispose() } }
     },
   },

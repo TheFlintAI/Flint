@@ -11,7 +11,7 @@
  *   // `$plugin` is now typed as PluginRuntime
  *
  *   $plugin.hook.on('tool:start', (data) => { ... })
- *   $plugin.ui.tab('stats', 'Statistics', 'BarChart3', () => { ... })
+ *   $plugin.view.register('stats', 'Statistics', 'BarChart3', () => { ... })
  *   $plugin.ready()
  */
 

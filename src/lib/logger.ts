@@ -1,9 +1,8 @@
 /**
- * Unified Logger — centralizes all frontend logging with compile-time DCE.
+ * Unified Logger — centralizes all frontend logging.
  *
- * - `debug()` / `info()` → removed in production via `import.meta.env.DEV` guard
- * - `warn()` / `error()` → always active
- * - Messages are tagged `[Tag]` for filtering in DevTools
+ * Dev mode: all levels write to console + forward to Rust log file.
+ * Production: debug/info/warn/error forwarded to Rust log file; trace stripped.
  *
  * Usage:
  *   const log = createLogger('MyModule')
@@ -12,19 +11,37 @@
  *   log.error('fatal', error)
  */
 
+import { invoke } from '@tauri-apps/api/core'
+
 const isDev = import.meta.env.DEV
 
 export interface Logger {
-  /** Trace-level log with stack trace — stripped in production builds */
   trace: (message: string, ...data: unknown[]) => void
-  /** Debug-level log — stripped in production builds */
   debug: (message: string, ...data: unknown[]) => void
-  /** Info-level log — stripped in production builds */
   info: (message: string, ...data: unknown[]) => void
-  /** Warning — always active */
   warn: (message: string, ...data: unknown[]) => void
-  /** Error — always active */
   error: (message: string, ...data: unknown[]) => void
+}
+
+function formatData(data: unknown[]): string {
+  if (data.length === 0) return ''
+  const parts = data.map((d) => {
+    if (d instanceof Error) return d.stack || d.message
+    if (typeof d === 'string') return d
+    try {
+      return JSON.stringify(d)
+    } catch {
+      return String(d)
+    }
+  })
+  return ' ' + parts.join(' ')
+}
+
+function forwardToRust(level: string, tag: string, message: string, data: unknown[]): void {
+  void invoke('invoke_app_command', {
+    channel: 'log:write',
+    args: [{ level, tag, message: message + formatData(data) }]
+  })
 }
 
 export function createLogger(tag: string): Logger {
@@ -37,24 +54,30 @@ export function createLogger(tag: string): Logger {
 
     debug(message: string, ...data: unknown[]) {
       if (isDev) {
-        // Use console.log instead of console.debug so messages are visible
-        // by default in DevTools (debug level is hidden under "Verbose")
         console.log(`[${tag}]`, message, ...data)
       }
+      forwardToRust('debug', tag, message, data)
     },
 
     info(message: string, ...data: unknown[]) {
       if (isDev) {
         console.info(`[${tag}]`, message, ...data)
       }
+      forwardToRust('info', tag, message, data)
     },
 
     warn(message: string, ...data: unknown[]) {
-      console.warn(`[${tag}]`, message, ...data)
+      if (isDev) {
+        console.warn(`[${tag}]`, message, ...data)
+      }
+      forwardToRust('warn', tag, message, data)
     },
 
     error(message: string, ...data: unknown[]) {
-      console.error(`[${tag}]`, message, ...data)
+      if (isDev) {
+        console.error(`[${tag}]`, message, ...data)
+      }
+      forwardToRust('error', tag, message, data)
     },
   }
 }

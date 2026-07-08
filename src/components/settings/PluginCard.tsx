@@ -124,25 +124,25 @@ function AboutTab({
   )
 }
 
-function PluginTabContent({
+function PluginViewContent({
   pluginId,
-  tabId,
+  viewId,
   language,
   onNavigateTab,
 }: {
   pluginId: string
-  tabId: string
+  viewId: string
   language: string
-  onNavigateTab?: (tabId: string) => void
+  onNavigateTab?: (viewId: string) => void
 }): React.JSX.Element {
-  const loadTabVNode = usePluginStore((s) => s.loadTabVNode)
-  const vnode = usePluginStore((s) => s.tabVNodes[pluginId]?.[tabId] ?? null)
+  const loadViewVNode = usePluginStore((s) => s.loadViewVNode)
+  const vnode = usePluginStore((s) => s.viewVNodes[pluginId]?.[viewId] ?? null)
 
   useEffect(() => {
     if (!vnode) {
-      void loadTabVNode(pluginId, tabId)
+      void loadViewVNode(pluginId, viewId)
     }
-  }, [pluginId, tabId, vnode, loadTabVNode])
+  }, [pluginId, viewId, vnode, loadViewVNode])
 
   const handleFormAction = useCallback((data: FormActionData) => {
     // Intercept navigate-tab actions — switch tabs in the host UI
@@ -185,7 +185,7 @@ export function PluginCard({
 }: PluginCardProps): React.JSX.Element {
   const { t, i18n } = useTranslation('settings')
   const togglePlugin = usePluginStore((state) => state.togglePlugin)
-  const pluginTabs = usePluginStore((state) => state.pluginTabs[plugin.id])
+  const pluginViews = usePluginStore((state) => state.pluginViews[plugin.id])
   const pluginTools = usePluginStore((state) => state.pluginTools[plugin.id])
   const { manifest } = plugin
   const displayName = resolveDisplayName(manifest.displayName, manifest.name, i18n.language)
@@ -198,7 +198,7 @@ export function PluginCard({
   const allTabs = [
     { id: 'about', label: t('plugin.tab.about', { defaultValue: 'About' }) },
     ...(hasTools ? [{ id: 'tools', label: t('plugin.tab.tools', { defaultValue: 'Tools' }) }] : []),
-    ...(pluginTabs ?? []).map((tab) => ({ id: tab.id, label: resolveLocalizedString(tab.label, i18n.language) })),
+    ...(pluginViews ?? []).map((view) => ({ id: view.id, label: resolveLocalizedString(view.label, i18n.language) })),
   ]
 
   return (
@@ -318,9 +318,9 @@ export function PluginCard({
                   <PluginToolsList tools={pluginTools!} />
                 </TabsContent>
               ) : null}
-              {(pluginTabs ?? []).map((tab) => (
-                <TabsContent key={tab.id} value={tab.id} className="px-4 py-4 max-h-[30rem] overflow-y-auto">
-                  <PluginTabContent pluginId={plugin.id} tabId={tab.id} language={i18n.language} onNavigateTab={setActiveTab} />
+              {(pluginViews ?? []).map((view) => (
+                <TabsContent key={view.id} value={view.id} className="px-4 py-4 max-h-[30rem] overflow-y-auto">
+                  <PluginViewContent pluginId={plugin.id} viewId={view.id} language={i18n.language} onNavigateTab={setActiveTab} />
                 </TabsContent>
               ))}
             </Tabs>

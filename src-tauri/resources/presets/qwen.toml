@@ -1,0 +1,161 @@
+[provider]
+builtinId = "qwen"
+name = { en = "Qwen", zh = "通义千问" }
+type = "openai-chat"
+defaultBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+homepage = "https://dashscope.aliyun.com"
+
+# ═══════════════════════════════════════════════════════════════
+# Qwen3.7 Series (May 2026, closed-weight API-only)
+# Thinking: enable_thinking (bool) + thinking_budget (int, optional)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "qwen3.7-max"
+name = "Qwen3.7 Max"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+
+[[provider.defaultModels]]
+id = "qwen3.7-plus"
+name = "Qwen3.7 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+
+# ═══════════════════════════════════════════════════════════════
+# Qwen3.6 Series
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "qwen3.6-max-preview"
+name = "Qwen3.6 Max Preview"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+
+[[provider.defaultModels]]
+id = "qwen3.6-plus"
+name = "Qwen3.6 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen3.6-27b"
+name = "Qwen3.6 27B"
+contextLength = 256000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen3.6-35b-a3b"
+name = "Qwen3.6 35B-A3B"
+contextLength = 256000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+# ═══════════════════════════════════════════════════════════════
+# Qwen3.5 Series (last fully open-weight flagship)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "qwen3.5-plus"
+name = "Qwen3.5 Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen3.5-flash"
+name = "Qwen3.5 Flash"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+# ═══════════════════════════════════════════════════════════════
+# Qwen3
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "qwen3-max"
+name = "Qwen3 Max"
+contextLength = 262144
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen-plus"
+name = "Qwen Plus (Qwen3)"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen-flash"
+name = "Qwen Flash"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+# ═══════════════════════════════════════════════════════════════
+# Coder Models (Qwen3 generation)
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "qwen3-coder-plus"
+name = "Qwen3 Coder Plus"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048
+[[provider.defaultModels]]
+id = "qwen3-coder-flash"
+name = "Qwen3 Coder Flash"
+contextLength = 1000000
+maxOutputTokens = 65536
+supportsThinking = true
+[provider.defaultModels.thinkingConfig]
+[provider.defaultModels.thinkingConfig.bodyParams]
+enable_thinking = true
+thinking_budget = 2048

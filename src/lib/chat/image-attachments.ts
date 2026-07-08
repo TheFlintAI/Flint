@@ -1,10 +1,5 @@
 import { nanoid } from 'nanoid'
 import type { ContentBlock, ImageBlock, UnifiedMessage } from '../api/types'
-import {
-  parseSystemCommandTag,
-  stripSystemCommandTag,
-  type SystemCommandSnapshot
-} from '../commands/system-command'
 
 export interface ImageAttachment {
   id: string
@@ -15,7 +10,6 @@ export interface ImageAttachment {
 export interface EditableUserMessageDraft {
   text: string
   images: ImageAttachment[]
-  command: SystemCommandSnapshot | null
 }
 
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -102,43 +96,16 @@ export function stripSystemReminders(text: string): string {
 }
 
 export function normalizeEditableText(text: string): string {
-  const withoutCommand = stripSystemCommandTag(text)
-  const normalized = stripSystemReminders(withoutCommand).trim()
+  const normalized = stripSystemReminders(text).trim()
   return normalized === QUEUED_IMAGE_ONLY_TEXT ? '' : normalized
-}
-
-export function extractEditableCommand(
-  content: string | ContentBlock[]
-): SystemCommandSnapshot | null {
-  const textBlocks = extractTextBlocks(content)
-
-  for (const blockText of textBlocks) {
-    const parsed = parseSystemCommandTag(blockText)
-    if (parsed) {
-      return parsed.command
-    }
-  }
-
-  return null
 }
 
 export function extractEditableText(content: string | ContentBlock[]): string {
   const textBlocks = extractTextBlocks(content)
   const textParts: string[] = []
-  let commandExtracted = false
 
   for (const blockText of textBlocks) {
-    let normalized = blockText
-
-    if (!commandExtracted) {
-      const parsed = parseSystemCommandTag(normalized)
-      if (parsed) {
-        commandExtracted = true
-        normalized = parsed.remainingText
-      }
-    }
-
-    normalized = stripSystemRemindersOnly(normalized)
+    const normalized = stripSystemRemindersOnly(blockText)
     if (!normalized) continue
     textParts.push(normalized)
   }
@@ -163,8 +130,7 @@ export function extractEditableUserMessageDraft(
 ): EditableUserMessageDraft {
   return {
     text: extractEditableText(content),
-    images: extractEditableImages(content),
-    command: extractEditableCommand(content)
+    images: extractEditableImages(content)
   }
 }
 
@@ -178,9 +144,9 @@ export function isEditableUserMessage(message: UnifiedMessage): boolean {
 }
 
 export function hasEditableDraftContent(
-  draft: Pick<EditableUserMessageDraft, 'text' | 'images' | 'command'>
+  draft: Pick<EditableUserMessageDraft, 'text' | 'images'>
 ): boolean {
-  return draft.text.trim().length > 0 || draft.images.length > 0 || Boolean(draft.command)
+  return draft.text.trim().length > 0 || draft.images.length > 0
 }
 
 export function areImageAttachmentsEqual(
@@ -205,23 +171,13 @@ export function areImageAttachmentsEqual(
   return true
 }
 
-function areSystemCommandsEqual(
-  left: SystemCommandSnapshot | null,
-  right: SystemCommandSnapshot | null
-): boolean {
-  if (left === right) return true
-  if (!left || !right) return !left && !right
-  return left.name === right.name && left.content === right.content
-}
-
 export function areEditableUserMessageDraftsEqual(
   left: EditableUserMessageDraft,
   right: EditableUserMessageDraft
 ): boolean {
   return (
     left.text === right.text &&
-    areImageAttachmentsEqual(left.images, right.images) &&
-    areSystemCommandsEqual(left.command, right.command)
+    areImageAttachmentsEqual(left.images, right.images)
   )
 }
 

@@ -1,37 +1,21 @@
 import type { ContentBlock } from '../api/types'
 import type { Task } from '@/stores/chat/types'
 import { getTotalTokens } from '@/lib/utils/format-tokens'
-import { parseSystemCommandTag } from '../commands/system-command'
 import { toonEncode } from '../tools/tool-result-format'
 
-function formatTextContent(text: string): string {
-  const parsed = parseSystemCommandTag(text)
-  if (!parsed) return text
-
-  const parts = [`**System Command: \`/${parsed.command.name}\`**`]
-  if (parsed.command.content) {
-    parts.push(parsed.command.content)
-  }
-  if (parsed.remainingText) {
-    parts.push(parsed.remainingText)
-  }
-  return parts.join('\n\n')
-}
-
 function contentToMarkdown(content: string | ContentBlock[]): string {
-  if (typeof content === 'string') return formatTextContent(content)
+  if (typeof content === 'string') return content
 
   return content
     .map((block) => {
       switch (block.type) {
         case 'text':
-          return formatTextContent(block.text)
+          return block.text
         case 'tool_use': {
           if (block.name === 'SpawnAgent') {
             const inp = block.input as Record<string, unknown>
-            const subType = String(inp.agentName ?? '?')
             const desc = String(inp.description ?? inp.prompt ?? '')
-            return `**🧠 Task: \`${subType}\`** — ${desc}`
+            return `**🧠 Task** — ${desc}`
           }
           return `**Tool Call: \`${block.name}\`**\n\`\`\`toon\n${toonEncode(block.input)}\n\`\`\``
         }

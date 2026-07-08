@@ -391,7 +391,6 @@ mod tests {
 
     fn test_resource_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
             .join("resources")
             .join("plugins")
     }

@@ -26,6 +26,7 @@ pub(crate) struct AppState {
 impl AppState {
     pub(crate) fn load() -> Self {
         let plugin_state_path = flint_path("plugin-state.json");
+        tracing::debug!("[state] loading AppState, plugin_state={}", plugin_state_path.display());
 
         Self {
             processes: Arc::new(Mutex::new(BTreeMap::new())),
@@ -41,6 +42,7 @@ impl AppState {
     /// Initialize the memory system with the given paths.
     /// Must be called once during app setup before any memory commands are used.
     pub(crate) fn init_memory(&self, db_path: &Path, model_dir: &Path) {
+        tracing::debug!("[state] initializing memory: db={}, model={}", db_path.display(), model_dir.display());
         match MemorySystem::new(db_path, model_dir) {
             Ok(ms) => {
                 let _ = self.memory.set(ms);

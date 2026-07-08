@@ -50,8 +50,8 @@ export const PLUGIN_METHOD = {
 
   HOOK_SUBSCRIBE: 'hook.subscribe',
 
-  UI_REGISTER_TAB: 'ui.registerTab',
-  UI_REFRESH_TAB: 'ui.refreshTab',
+  VIEW_REGISTER: 'view.register',
+  VIEW_REFRESH: 'view.refresh',
 
   TOOL_REGISTER: 'tool.register',
   TOOL_UNREGISTER: 'tool.unregister',
@@ -67,21 +67,24 @@ export const HOST_METHOD = {
   LIFECYCLE_ACTIVATE: 'lifecycle.activate',
   LIFECYCLE_DEACTIVATE: 'lifecycle.deactivate',
 
-  UI_RENDER_TAB: 'ui.renderTab',
+  VIEW_RENDER: 'view.render',
   TOOL_EXECUTE: 'tool.execute',
 } as const
 
-// Store & Settings
+// KV store (persistent key-value)
 
-export const STORE_METHOD = {
-  GET: 'store.get',
-  SET: 'store.set',
-  DELETE: 'store.delete',
-  KEYS: 'store.keys',
+export const KV_METHOD = {
+  GET: 'kv.get',
+  SET: 'kv.set',
+  DELETE: 'kv.delete',
+  KEYS: 'kv.keys',
+} as const
 
-  SETTINGS_GET: 'settings.get',
-  SETTINGS_SET: 'settings.set',
-  SETTINGS_CHANGED: 'settings.changed',
+// Config (plugin configuration)
+
+export const CONFIG_METHOD = {
+  GET: 'config.get',
+  SET: 'config.set',
 } as const
 
 // Event names
@@ -89,7 +92,7 @@ export const STORE_METHOD = {
 export const PLUGIN_EVENT = {
   AGENT_EVENT: 'agent-event',
   UI_ACTION: 'ui:action',
-  SETTINGS_CHANGED: 'settings.changed',
+  CONFIG_CHANGED: 'config.changed',
 } as const
 
 // Error codes
@@ -101,4 +104,6 @@ export const enum PluginErrorCode {
   NOT_FOUND = -2,
   /** Unknown RPC method */
   UNKNOWN_METHOD = -3,
+  /** Permission denied */
+  PERMISSION_DENIED = -4,
 }

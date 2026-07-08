@@ -8,9 +8,10 @@ import { teamDeleteTool } from './tools/team-delete'
 import { teamStatusTool } from './tools/team-status'
 import { waitTool } from './tools/wait-tool'
 import { completeWorkTool } from './tools/complete-work'
+import { spawnAgentTool } from './tools/spawn-agent'
 import { startTeamInboxPoller } from './inbox-poller'
 
-const TEAM_TOOLS = [teamCreateTool, sendMessageTool, teamStatusTool, teamDeleteTool, waitTool, completeWorkTool]
+const TEAM_TOOLS = [teamCreateTool, sendMessageTool, teamStatusTool, teamDeleteTool, waitTool, completeWorkTool, spawnAgentTool]
 
 export const TEAM_TOOL_NAMES = new Set(TEAM_TOOLS.map((t) => t.definition.name))
 

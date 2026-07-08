@@ -245,6 +245,32 @@ async fn invoke_app_command(
         channel if channel.starts_with("memory:") => {
             crate::memory::commands::handle_memory_channel(&state, channel, &args).await
         }
+        "log:write" => {
+            let level = args
+                .first()
+                .and_then(|v| v.get("level"))
+                .and_then(Value::as_str)
+                .unwrap_or("info");
+            let tag = args
+                .first()
+                .and_then(|v| v.get("tag"))
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let message = args
+                .first()
+                .and_then(|v| v.get("message"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            match level {
+                "trace" => tracing::trace!("[{tag}] {message}"),
+                "debug" => tracing::debug!("[{tag}] {message}"),
+                "info" => tracing::info!("[{tag}] {message}"),
+                "warn" => tracing::warn!("[{tag}] {message}"),
+                "error" => tracing::error!("[{tag}] {message}"),
+                _ => tracing::info!("[{tag}] {message}"),
+            }
+            Ok(json!(true))
+        }
         "provider:get-builtin-presets" => {
             let pm = &state.preset_manager;
             if pm.len() == 0 {
@@ -265,7 +291,10 @@ async fn invoke_app_command(
             }
             Ok(pm.get_all_json())
         }
-        _ => Err(format!("Unknown Tauri command channel: {channel}")),
+        _ => {
+            tracing::warn!("[command] unknown channel: {channel}");
+            Err(format!("Unknown Tauri command channel: {channel}"))
+        }
     }
 }
 
@@ -355,7 +384,10 @@ fn handle_misc_channel(
             broadcast_command_event(app, channel, args.first().cloned().unwrap_or(Value::Null))?;
             Ok(json!({ "success": true }))
         }
-        _ => Err(format!("Unknown Tauri command channel: {channel}")),
+        _ => {
+            tracing::warn!("[command] unknown misc channel: {channel}");
+            Err(format!("Unknown Tauri command channel: {channel}"))
+        }
     }
 }
 
@@ -374,6 +406,7 @@ pub fn run() {
             emit_app_command
         ])
         .setup(|_app| {
+            tracing::info!("Flint app starting up");
             // Initialize memory system. The embedding model is bundled as a
             // resource and resolved via Tauri in both dev and production.
             let memory_db_path = flint_path("memory.db");

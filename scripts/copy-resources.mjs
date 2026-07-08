@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const sourceDir = join(root, 'resources')
+const sourceDir = join(root, 'src-tauri', 'resources')
 const devTargetDir = join(root, 'src-tauri', 'target', 'debug')
 
 if (!existsSync(sourceDir)) {

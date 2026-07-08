@@ -1,6 +1,10 @@
 /**
  * VNode — Virtual UI component type definitions.
  *
+ * This is the SINGLE SOURCE OF TRUTH for all VNode types used by the
+ * Flint plugin system. Both the SDK runtime and the host renderer
+ * derive their types from this file.
+ *
  * Plugins return VNode trees (plain JSON) from render functions.
  * The host renders them as React components via VNodeRenderer.
  *
@@ -15,6 +19,7 @@
  * Resolution order: target language → 'en' → first available → ''. */
 export type LocalizedString = string | Record<string, string>
 
+/** Base VNode shape — all variants extend this. */
 export interface VNode {
   type: string
   props?: Record<string, unknown>
@@ -38,11 +43,14 @@ export type PluginPermission =
   | 'network'
   | 'clipboard' | 'clipboard:read' | 'clipboard:write'
 
-// ── Display component props ────────────────────────────────────────────────
+// ── Shared enums & variants ────────────────────────────────────────────────
 
 export type StatCardVariant = 'neutral' | 'success' | 'destructive' | 'warning' | 'info'
 export type BadgeVariant = StatCardVariant
 export type CellRenderer = 'default' | 'change' | 'badge' | 'sparkline'
+export type ButtonVariant = 'default' | 'primary' | 'destructive' | 'outline' | 'secondary' | 'ghost'
+
+// ── Display component props ────────────────────────────────────────────────
 
 export interface StatCardProps {
   label: LocalizedString
@@ -63,12 +71,31 @@ export interface BadgeProps {
   variant: BadgeVariant
 }
 
-export interface ChartProps {
+export interface PieChartProps {
   data: Record<string, unknown>[]
-  nameKey?: string
-  dataKey?: string
-  xKey?: string
-  yKey?: string
+  nameKey: string
+  dataKey: string
+  colors?: string[]
+}
+
+export interface BarChartProps {
+  data: Record<string, unknown>[]
+  xKey: string
+  yKey: string
+  colors?: string[]
+}
+
+export interface AreaChartProps {
+  data: Record<string, unknown>[]
+  xKey: string
+  yKey: string
+  colors?: string[]
+}
+
+export interface LineChartProps {
+  data: Record<string, unknown>[]
+  xKey: string
+  yKey: string
   colors?: string[]
 }
 
@@ -80,7 +107,7 @@ export interface TableProps {
 // ── Layout component props ─────────────────────────────────────────────────
 
 export interface GridProps {
-  cols: number
+  cols?: number
 }
 
 // ── Form component props ───────────────────────────────────────────────────
@@ -160,7 +187,7 @@ export interface RadioGroupProps {
 export interface ButtonProps {
   id: string
   label: LocalizedString
-  variant?: 'default' | 'primary' | 'destructive' | 'outline' | 'secondary' | 'ghost'
+  variant?: ButtonVariant
   action: string
   disabled?: boolean
 }
@@ -220,23 +247,193 @@ export interface FormActionData {
   values: Record<string, unknown>
 }
 
+// ── Discriminated union VNode types ────────────────────────────────────────
+
+/** All supported VNode types as a discriminated union on `type`. */
+export type TypedVNode =
+  // Display
+  | StatCardVNode
+  | SparklineVNode
+  | BadgeVNode
+  | PieChartVNode
+  | BarChartVNode
+  | AreaChartVNode
+  | LineChartVNode
+  | TableVNode
+  // Layout
+  | GridVNode
+  | RowVNode
+  | ColVNode
+  | HeadingVNode
+  | TextVNode
+  // Interactive input
+  | InputVNode
+  | TextareaVNode
+  | SelectVNode
+  | NumberVNode
+  | CheckboxVNode
+  | SwitchVNode
+  | ToggleGroupVNode
+  | RadioGroupVNode
+  | ButtonVNode
+  | TagListVNode
+  | SearchInputVNode
+
+// Display variants
+
+export interface StatCardVNode {
+  type: 'card'
+  props: StatCardProps
+}
+
+export interface SparklineVNode {
+  type: 'sparkline'
+  props: SparklineProps
+}
+
+export interface BadgeVNode {
+  type: 'badge'
+  props: BadgeProps
+}
+
+export interface PieChartVNode {
+  type: 'pie-chart'
+  props: PieChartProps
+}
+
+export interface BarChartVNode {
+  type: 'bar-chart'
+  props: BarChartProps
+}
+
+export interface AreaChartVNode {
+  type: 'area-chart'
+  props: AreaChartProps
+}
+
+export interface LineChartVNode {
+  type: 'line-chart'
+  props: LineChartProps
+}
+
+export interface TableVNode {
+  type: 'table'
+  props: TableProps
+}
+
+// Layout variants
+
+export interface GridVNode {
+  type: 'grid'
+  props?: GridProps
+  children: TypedVNode[]
+}
+
+export interface RowVNode {
+  type: 'row'
+  children: TypedVNode[]
+}
+
+export interface ColVNode {
+  type: 'col'
+  children: TypedVNode[]
+}
+
+export interface HeadingVNode {
+  type: 'heading'
+  props: { text: LocalizedString }
+}
+
+export interface TextVNode {
+  type: 'text'
+  props: { text: LocalizedString }
+}
+
+// Interactive input variants
+
+export interface InputVNode {
+  type: 'input'
+  props: InputProps
+}
+
+export interface TextareaVNode {
+  type: 'textarea'
+  props: TextareaProps
+}
+
+export interface SelectVNode {
+  type: 'select'
+  props: SelectProps
+}
+
+export interface NumberVNode {
+  type: 'number'
+  props: NumberProps
+}
+
+export interface CheckboxVNode {
+  type: 'checkbox'
+  props: CheckboxProps
+}
+
+export interface SwitchVNode {
+  type: 'switch'
+  props: SwitchProps
+}
+
+export interface ToggleGroupVNode {
+  type: 'toggle-group'
+  props: ToggleGroupProps
+}
+
+export interface RadioGroupVNode {
+  type: 'radio-group'
+  props: RadioGroupProps
+}
+
+export interface ButtonVNode {
+  type: 'button'
+  props: ButtonProps
+}
+
+export interface TagListVNode {
+  type: 'tag-list'
+  props: TagListProps
+}
+
+export interface SearchInputVNode {
+  type: 'search-input'
+  props: SearchInputProps
+}
+
 // ── Plugin UI API ──────────────────────────────────────────────────────────
 
-export interface PluginUI {
+/** View/tab management — separate from component factories. */
+export interface PluginView {
   /** Register a custom tab in the plugin settings panel. */
-  tab(id: string, label: LocalizedString, icon: string, render: () => VNode): void
-  /** Trigger re-render of a registered tab. */
-  refresh(id: string): void
+  register(id: string, label: LocalizedString, icon: string, render: () => VNode): void
+  /** Trigger re-render of a registered tab. Omit id to refresh all tabs. */
+  refresh(id?: string): void
+}
 
+/** Chart component factories (grouped sub-namespace). */
+export interface PluginChartFactory {
+  pie(props: PieChartProps): VNode
+  bar(props: BarChartProps): VNode
+  area(props: AreaChartProps): VNode
+  line(props: LineChartProps): VNode
+}
+
+/** Component factories for building plugin UI. */
+export interface PluginUI {
   // Display components
   card(props: StatCardProps): VNode
   sparkline(props: SparklineProps): VNode
   badge(props: BadgeProps): VNode
-  pie(props: ChartProps): VNode
-  bar(props: ChartProps): VNode
-  area(props: ChartProps): VNode
-  line(props: ChartProps): VNode
   table(props: TableProps): VNode
+
+  // Chart sub-namespace
+  chart: PluginChartFactory
 
   // Layout components
   grid(props: GridProps, children: VNode[]): VNode
@@ -263,7 +460,10 @@ export interface PluginUI {
    *
    * Object form (recommended) — routes by formId → action:
    *   $plugin.ui.onAction({
-   *     'my-form': { change({ values }) { ... } }
+   *     'my-form': {
+   *       change({ values }) { ... },
+   *       submit({ values }) { ... },
+   *     }
    *   })
    *
    * Function form — catch-all:

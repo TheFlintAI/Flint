@@ -458,7 +458,6 @@
     "failed": "Compression failed"
   },
   "errors": {
-    "commandUnavailable": "Command unavailable",
     "apiKeyRequired": "API key required",
     "configureProvider": "Please configure an AI provider in Settings",
     "authenticationRequired": "Authentication required",

@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 pub fn handle_channel(channel: &str, args: &[Value]) -> Result<Value, String> {
     let input = args.first().cloned().unwrap_or_else(|| json!({}));
@@ -10,6 +11,7 @@ pub fn handle_channel(channel: &str, args: &[Value]) -> Result<Value, String> {
         .or_else(|| input.get("rootPath"))
         .and_then(Value::as_str)
         .unwrap_or(".");
+    tracing::debug!("[git] {channel}");
     match channel {
         "git:scan-repositories" => scan_git_repositories(&input),
         "git:get-head" => git_success_with(
@@ -162,15 +164,28 @@ struct CmdOutput {
 }
 
 fn git_output(cwd: &str, args: &[&str]) -> Result<CmdOutput, String> {
+    let started = Instant::now();
     let output = Command::new("git")
         .args(args)
         .current_dir(cwd)
         .output()
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| {
+            let msg = error.to_string();
+            tracing::warn!("[git] exec failed: {msg}");
+            msg
+        })?;
+    let code = output.status.code().unwrap_or(1);
+    let elapsed_ms = started.elapsed().as_millis();
+    if code != 0 {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        tracing::debug!("[git] {:?} exit={code} ({elapsed_ms}ms) stderr={stderr}", args);
+    } else {
+        tracing::debug!("[git] {:?} ok ({elapsed_ms}ms)", args);
+    }
     Ok(CmdOutput {
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        code: output.status.code().unwrap_or(1),
+        code,
     })
 }
 

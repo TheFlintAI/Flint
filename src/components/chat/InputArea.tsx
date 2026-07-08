@@ -310,8 +310,7 @@ export function InputArea({
 
       const nextDraft: EditableUserMessageDraft = {
         text: editingQueueText.trim(),
-        images: cloneImageAttachments(editingQueueImages),
-        command: null
+        images: cloneImageAttachments(editingQueueImages)
       }
 
       if (!hasEditableDraftContent(nextDraft)) {

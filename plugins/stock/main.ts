@@ -295,8 +295,8 @@ function renderSettings(): VNode {
   ])
 }
 
-$plugin.ui.tab('market',  { en: 'Market', zh: '行情' }, 'TrendingUp', renderMarket)
-$plugin.ui.tab('settings', { en: 'Settings', zh: '设置' }, 'Settings', renderSettings)
+$plugin.view.register('market',  { en: 'Market', zh: '行情' }, 'TrendingUp', renderMarket)
+$plugin.view.register('settings', { en: 'Settings', zh: '设置' }, 'Settings', renderSettings)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -328,6 +328,7 @@ $plugin.ui.onAction({
 
       if (changedCn) $s.set('cn', nextCn)
       if (changedUs) $s.set('us', nextUs)
+      $s.flush('settings')
       await $s.save(SAVE_KEYS)
       await refresh()
       $s.flush()
@@ -337,32 +338,47 @@ $plugin.ui.onAction({
   'wl-search': {
     search: async ({ values }) => {
       const q = String(values.query ?? '').trim()
-      if (q.length < 2) { $s.patch({ results: [], loading: false }); $s.flush(); return }
-      $s.set('loading', true); $s.flush()
+      if (q.length < 2) { $s.patch({ results: [], loading: false }); $s.flush('settings'); return }
+      $s.set('loading', true); $s.flush('settings')
       const raw = await searchAll(q)
       $s.set('results', raw.map(r => ({ key: r.symbol, title: r.symbol, subtitle: r.name, badge: r.market === 'cn' ? { en: 'A-Shares', zh: 'A股' } : { en: 'US', zh: '美股' }, badgeVariant: r.market === 'cn' ? 'info' : 'success' })))
-      syncDisabled(); $s.set('loading', false); $s.flush()
+      syncDisabled(); $s.set('loading', false); $s.flush('settings')
     },
     'select-result': async ({ values }) => {
       const key = String(values.key ?? '').trim(); if (!key) return
       const es = $s.get('entries')
       if (es.some(e => e.symbol.toUpperCase() === key.toUpperCase()) || es.length >= CAP) return
-      $s.set('entries', [...es, await resolve(key)]); $s.set('results', []); syncDisabled()
-      await $s.save(SAVE_KEYS); await refresh(); $s.flush()
+      // Immediate: add entry locally and flush settings tab only
+      $s.set('entries', [...es, { symbol: key, name: key, market: classify(key).market }])
+      $s.set('results', [])
+      syncDisabled()
+      $s.flush('settings')
+      // Background: resolve name, persist, then fetch full market data
+      void (async () => {
+        const resolved = await resolve(key)
+        const current = $s.get('entries')
+        $s.set('entries', current.map(e => e.symbol.toUpperCase() === key.toUpperCase() ? resolved : e))
+        await $s.save(SAVE_KEYS)
+        await refresh()
+        $s.flush()
+      })()
     },
   },
 
   wl: {
     'remove-tag': async ({ values }) => {
       $s.set('entries', $s.get('entries').filter(e => e.symbol !== String(values.tagKey ?? '')))
-      syncDisabled(); await $s.save(SAVE_KEYS); await refresh(); $s.flush()
+      syncDisabled()
+      $s.flush('settings')
+      // Background: persist and refresh market data
+      void (async () => { await $s.save(SAVE_KEYS); await refresh(); $s.flush() })()
     },
     reorder: async ({ values }) => {
       const ord = values.orderedKeys as string[] | undefined
       if (!ord || !Array.isArray(ord)) return
       const map = new Map($s.get('entries').map(e => [e.symbol, e]))
       $s.set('entries', ord.map(k => map.get(k)!).filter(Boolean))
-      await $s.save(SAVE_KEYS); $s.flush()
+      await $s.save(SAVE_KEYS); $s.flush('settings')
     },
   },
 })

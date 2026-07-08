@@ -12,6 +12,7 @@
     "typecheck": "bun run typecheck:web",
     "build:plugins": "bun ./scripts/build-plugins.mjs",
     "copy:resources": "bun ./scripts/copy-resources.mjs",
+    "dist": "bun ./scripts/dist.mjs",
     "dev:web": "vite --host 127.0.0.1",
     "build:web": "vite build",
     "start": "vite preview --host 127.0.0.1",

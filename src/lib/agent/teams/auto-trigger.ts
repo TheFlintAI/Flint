@@ -20,7 +20,6 @@ export type SendMessageFn = (
   images?: ImageAttachment[],
   source?: MessageSource,
   targetTaskId?: string,
-  commandOverride?: import('@/lib/commands/system-command').SystemCommandSnapshot | null,
   reuseAssistantMessageId?: string,
   options?: SendMessageOptions
 ) => Promise<void>
@@ -205,7 +204,6 @@ export function dispatchNextQueuedMessage(taskId: string): boolean {
       next.images,
       next.source ?? 'queued',
       taskId,
-      next.command,
       undefined,
       next.options
     )

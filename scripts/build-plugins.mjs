@@ -1,7 +1,7 @@
 /**
  * Builds the shared plugin runtime + all built-in plugins into Tauri resources.
  *
- * Output target: resources/plugins/ — Tauri bundle.resources reads from here.
+ * Output target: src-tauri/resources/plugins/ — Tauri bundle.resources reads from here.
  */
 
 import { dirname, join } from 'node:path'
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 const sourceDir = join(root, 'plugins')
-const resourcePluginDir = join(root, 'resources', 'plugins')
+const resourcePluginDir = join(root, 'src-tauri', 'resources', 'plugins')
 const sdkCli = join(root, 'packages', 'flint-plugin-sdk', 'cli.js')
 
 function runCli(args) {

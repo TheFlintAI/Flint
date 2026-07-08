@@ -28,8 +28,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["../resources/icon.ico", "../resources/icon.png"],
-    "resources": ["../resources/**/*"],
+    "icon": ["resources/icons/icon.ico", "resources/icons/icon.png"],
+    "resources": {
+      "resources/": ""
+    },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper",

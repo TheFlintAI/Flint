@@ -28,7 +28,7 @@ export interface WorkerHandle {
   worker: Worker
   ready: boolean
   eventSubscriptions: Set<string>
-  tabs: Map<string, { label: LocalizedString; icon: string }>
+  views: Map<string, { label: LocalizedString; icon: string }>
   pendingRequests: Map<string, PendingRequest>
 }
 
@@ -86,7 +86,7 @@ export class WorkerManager {
       worker,
       ready: false,
       eventSubscriptions: new Set(),
-      tabs: new Map(),
+      views: new Map(),
       pendingRequests: new Map(),
     }
 
@@ -163,17 +163,17 @@ export class WorkerManager {
     this.workers.get(pluginId)?.eventSubscriptions.add(event)
   }
 
-  // Tabs
+  // Views
 
-  registerTab(pluginId: string, id: string, label: LocalizedString, icon: string): void {
+  registerView(pluginId: string, id: string, label: LocalizedString, icon: string): void {
     const handle = this.workers.get(pluginId)
-    if (handle) handle.tabs.set(id, { label, icon })
+    if (handle) handle.views.set(id, { label, icon })
   }
 
-  getTabs(pluginId: string): Array<{ id: string; label: LocalizedString; icon: string }> {
+  getViews(pluginId: string): Array<{ id: string; label: LocalizedString; icon: string }> {
     const handle = this.workers.get(pluginId)
     if (!handle) return []
-    return Array.from(handle.tabs.entries()).map(([id, tab]) => ({ id, ...tab }))
+    return Array.from(handle.views.entries()).map(([id, view]) => ({ id, ...view }))
   }
 
   // Outgoing messages
@@ -227,11 +227,11 @@ export class WorkerManager {
     }
   }
 
-  // Tab rendering
+  // View rendering
 
-  async renderTab(pluginId: string, tabId: string): Promise<VNode | null> {
+  async renderView(pluginId: string, viewId: string): Promise<VNode | null> {
     try {
-      const vnode = await this.sendRequest(pluginId, 'ui.renderTab', { tabId })
+      const vnode = await this.sendRequest(pluginId, 'view.render', { viewId })
       return vnode as VNode
     } catch {
       return null

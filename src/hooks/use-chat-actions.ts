@@ -51,13 +51,6 @@ import {
   type EditableUserMessageDraft,
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
-import { loadCommandSnapshot } from '@/lib/commands/command-loader'
-import {
-  buildSlashCommandUserText,
-  parseSlashCommandInput,
-  serializeSystemCommand,
-  type SystemCommandSnapshot
-} from '@/lib/commands/system-command'
 import { type AgentEvent, type AgentLoopConfig, type ToolCallState } from '@/lib/agent/types'
 import { ApiStreamError } from '@/services/tauri-api/api-stream'
 import {
@@ -388,55 +381,6 @@ interface RetryAssistantTarget {
 
 type ChatStoreState = ReturnType<typeof useChatStore.getState>
 
-interface ResolvedUserCommand {
-  command: SystemCommandSnapshot | null
-  userText: string
-  titleInput: string
-}
-
-async function resolveUserCommand(
-  rawText: string,
-  commandOverride?: SystemCommandSnapshot | null
-): Promise<ResolvedUserCommand | { error: string }> {
-  if (commandOverride) {
-    const userText = rawText.trim()
-    return {
-      command: commandOverride,
-      userText,
-      titleInput: userText ? `${commandOverride.name} ${userText}` : commandOverride.name
-    }
-  }
-
-  const parsed = parseSlashCommandInput(rawText)
-  if (!parsed) {
-    const userText = rawText.trim()
-    return {
-      command: null,
-      userText,
-      titleInput: userText
-    }
-  }
-
-  const loaded = await loadCommandSnapshot(parsed.commandName)
-  if ('error' in loaded) {
-    if (loaded.notFound) {
-      return {
-        command: null,
-        userText: rawText.trim(),
-        titleInput: rawText.trim()
-      }
-    }
-
-    return { error: loaded.error }
-  }
-
-  return {
-    command: loaded.command,
-    userText: buildSlashCommandUserText(loaded.command.name, parsed.userText, parsed.args),
-    titleInput: parsed.userText ? `${loaded.command.name} ${parsed.userText}` : loaded.command.name
-  }
-}
-
 function findLastEditableUserMessage(messages: UnifiedMessage[]): EditableUserMessageTarget | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
@@ -742,7 +686,6 @@ export function useChatActions(): {
     images?: ImageAttachment[],
     source?: MessageSource,
     targetTaskId?: string,
-    commandOverride?: SystemCommandSnapshot | null,
     reuseAssistantMessageId?: string,
     options?: SendMessageOptions
   ) => Promise<void>
@@ -782,7 +725,6 @@ export function useChatActions(): {
       images?: ImageAttachment[],
       source?: MessageSource,
       targetTaskId?: string,
-      commandOverride?: SystemCommandSnapshot | null,
       reuseAssistantMessageId?: string,
       options?: SendMessageOptions
     ): Promise<void> => {
@@ -834,14 +776,6 @@ export function useChatActions(): {
             )
           : undefined
 
-      const resolvedCommand = await resolveUserCommand(text, commandOverride)
-      if ('error' in resolvedCommand) {
-        toast.error(t('errors.commandUnavailable'), {
-          description: resolvedCommand.error
-        })
-        return
-      }
-
       const hasActiveRun = hasActiveTaskRun(taskId)
       const taskRunStatus = useAgentStore.getState().runningTasks[taskId]
       const statusIsRunning = taskRunStatus === 'running' || taskRunStatus === 'retrying'
@@ -855,9 +789,8 @@ export function useChatActions(): {
         source !== 'queued'
       ) {
         enqueuePendingTaskMessage(taskId, {
-          text: resolvedCommand.command ? resolvedCommand.userText : text,
+          text,
           images,
-          command: resolvedCommand.command,
           source,
           options
         })
@@ -882,9 +815,8 @@ export function useChatActions(): {
 
       if (shouldQueue) {
         enqueuePendingTaskMessage(taskId, {
-          text: resolvedCommand.command ? resolvedCommand.userText : text,
+          text,
           images,
-          command: resolvedCommand.command,
           source,
           options
         })
@@ -911,8 +843,6 @@ export function useChatActions(): {
         ) {
           useTodoStore.getState().deletePlanItemTasks(taskId)
         }
-
-        const effectiveResolvedCommand: ResolvedUserCommand = resolvedCommand
 
         const _resolvedTask = useChatStore.getState().tasks.find((s) => s.id === taskId)
         const providerResolution = await resolveMainRequestProvider({
@@ -980,20 +910,13 @@ export function useChatActions(): {
           const textBlocks: Array<Extract<ContentBlock, { type: 'text' }>> = []
           const hasImages = Boolean(images && images.length > 0)
           const textForUserBlock =
-            effectiveResolvedCommand.userText ||
-            (isQueuedInsertion && hasImages && !effectiveResolvedCommand.command
+            text ||
+            (isQueuedInsertion && hasImages
               ? QUEUED_IMAGE_ONLY_TEXT
               : '')
 
           if (isQueuedInsertion) {
             textBlocks.push({ type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND })
-          }
-
-          if (effectiveResolvedCommand.command) {
-            textBlocks.push({
-              type: 'text',
-              text: serializeSystemCommand(effectiveResolvedCommand.command)
-            })
           }
 
           if (textForUserBlock) {
@@ -1039,7 +962,7 @@ export function useChatActions(): {
         const taskItem = useChatStore.getState().tasks.find((s) => s.id === taskId)
         if (shouldAppendUserMessage && taskItem && !_autoRenamedTaskIds.has(taskId)) {
           const capturedTaskId = taskId
-          generateTaskTitle(effectiveResolvedCommand.titleInput)
+          generateTaskTitle(text)
             .then((result) => {
               if (result) {
                 _autoRenamedTaskIds.add(capturedTaskId)
@@ -2206,7 +2129,7 @@ export function useChatActions(): {
 
             if (shouldAutoContinueLongRunning) {
               queueMicrotask(() => {
-                void sendMessage('', undefined, 'continue', taskId, null, assistantMsgId)
+                void sendMessage('', undefined, 'continue', taskId, assistantMsgId)
               })
             } else {
               if (!isTaskForeground(taskId)) {
@@ -2345,7 +2268,7 @@ export function useChatActions(): {
 
       chatStore.replaceTaskMessages(taskId, nextMessages)
       handedOffToSendMessage = true
-      await sendMessage('', undefined, 'continue', taskId, undefined, resumedAssistantMessageId)
+      await sendMessage('', undefined, 'continue', taskId, resumedAssistantMessageId)
     } catch (err) {
       const rawMessage = err instanceof Error ? err.message : String(err)
       const normalizedMessage = normalizeContinuationErrorMessage(rawMessage)
@@ -2419,10 +2342,7 @@ export function useChatActions(): {
         .catch(() => {})
       await sendMessage(
         target.draft.text,
-        target.draft.images.length > 0 ? cloneImageAttachments(target.draft.images) : undefined,
-        undefined,
-        undefined,
-        target.draft.command
+        target.draft.images.length > 0 ? cloneImageAttachments(target.draft.images) : undefined
       )
     },
     [sendMessage, stopStreaming]

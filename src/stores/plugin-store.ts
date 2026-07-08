@@ -43,7 +43,7 @@ export interface Plugin {
   errorMessage?: string
 }
 
-export interface PluginTab {
+export interface PluginViewInfo {
   id: string
   label: LocalizedString
   icon: string
@@ -104,8 +104,8 @@ interface PluginStoreState {
   initialized: boolean
   error: string | null
   selectedPluginId: string | null
-  pluginTabs: Record<string, PluginTab[]>
-  tabVNodes: Record<string, Record<string, VNode | null>>
+  pluginViews: Record<string, PluginViewInfo[]>
+  viewVNodes: Record<string, Record<string, VNode | null>>
   pluginTools: Record<string, PluginToolInfo[]>
 
   selectPlugin: (id: string | null) => void
@@ -120,7 +120,7 @@ interface PluginStoreState {
   updateSetting: (pluginId: string, key: string, value: unknown) => Promise<void>
   getPluginSettings: (id: string) => Record<string, unknown>
   getPluginPermissions: (id: string) => string[]
-  loadTabVNode: (pluginId: string, tabId: string) => Promise<void>
+  loadViewVNode: (pluginId: string, viewId: string) => Promise<void>
 }
 
 export const usePluginStore = create<PluginStoreState>()((set, get) => ({
@@ -128,8 +128,8 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
   initialized: false,
   error: null,
   selectedPluginId: null,
-  pluginTabs: {},
-  tabVNodes: {},
+  pluginViews: {},
+  viewVNodes: {},
   pluginTools: {},
 
   selectPlugin: (id) => set({ selectedPluginId: id }),
@@ -263,12 +263,12 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
     // 3. Clean up plugin-registered tools from registry
     await cleanupPluginTools(id)
 
-    // 4. Clean up tab and tool UI state
+    // 4. Clean up view and tool UI state
     set((state) => {
-      const { [id]: _, ...restTabs } = state.pluginTabs
-      const { [id]: __, ...restVNodes } = state.tabVNodes
+      const { [id]: _, ...restViews } = state.pluginViews
+      const { [id]: __, ...restVNodes } = state.viewVNodes
       const { [id]: ___, ...restTools } = state.pluginTools
-      return { pluginTabs: restTabs, tabVNodes: restVNodes, pluginTools: restTools }
+      return { pluginViews: restViews, viewVNodes: restVNodes, pluginTools: restTools }
     })
 
     // 5. Synchronize with Tauri
@@ -313,13 +313,13 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
 
       await invokePlugin(TAURI_COMMANDS.PLUGIN_UNINSTALL, { pluginId: id })
       set((state) => {
-        const { [id]: _, ...restTabs } = state.pluginTabs
-        const { [id]: __, ...restVNodes } = state.tabVNodes
+        const { [id]: _, ...restViews } = state.pluginViews
+        const { [id]: __, ...restVNodes } = state.viewVNodes
         const { [id]: ___, ...restTools } = state.pluginTools
         return {
           plugins: state.plugins.filter((p) => p.id !== id),
-          pluginTabs: restTabs,
-          tabVNodes: restVNodes,
+          pluginViews: restViews,
+          viewVNodes: restVNodes,
           pluginTools: restTools,
         }
       })
@@ -362,15 +362,15 @@ export const usePluginStore = create<PluginStoreState>()((set, get) => ({
     return plugin?.manifest.permissions ?? []
   },
 
-  loadTabVNode: async (pluginId, tabId) => {
+  loadViewVNode: async (pluginId, viewId) => {
     try {
-      const vnode = await getWorkerManager().renderTab(pluginId, tabId)
+      const vnode = await getWorkerManager().renderView(pluginId, viewId)
       set((state) => ({
-        tabVNodes: {
-          ...state.tabVNodes,
+        viewVNodes: {
+          ...state.viewVNodes,
           [pluginId]: {
-            ...(state.tabVNodes[pluginId] ?? {}),
-            [tabId]: vnode
+            ...(state.viewVNodes[pluginId] ?? {}),
+            [viewId]: vnode
           }
         }
       }))

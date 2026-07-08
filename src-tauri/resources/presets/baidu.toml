@@ -1,0 +1,54 @@
+[provider]
+builtinId = "baidu"
+name = { en = "Baidu Qianfan", zh = "百度千帆" }
+type = "openai-chat"
+defaultBaseUrl = "https://qianfan.baidubce.com/v2"
+homepage = "https://cloud.baidu.com/product-s/qianfan_home"
+
+# ═══════════════════════════════════════════════════════════════
+# ERNIE Series
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "ernie-5.1"
+name = "ERNIE 5.1"
+contextLength = 128000
+
+[[provider.defaultModels]]
+id = "ernie-5.0"
+name = "ERNIE 5.0"
+contextLength = 128000
+
+[[provider.defaultModels]]
+id = "ernie-4.5-turbo-128k"
+name = "ERNIE 4.5 Turbo 128K"
+contextLength = 128000
+
+[[provider.defaultModels]]
+id = "ernie-speed-pro-128k"
+name = "ERNIE Speed Pro 128K"
+contextLength = 128000
+
+[[provider.defaultModels]]
+id = "ernie-x1.1-preview"
+name = "ERNIE X1.1 Preview"
+
+# ═══════════════════════════════════════════════════════════════
+# Aggregated Third-Party Models
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "deepseek-v4-flash"
+name = "DeepSeek V4 Flash"
+
+[[provider.defaultModels]]
+id = "deepseek-v3.2"
+name = "DeepSeek V3.2"
+
+[[provider.defaultModels]]
+id = "glm-4.7"
+name = "GLM 4.7"
+
+[[provider.defaultModels]]
+id = "kimi-k2.5"
+name = "Kimi K2.5"

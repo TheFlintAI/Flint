@@ -1,0 +1,47 @@
+[provider]
+builtinId = "deepseek"
+name = { en = "DeepSeek", zh = "DeepSeek" }
+type = "anthropic"
+defaultBaseUrl = "https://api.deepseek.com/anthropic"
+homepage = "https://platform.deepseek.com"
+defaultModel = "deepseek-v4-flash"
+
+# ═══════════════════════════════════════════════════════════════
+# DeepSeek V4 (April 2026, MIT license)
+# Three reasoning modes: Non-think, Think High, Think Max
+# Legacy aliases 'deepseek-chat'/'deepseek-reasoner' deprecate July 24, 2026
+# ═══════════════════════════════════════════════════════════════
+
+[[provider.defaultModels]]
+id = "deepseek-v4-flash"
+name = "DeepSeek V4 Flash"
+contextLength = 1000000
+maxOutputTokens = 384000
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+forceTemperature = 1.0
+reasoningEffortLevels = ["high", "max"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+enable_thinking = true
+
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+enable_thinking = false
+
+[[provider.defaultModels]]
+id = "deepseek-v4-pro"
+name = "DeepSeek V4 Pro"
+contextLength = 1000000
+maxOutputTokens = 384000
+supportsThinking = true
+
+[provider.defaultModels.thinkingConfig]
+forceTemperature = 1.0
+reasoningEffortLevels = ["high", "max"]
+defaultReasoningEffort = "high"
+[provider.defaultModels.thinkingConfig.bodyParams.thinking]
+enable_thinking = true
+
+[provider.defaultModels.thinkingConfig.disabledBodyParams.thinking]
+enable_thinking = false

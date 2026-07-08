@@ -5,7 +5,7 @@
  */
 
 import type { AgentLifecycleEvent } from './events'
-import type { PluginUI } from './vnode'
+import type { PluginView, PluginUI } from './vnode'
 import type { PluginTools } from './tools'
 import type { PluginShell, PluginFS, PluginFetchResponse, PluginClipboard } from './capabilities'
 
@@ -59,37 +59,37 @@ export interface PluginHook {
   on(event: string, fn: (data: AgentLifecycleEvent) => void): { dispose(): void }
 }
 
-// ── Store (persistent KV) ──────────────────────────────────────────────────
+// ── KV (persistent key-value store) ────────────────────────────────────────
 
-export interface PluginStore {
+export interface PluginKV {
   get<T = unknown>(key: string): Promise<T | undefined>
   set<T = unknown>(key: string, value: T): Promise<void>
   delete(key: string): Promise<void>
   keys(): Promise<string[]>
 }
 
-// ── Settings ───────────────────────────────────────────────────────────────
+// ── Config (plugin configuration) ──────────────────────────────────────────
 
-export interface PluginSettings {
+export interface PluginConfig {
   get<T = Record<string, unknown>>(): Promise<T>
   set<T = Record<string, unknown>>(settings: T): Promise<void>
   onChange<T = Record<string, unknown>>(callback: (settings: T) => void): { dispose(): void }
 }
 
-// ── State (reactive K/V store) ──────────────────────────────────────────────
+// ── State (reactive session store) ─────────────────────────────────────────
 
 export interface PluginStateStore<T extends Record<string, unknown>> {
   get<K extends keyof T>(key: K): T[K]
   set<K extends keyof T>(key: K, value: T[K]): void
   /** Batch-write multiple keys. Does NOT trigger UI refresh — call flush() explicitly. */
   patch(partial: Partial<T>): void
-  /** Trigger UI re-render for all registered tabs. */
-  flush(): void
+  /** Trigger UI re-render. Pass a viewId to refresh only that view; omit to refresh all views. */
+  flush(viewId?: string): void
   /** Snapshot the entire state. */
   getAll(): T
-  /** Restore all keys from persisted plugin settings. */
+  /** Restore all keys from persisted plugin config. */
   load(): Promise<void>
-  /** Persist the given keys (or all keys) to plugin settings. */
+  /** Persist the given keys (or all keys) to plugin config. */
   save(keys?: (keyof T)[]): Promise<void>
 }
 
@@ -133,9 +133,14 @@ export interface PluginRuntime {
   lifecycle: PluginLifecycle
   hook: PluginHook
   tools: PluginTools
+  /** View/tab management — register tabs, trigger re-renders. */
+  view: PluginView
+  /** Component factories — display, layout, chart, and interactive input components. */
   ui: PluginUI
-  store: PluginStore
-  settings: PluginSettings
+  /** Persistent key-value store (Tauri-backed). */
+  kv: PluginKV
+  /** Plugin configuration (persistent settings). */
+  config: PluginConfig
   state: PluginState
   log: PluginLog
   /** Managed timers — auto-cleaned on deactivate. */

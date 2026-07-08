@@ -6,9 +6,7 @@ import {
   openMarkdownHref
 } from '@/lib/utils/markdown-utils'
 import { useStreamingRenderPool } from '@/hooks/use-typewriter'
-import { useStreamingStall } from '@/hooks/use-streaming-stall'
 import { createMarkdownCodeComponent } from './MarkdownCodeRenderer'
-import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
 /**
@@ -102,7 +100,6 @@ export function StreamingMarkdownContent({
   isStreaming: boolean
 }): React.JSX.Element {
   const renderPool = useStreamingRenderPool(text, isStreaming)
-  const stalled = useStreamingStall(text, isStreaming)
 
   if (!text.trim()) {
     return <div className="break-words leading-relaxed text-foreground">{text}</div>
@@ -117,7 +114,6 @@ export function StreamingMarkdownContent({
         data-target-length={renderPool.targetLength}
       >
         <MarkdownContent text={renderPool.text} isStreaming={false} />
-        {stalled && <Spinner className="ml-1 inline-block size-3.5 align-baseline" />}
       </div>
     )
   }

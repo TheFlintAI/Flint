@@ -22,11 +22,15 @@ export function createVNodeFactory() {
     card(p)      { return makeNode('card', p) },
     sparkline(p) { return makeNode('sparkline', p) },
     badge(p)     { return makeNode('badge', p) },
-    pie(p)       { return makeNode('pie-chart', p) },
-    bar(p)       { return makeNode('bar-chart', p) },
-    area(p)      { return makeNode('area-chart', p) },
-    line(p)      { return makeNode('line-chart', p) },
     table(p)     { return makeNode('table', p) },
+
+    // Chart sub-namespace — grouped family sharing ChartProps
+    chart: {
+      pie(p)  { return makeNode('pie-chart', p) },
+      bar(p)  { return makeNode('bar-chart', p) },
+      area(p) { return makeNode('area-chart', p) },
+      line(p) { return makeNode('line-chart', p) },
+    },
 
     // Layout components
     grid(p, c)   { return makeNode('grid', p, c) },

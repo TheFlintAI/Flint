@@ -22,6 +22,7 @@ pub(crate) fn shell_exec(window: &Window, args: &[Value]) -> Result<Value, Strin
         .exec_id
         .unwrap_or_else(|| format!("exec-{}", started_millis()));
     let shell = input.shell.unwrap_or_else(default_shell);
+    tracing::debug!("[process:exec] id={exec_id} shell={shell} cmd={}", input.command);
     let mut command = Command::new(&shell);
     if cfg!(windows) {
         if shell.to_lowercase().contains("powershell") || shell.to_lowercase().contains("pwsh") {
@@ -83,6 +84,7 @@ pub(crate) fn process_spawn(
 ) -> Result<Value, String> {
     let input = parse_first_arg::<ProcessSpawnArgs>(args)?;
     let id = next_process_id(state, "proc")?;
+    tracing::debug!("[process:spawn] id={id} cmd={}", input.command);
     spawn_managed_process(window, state, id, input, "process")
 }
 
@@ -243,6 +245,7 @@ fn spawn_process_waiter(
             .ok()
             .and_then(|status| status.code())
             .unwrap_or(-1);
+        tracing::debug!("[process:exit] id={id} code={code}");
         let _ = emit_command_event(
             &window,
             &format!("{event_family}:output"),
@@ -276,8 +279,10 @@ pub(crate) fn process_kill(
         .map_err(|error| error.to_string())?
         .remove(&input.id);
     let Some(process) = process else {
+        tracing::warn!("[process:kill] id={} not found", input.id);
         return Ok(json!({ "success": false, "error": "Process not found" }));
     };
+    tracing::debug!("[process:kill] id={}", input.id);
     process.child.kill().map_err(|error| error.to_string())?;
     Ok(json!({ "success": true }))
 }

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/icon.png" alt="Flint" width="128" />
+  <img src="src-tauri/resources/icons/icon.png" alt="Flint" width="128" />
 </p>
 
 <h3 align="center">Flint</h3>
