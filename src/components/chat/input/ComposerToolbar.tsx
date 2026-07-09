@@ -96,7 +96,7 @@ export function ComposerToolbar({
   return (
     <div
       ref={bottomToolbarRef}
-      className="relative z-20 mt-1 shrink-0 flex items-center justify-between gap-2 p-2"
+      className="relative z-20 mt-1 shrink-0 flex items-center justify-between gap-2 px-4 pt-2 pb-4"
     >
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pr-1 [scrollbar-width:none]">

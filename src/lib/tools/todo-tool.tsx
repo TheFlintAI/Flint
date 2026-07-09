@@ -14,12 +14,12 @@ import { firstStringInput, formatStructuredInputValue, enumLabel } from '@/compo
 
 // Helpers: dual-mode (standalone vs. team)
 
-function hasActiveTeam(): boolean {
-  return !!useTeamStore.getState().activeTeam
+function hasActiveTeam(taskId?: string): boolean {
+  return taskId ? !!useTeamStore.getState().activeTeams[taskId] : false
 }
 
-function getTeamTasks(): TeamTask[] {
-  return useTeamStore.getState().activeTeam?.tasks ?? []
+function getTeamTasks(taskId?: string): TeamTask[] {
+  return taskId ? (useTeamStore.getState().activeTeams[taskId]?.tasks ?? []) : []
 }
 
 function getStandaloneTasks(taskId?: string): TodoItem[] {
@@ -120,9 +120,9 @@ const taskCreateHandler: ToolHandler = {
     const metadata = input.metadata as Record<string, unknown> | undefined
     const id = nanoid(5)
 
-    if (hasActiveTeam()) {
+    if (hasActiveTeam(ctx.taskId)) {
       // Team mode: check for duplicate, then emit team event
-      const existing = getTeamTasks().find((t) => t.subject === subject)
+      const existing = getTeamTasks(ctx.taskId).find((t) => t.subject === subject)
       if (existing) {
         return encodeStructuredToolResult({
           success: true,
@@ -200,8 +200,8 @@ const taskGetHandler: ToolHandler = {
   execute: async (input, ctx) => {
     const taskId = String(input.taskId)
 
-    if (hasActiveTeam()) {
-      const task = getTeamTasks().find((t) => t.id === taskId)
+    if (hasActiveTeam(ctx.taskId)) {
+      const task = getTeamTasks(ctx.taskId).find((t) => t.id === taskId)
       if (!task) return encodeStructuredToolResult({ error: `Task "${taskId}" not found` })
       return encodeStructuredToolResult({
         id: task.id,
@@ -284,8 +284,8 @@ const taskUpdateHandler: ToolHandler = {
     const newStatus = input.status ? String(input.status) : undefined
 
     // --- Team mode ---
-    if (hasActiveTeam()) {
-      const team = useTeamStore.getState().activeTeam!
+    if (hasActiveTeam(ctx.taskId)) {
+      const team = useTeamStore.getState().activeTeams[ctx.taskId]!
       const task = team.tasks.find((t) => t.id === taskId)
       if (!task) return encodeStructuredToolResult({ error: `Task "${taskId}" not found` })
 
@@ -408,8 +408,8 @@ const taskListHandler: ToolHandler = {
     }
   },
   execute: async (_input, ctx) => {
-    if (hasActiveTeam()) {
-      const team = useTeamStore.getState().activeTeam!
+    if (hasActiveTeam(ctx.taskId)) {
+      const team = useTeamStore.getState().activeTeams[ctx.taskId]!
       const tasks = team.tasks
       return encodeStructuredToolResult({
         mode: 'team',
@@ -512,8 +512,11 @@ function parseTaskOutput(outputText: string | undefined): ParsedTaskOutput {
 }
 
 function resolveTaskSubject(taskId: string): string | null {
-  const teamTask = useTeamStore.getState().activeTeam?.tasks.find((t) => t.id === taskId)
-  if (teamTask?.subject) return teamTask.subject
+  const allTeams = Object.values(useTeamStore.getState().activeTeams)
+  for (const team of allTeams) {
+    const teamTask = team.tasks.find((t) => t.id === taskId)
+    if (teamTask?.subject) return teamTask.subject
+  }
   const standalone = useTodoStore.getState().getPlanItem(taskId)
   if (standalone?.subject) return standalone.subject
   return null

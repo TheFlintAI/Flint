@@ -25,10 +25,13 @@ export function ProgressCard(): React.JSX.Element | null {
       return state.tasksByTask[activeTaskId] ?? EMPTY_TASKS
     })
   )
-  const activeTeam = useTeamStore((state) => state.activeTeam)
+  // Team is per-task — look up directly from the activeTeams map.
+  const team = useTeamStore((state) =>
+    activeTaskId ? (state.activeTeams[activeTaskId] ?? null) : null
+  )
   const teamTasks = useMemo(
-    () => (activeTeam?.tasks ?? []).map(teamTaskToItem),
-    [activeTeam?.tasks],
+    () => (team?.tasks ?? []).map(teamTaskToItem),
+    [team?.tasks],
   )
   const tasks = taskJobs.length > 0 ? taskJobs : teamTasks
 

@@ -66,8 +66,8 @@ const log = createLogger('InputArea')
 
 const EMPTY_QUEUED_MESSAGES: PendingTaskMessageItem[] = []
 const INTERNAL_FILE_DRAG_MIME = 'application/x-flint-file-paths'
-const _MIN_INPUT_HEIGHT = 120
-const DEFAULT_TASK_INPUT_HEIGHT = 160
+const MIN_INPUT_HEIGHT = 160
+const MAX_INPUT_HEIGHT = 360
 
 interface InputAreaProps {
   taskId?: string | null
@@ -939,7 +939,7 @@ export function InputArea({
             dragging && 'ring-2 ring-primary/50'
           )}
           data-composer-variant="task"
-          style={{ height: DEFAULT_TASK_INPUT_HEIGHT }}
+          style={{ minHeight: MIN_INPUT_HEIGHT, maxHeight: MAX_INPUT_HEIGHT }}
         >
           {/* Image preview strip */}
           <ImageAttachmentStrip
@@ -949,7 +949,7 @@ export function InputArea({
 
           {/* Text input area */}
           <div
-            className="relative flex min-h-0 flex-1 flex-col px-3 pt-3"
+            className="relative flex min-h-0 flex-1 flex-col px-2 pt-2"
             onDrop={handleDropWrapped}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -962,7 +962,7 @@ export function InputArea({
                 </span>
               </div>
             )}
-            <div className="relative flex-1 min-h-0 overflow-visible">
+            <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
               <FileAwareEditor
                 ref={editorRef}
                 document={documentNodes}
@@ -976,7 +976,7 @@ export function InputArea({
                 onPaste={handlePaste}
                 onReferenceLocate={handleLocateFileReference}
                 onReferenceDelete={handleRemoveFileReference}
-                className="h-full w-full"
+                className="flex-1 min-h-0 w-full"
               />
             </div>
           </div>

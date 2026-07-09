@@ -620,8 +620,8 @@ registerHasActiveTaskRun(hasActiveTaskRun)
 
 // Wire up: abort team callback for task-abort-control
 registerAbortTeam((taskId: string, clearPendingApprovals?: boolean) => {
-  const team = useTeamStore.getState().activeTeam
-  if (team?.taskId !== taskId) return
+  const team = useTeamStore.getState().activeTeams[taskId] ?? null
+  if (!team) return
 
   resetTeamAutoTrigger()
   abortAllTeammatesLazy()
@@ -1022,14 +1022,14 @@ export function useChatActions(): {
         setTaskAbortController(taskId, abortController)
 
         await registerCoreToolsOnce()
-        await refreshDynamicToolCatalog()
+        await refreshDynamicToolCatalog(resolveTaskWorkingFolder(taskItem, options?.workspace))
 
         const memorySnapshot = await loadMemoryIndex(tauriCommands)
         const taskWorkingFolder = resolveTaskWorkingFolder(taskItem)
         const environmentContext = resolveEnvironmentContext({
           workingFolder: taskWorkingFolder
         })
-        const activeTeam = useTeamStore.getState().activeTeam
+        const activeTeam = useTeamStore.getState().activeTeams[taskId] ?? null
         {
           // Tool-capable fixed agent loop
           const allToolDefs = toolRegistry.getDefinitions()
@@ -2146,7 +2146,7 @@ export function useChatActions(): {
 
               // If there's an active team, set up the lead message listener
               // and drain any messages that arrived while the loop was running.
-              if (useTeamStore.getState().activeTeam) {
+              if (taskId && useTeamStore.getState().activeTeams[taskId]) {
                 ensureTeamLeadListener()
                 // Schedule a debounced drain to batch reports that arrive close together
                 scheduleDrain()
@@ -2164,7 +2164,7 @@ export function useChatActions(): {
 
   useEffect(() => {
     ensureTeamLeadListener()
-    if (useTeamStore.getState().activeTeam) {
+    if (Object.keys(useTeamStore.getState().activeTeams).length > 0) {
       scheduleDrain()
     }
   }, [])

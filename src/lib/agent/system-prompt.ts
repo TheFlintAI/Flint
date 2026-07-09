@@ -5,7 +5,7 @@ import { toolRegistry } from './tool-registry'
 import type { ActiveTeam } from '@/stores/team-store'
 import { promptRegistry } from './prompt-engine'
 import type { SectionContext, EnvironmentContext, WorkerTaskInfo, MemoryPromptData, SkillPromptData } from './prompt-engine/types'
-import { listSkills, scanWorkspaceSkills } from '@/lib/resources/resource-manager'
+import { listSkills, scanWorkspaceSkills, mergeSkills } from '@/lib/resources/resource-manager'
 
 // Skills loading
 
@@ -15,11 +15,7 @@ async function loadEnabledSkills(workingFolder?: string): Promise<SkillPromptDat
   const workspaceSkills = workingFolder
     ? await scanWorkspaceSkills(workingFolder)
     : []
-  const wsNames = new Set(workspaceSkills.map(s => s.name))
-  const allSkills = [
-    ...workspaceSkills,
-    ...globalSkills.filter(s => !wsNames.has(s.name))
-  ]
+  const allSkills = mergeSkills(globalSkills, workspaceSkills)
   return allSkills
     .filter(s => s.enabled)
     .map(s => ({ name: s.name, description: s.description }))

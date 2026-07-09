@@ -41,7 +41,7 @@ export function removeTeamLimiter(teamName: string): void {
 // ── Runtime helpers ──
 
 function scheduleNextTask(teamName: string): void {
-  const team = useTeamStore.getState().activeTeam
+  const team = Object.values(useTeamStore.getState().activeTeams).find(t => t.name === teamName) ?? null
   if (!team || team.name !== teamName) return
 
   const ctx = teamContexts.get(teamName)
@@ -49,7 +49,7 @@ function scheduleNextTask(teamName: string): void {
   const limiter = ctx.limiter
   if (limiter.activeCount >= 2) return
 
-  const nextTask = findNextClaimableTask()
+  const nextTask = findNextClaimableTask(team.taskId)
   if (!nextTask) return
 
   const memberName = `worker-${nanoid(4)}`
@@ -87,7 +87,8 @@ function scheduleNextTask(teamName: string): void {
         taskId: nextTask.id,
         model: null,
         workingFolder: ctx.workingFolder,
-        sshConnectionId: ctx.sshConnectionId
+        sshConnectionId: ctx.sshConnectionId,
+        owningTaskId: team.taskId
       }).finally(() => {
         limiter.release()
         scheduleNextTask(teamName)
@@ -144,7 +145,7 @@ async function executeSpawn(
   input: Record<string, unknown>,
   ctx: ToolContext
 ): Promise<ToolResultContent> {
-  const team = useTeamStore.getState().activeTeam
+  const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
   if (!team) {
     return encodeToolError('No active team. Call TeamCreate first.')
   }
@@ -220,7 +221,8 @@ async function executeSpawn(
         taskId,
         model: modelTier,
         workingFolder: ctx.workingFolder,
-        sshConnectionId: ctx.sshConnectionId
+        sshConnectionId: ctx.sshConnectionId,
+        owningTaskId: team.taskId
       }).finally(() => {
         limiter.release()
         scheduleNextTask(teamName)

@@ -53,8 +53,9 @@ export function RightPanel(): React.JSX.Element {
     setIsDragging(true)
   }
 
+  const panelWidth = clampRightPanelWidth(rightPanelWidth)
   const totalWidth = rightPanelOpen
-    ? clampRightPanelWidth(rightPanelWidth) + RIGHT_PANEL_GUTTER_WIDTH
+    ? panelWidth + RIGHT_PANEL_GUTTER_WIDTH
     : 0
 
   return (
@@ -62,7 +63,11 @@ export function RightPanel(): React.JSX.Element {
       className="relative z-40 h-full shrink-0 overflow-hidden transition-[width] duration-300 ease-out"
       style={{ width: totalWidth }}
     >
-      <div className="flex h-full">
+      {/* Inner layout always rendered at full panel width so content never
+          reflows during the open/close animation. The outer overflow-hidden
+          acts purely as an animation mask, revealing the fixed-width content
+          as the panel slides in. */}
+      <div className="flex h-full" style={{ width: panelWidth + RIGHT_PANEL_GUTTER_WIDTH }}>
         {/* Gutter — whitespace separator matching sidebar background */}
         <div
           className="relative h-full shrink-0 bg-sidebar group"
@@ -82,11 +87,12 @@ export function RightPanel(): React.JSX.Element {
 
         <aside
           className={cn(
-            'relative flex h-full flex-1 flex-col bg-background shadow-[-18px_0_42px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-300 ease-out',
+            'relative flex h-full flex-col bg-background shadow-[-18px_0_42px_rgba(0,0,0,0.16)] transition-[opacity,transform] duration-300 ease-out',
             rightPanelOpen
               ? 'translate-x-0 opacity-100'
               : 'pointer-events-none translate-x-full opacity-0',
           )}
+          style={{ width: panelWidth }}
         >
           <RightPanelHeader />
 

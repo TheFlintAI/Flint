@@ -56,14 +56,28 @@ function registerPendingApproval(requestId: string, toolCallId: string, replyTo:
   useAgentStore.getState().registerApprovalSource(toolCallId, { requestId, replyTo })
 }
 
+/** Find an active team by its runtime name. */
+function findTeamByName(teamName: string): { team: import('@/stores/team-store').ActiveTeam; taskId: string } | null {
+  const { activeTeams } = useTeamStore.getState()
+  for (const [taskId, team] of Object.entries(activeTeams)) {
+    if (team.name === teamName) return { team, taskId }
+  }
+  return null
+}
+
 export async function sendApprovalResponse(params: {
   requestId: string
   approved: boolean
   to: string
   summary?: string
 }): Promise<void> {
-  const team = useTeamStore.getState().activeTeam
-  if (!team) return
+  const found = findTeamByName('lead') // The lead's team — find by iteration
+  // Fallback: try to find any active team (for single-team scenarios)
+  const { activeTeams } = useTeamStore.getState()
+  const entries = Object.entries(activeTeams)
+  if (entries.length === 0) return
+  // Use the first active team as the lead's team
+  const [taskId, team] = entries[0]
 
   approvalRequestToToolCallId.delete(params.requestId)
 
@@ -81,7 +95,10 @@ export async function sendApprovalResponse(params: {
   })
 }
 
-async function handleLeadMessage(message: TeamRuntimeMessageRecord): Promise<void> {
+async function handleLeadMessage(
+  message: TeamRuntimeMessageRecord,
+  teamTaskId: string
+): Promise<void> {
   if (seenMessageIds.has(message.id)) return
   seenMessageIds.add(message.id)
   lastLeadMessageTimestamp = Math.max(lastLeadMessageTimestamp, message.timestamp)
@@ -104,7 +121,7 @@ async function handleLeadMessage(message: TeamRuntimeMessageRecord): Promise<voi
     const payload = parsePermissionUpdate(message.content)
     if (!payload) return
 
-    useTeamStore.getState().updateTeamMeta({
+    useTeamStore.getState().updateTeamMeta(teamTaskId, {
       ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
       ...(payload.teamAllowedPaths ? { teamAllowedPaths: payload.teamAllowedPaths } : {})
     })
@@ -136,35 +153,41 @@ async function handleLeadMessage(message: TeamRuntimeMessageRecord): Promise<voi
   }
 }
 
+/** Poll all active teams' inboxes for lead messages. */
 export function startTeamInboxPoller(): void {
   if (pollerTimer) return
 
   pollerTimer = setInterval(() => {
-    const team = useTeamStore.getState().activeTeam
-    if (!team?.name) return
+    const { activeTeams } = useTeamStore.getState()
+    const entries = Object.entries(activeTeams)
+    if (entries.length === 0) return
 
-    void consumeTeamRuntimeMessages({
-      teamName: team.name,
-      afterTimestamp: lastLeadMessageTimestamp,
-      recipient: 'lead',
-      includeBroadcast: true,
-      limit: 20
-    })
-      .then(async (messages) => {
-        for (const message of messages) {
-          await handleLeadMessage({
-            id: message.id,
-            from: message.from,
-            to: message.to,
-            type: message.type,
-            content: message.content,
-            summary: message.summary,
-            timestamp: message.timestamp
-          })
-        }
+    for (const [taskId, team] of entries) {
+      if (!team.name) continue
+
+      void consumeTeamRuntimeMessages({
+        teamName: team.name,
+        afterTimestamp: lastLeadMessageTimestamp,
+        recipient: 'lead',
+        includeBroadcast: true,
+        limit: 20
       })
-      .catch((error) => {
-        log.error('Lead inbox poll failed:', error)
-      })
+        .then(async (messages) => {
+          for (const message of messages) {
+            await handleLeadMessage({
+              id: message.id,
+              from: message.from,
+              to: message.to,
+              type: message.type,
+              content: message.content,
+              summary: message.summary,
+              timestamp: message.timestamp
+            }, taskId)
+          }
+        })
+        .catch((error) => {
+          log.error('Lead inbox poll failed:', error)
+        })
+    }
   }, 1000)
 }

@@ -187,7 +187,7 @@ function App(): React.JSX.Element {
               useTeamStore.getState().handleTeamEvent(event.event, event.taskId ?? undefined)
               return
             case 'team_meta':
-              useTeamStore.getState().updateTeamMeta(event.patch)
+              useTeamStore.getState().updateTeamMeta(event.taskId, event.patch)
               return
             case 'clear_session_team':
               useTeamStore.getState().clearTaskTeam(event.taskId)

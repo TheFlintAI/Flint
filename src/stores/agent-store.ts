@@ -291,7 +291,7 @@ export const useAgentStore = create<AgentStore>()(
           ) {
             return true
           }
-          if (useTeamStore.getState().activeTeam?.taskId === taskId) return true
+          if (useTeamStore.getState().activeTeams[taskId] !== undefined) return true
           return false
         },
 

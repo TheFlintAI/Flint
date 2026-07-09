@@ -367,9 +367,8 @@ function getResidentTaskIds(
       residentTaskIds.add(process.taskId)
     }
   }
-  const activeTeamTaskId = useTeamStore.getState().activeTeam?.taskId
-  if (activeTeamTaskId) {
-    residentTaskIds.add(activeTeamTaskId)
+  for (const teamTaskId of Object.keys(useTeamStore.getState().activeTeams)) {
+    residentTaskIds.add(teamTaskId)
   }
 
   return residentTaskIds

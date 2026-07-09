@@ -18,8 +18,7 @@ type ReturnOn = 'all' | 'any' | 'first_message'
 
 const DONE_STATUSES = new Set(['stopped', 'completed', 'failed', 'removed', 'timed_out'])
 
-function resolveMemberResult(memberId: string): MemberResult {
-  const team = useTeamStore.getState().activeTeam
+function resolveMemberResult(team: ReturnType<typeof useTeamStore.getState>['activeTeams'][string] | null, memberId: string): MemberResult {
   const member = team?.members.find((m) => m.id === memberId)
   return {
     memberId,
@@ -59,7 +58,7 @@ export const waitTool: ToolHandler = {
   },
 
   execute: async (input, ctx) => {
-    const team = useTeamStore.getState().activeTeam
+    const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
     if (!team) return encodeToolError('No active team. Call TeamCreate first.')
 
     const memberIds: string[] =
@@ -96,7 +95,7 @@ export const waitTool: ToolHandler = {
         if (!member) {
           completed.set(id, { memberId: id, memberName: id, status: 'removed' })
         } else if (DONE_STATUSES.has(member.status)) {
-          completed.set(id, resolveMemberResult(id))
+          completed.set(id, resolveMemberResult(team, id))
         }
       }
     }
@@ -134,7 +133,7 @@ export const waitTool: ToolHandler = {
           if (event.type === 'team_member_update' && targetSet.has(event.memberId)) {
             const patch = event.patch
             if (patch.status && DONE_STATUSES.has(patch.status)) {
-              completed.set(event.memberId, resolveMemberResult(event.memberId))
+              completed.set(event.memberId, resolveMemberResult(team, event.memberId))
               if (shouldReturn()) {
                 cleanup()
                 resolve()
@@ -167,7 +166,7 @@ export const waitTool: ToolHandler = {
     const elapsed = Date.now() - startWait
 
     const allResults = Array.from(targetSet).map((id) =>
-      completed.get(id) ?? resolveMemberResult(id)
+      completed.get(id) ?? resolveMemberResult(team, id)
     )
     const done = allResults.filter((r) => DONE_STATUSES.has(r.status))
     const stillRunning = allResults.filter((r) => !DONE_STATUSES.has(r.status))

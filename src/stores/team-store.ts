@@ -10,15 +10,18 @@ import type {
 import { commandStorage } from '@/services/tauri-api/command-storage'
 import { deleteTeamRuntime } from '@/services/tauri-api/team-runtime'
 import { useUIStore } from './ui-store'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('TeamStore')
 
 /**
- * Team state model.
+ * Team state model — per-task architecture.
  *
- * The in-memory store is the SINGLE source of truth for team lifecycle,
- * members, tasks, meta, and the UI message log. State changes enter only
- * through `teamEvents` (handled by `handleTeamEvent`) and `updateTeamMeta`.
+ * Teams are task-scoped entities. Multiple tasks can each have their own
+ * running team concurrently. Each non-ended team lives in `activeTeams`
+ * keyed by its owning task's ID.
  *
- * The on-disk team runtime (`~/.flint/teams/<name>/messages.json`) is a
+ * The on-disk team runtime (~/.flint/teams/<name>/messages.json) is a
  * separate concern: an append-only inbox that brokers lead↔worker messages.
  * It is NEVER read back to reconstruct member/task state — that was the root
  * cause of the divergence bugs (phantom ID-named agents, members/tasks
@@ -27,7 +30,7 @@ import { useUIStore } from './ui-store'
  */
 export interface ActiveTeam {
   name: string
-  taskId?: string
+  taskId: string
   runtimePath?: string
   leadAgentId?: string
   permissionMode?: TeamRuntimePermissionMode
@@ -39,32 +42,57 @@ export interface ActiveTeam {
 }
 
 interface TeamStore {
-  activeTeam: ActiveTeam | null
-  /** Historical teams - persisted after team_end */
+  /** Per-task active (non-ended) teams. Keyed by task ID. */
+  activeTeams: Record<string, ActiveTeam>
+  /** Historical teams — moved here on team_end. Flat chronological log. */
   teamHistory: ActiveTeam[]
 
-  /** Unified event handler - called from use-chat-actions subscription */
-  handleTeamEvent: (event: TeamEvent, taskId?: string) => void
-  updateTeamMeta: (patch: Partial<Pick<ActiveTeam, 'permissionMode' | 'teamAllowedPaths'>>) => void
+  /** Get the active team for a specific task, or null. */
+  getTeam: (taskId: string) => ActiveTeam | null
 
-  /** Remove all team data that belongs to the given taskItem */
+  /** Unified event handler. taskId is resolved from event field or parameter. */
+  handleTeamEvent: (event: TeamEvent, taskId?: string) => void
+  /** Update metadata (permission mode, allowed paths) for a task's team. */
+  updateTeamMeta: (taskId: string, patch: Partial<Pick<ActiveTeam, 'permissionMode' | 'teamAllowedPaths'>>) => void
+
+  /** Remove all team data (active + history) that belongs to the given task. */
   clearTaskTeam: (taskId: string) => void
+}
+
+function resolveEventTaskId(event: TeamEvent, fallbackTaskId?: string): string | null {
+  const fromEvent =
+    'taskId' in event ? (event as TeamEvent & { taskId?: string }).taskId : undefined
+  const resolved = fallbackTaskId ?? fromEvent ?? null
+  if (!resolved) {
+    log.error('Team event without resolvable taskId', { type: event.type, fallbackTaskId })
+  }
+  return resolved
 }
 
 export const useTeamStore = create<TeamStore>()(
   persist(
-    immer((set) => ({
-      activeTeam: null,
+    immer((set, get) => ({
+      activeTeams: {},
       teamHistory: [],
 
+      getTeam: (taskId) => get().activeTeams[taskId] ?? null,
+
       handleTeamEvent: (event, taskId) => {
-        const resolvedTaskId = taskId ?? event.taskId
+        const resolvedTaskId = resolveEventTaskId(event, taskId)
+        if (!resolvedTaskId) return
+
         const eventWithTask =
-          resolvedTaskId && !event.taskId ? { ...event, taskId: resolvedTaskId } : event
+          resolvedTaskId && !(event as TeamEvent & { taskId?: string }).taskId
+            ? { ...event, taskId: resolvedTaskId }
+            : event
+
         set((state) => {
+          const team = state.activeTeams[resolvedTaskId]
+
           switch (eventWithTask.type) {
             case 'team_start':
-              state.activeTeam = {
+              // Overwrite any existing active team for this task.
+              state.activeTeams[resolvedTaskId] = {
                 name: eventWithTask.teamName,
                 taskId: resolvedTaskId,
                 runtimePath: eventWithTask.runtimePath,
@@ -77,73 +105,78 @@ export const useTeamStore = create<TeamStore>()(
                 createdAt: eventWithTask.createdAt ?? Date.now()
               }
               break
+
             case 'team_member_add':
-              if (state.activeTeam) {
-                // Guard: skip if a member with the same id or name already exists
-                const dup = state.activeTeam.members.some(
+              if (team) {
+                const dup = team.members.some(
                   (m) =>
                     m.id === eventWithTask.member.id || m.name === eventWithTask.member.name
                 )
-                if (!dup) state.activeTeam.members.push(eventWithTask.member)
+                if (!dup) team.members.push(eventWithTask.member)
               }
               break
-            case 'team_member_update': {
-              if (!state.activeTeam) break
-              const member = state.activeTeam.members.find(
-                (m) => m.id === eventWithTask.memberId
-              )
-              if (member) Object.assign(member, eventWithTask.patch)
+
+            case 'team_member_update':
+              if (team) {
+                const member = team.members.find(
+                  (m) => m.id === eventWithTask.memberId
+                )
+                if (member) Object.assign(member, eventWithTask.patch)
+              }
               break
-            }
-            case 'team_member_remove': {
-              if (!state.activeTeam) break
-              const idx = state.activeTeam.members.findIndex(
-                (m) => m.id === eventWithTask.memberId
-              )
-              if (idx !== -1) state.activeTeam.members.splice(idx, 1)
+
+            case 'team_member_remove':
+              if (team) {
+                const idx = team.members.findIndex(
+                  (m) => m.id === eventWithTask.memberId
+                )
+                if (idx !== -1) team.members.splice(idx, 1)
+              }
               break
-            }
+
             case 'team_task_add':
-              if (state.activeTeam) {
-                // Guard: skip if a task with the same id already exists
-                const dupTask = state.activeTeam.tasks.some(
+              if (team) {
+                const dupTask = team.tasks.some(
                   (t) => t.id === eventWithTask.task.id
                 )
-                if (!dupTask) state.activeTeam.tasks.push(eventWithTask.task)
+                if (!dupTask) team.tasks.push(eventWithTask.task)
               }
               break
-            case 'team_task_update': {
-              if (!state.activeTeam) break
-              const task = state.activeTeam.tasks.find((t) => t.id === eventWithTask.taskId)
-              if (task) {
-                // Guard: never roll back a completed task to a non-completed status
-                if (
-                  task.status === 'completed' &&
-                  eventWithTask.patch.status &&
-                  eventWithTask.patch.status !== 'completed'
-                ) {
-                  break
+
+            case 'team_task_update':
+              if (team) {
+                const task = team.tasks.find((t) => t.id === eventWithTask.taskId)
+                if (task) {
+                  if (
+                    task.status === 'completed' &&
+                    eventWithTask.patch.status &&
+                    eventWithTask.patch.status !== 'completed'
+                  ) {
+                    break
+                  }
+                  Object.assign(task, eventWithTask.patch)
                 }
-                Object.assign(task, eventWithTask.patch)
               }
               break
-            }
+
             case 'team_message':
-              if (state.activeTeam) {
-                if (!Array.isArray(state.activeTeam.messages)) {
-                  state.activeTeam.messages = []
+              if (team) {
+                if (!Array.isArray(team.messages)) {
+                  team.messages = []
                 }
-                state.activeTeam.messages.push(eventWithTask.message)
+                team.messages.push(eventWithTask.message)
               }
               break
+
             case 'team_end':
-              if (state.activeTeam) {
-                state.teamHistory.push({ ...state.activeTeam })
+              if (team) {
+                state.teamHistory.push({ ...team })
               }
-              state.activeTeam = null
+              delete state.activeTeams[resolvedTaskId]
               break
           }
         })
+
         if (
           resolvedTaskId &&
           (eventWithTask.type === 'team_start' || eventWithTask.type === 'team_task_add')
@@ -158,24 +191,25 @@ export const useTeamStore = create<TeamStore>()(
           })
         }
       },
-      updateTeamMeta: (patch) => {
+
+      updateTeamMeta: (taskId, patch) => {
         set((state) => {
-          if (!state.activeTeam) return
-          Object.assign(state.activeTeam, patch)
+          const team = state.activeTeams[taskId]
+          if (!team) return
+          Object.assign(team, patch)
         })
         if (!isAgentRuntimeSyncSuppressed()) {
-          emitAgentRuntimeSync({ kind: 'team_meta', patch })
+          emitAgentRuntimeSync({ kind: 'team_meta', taskId, patch })
         }
       },
+
       clearTaskTeam: (taskId) => {
-        // Tear down both the in-memory state and the on-disk message inbox.
-        // History entries already had their inbox removed on team_end, so only
-        // the active team can still have a live dir.
         let staleTeamName: string | null = null
         set((state) => {
-          if (state.activeTeam?.taskId === taskId) {
-            staleTeamName = state.activeTeam.name
-            state.activeTeam = null
+          const team = state.activeTeams[taskId]
+          if (team) {
+            staleTeamName = team.name
+            delete state.activeTeams[taskId]
           }
           state.teamHistory = state.teamHistory.filter((t) => t.taskId !== taskId)
         })
@@ -193,7 +227,7 @@ export const useTeamStore = create<TeamStore>()(
       name: 'flint-team',
       storage: createJSONStorage(() => commandStorage),
       partialize: (state) => ({
-        activeTeam: state.activeTeam,
+        activeTeams: state.activeTeams,
         teamHistory: state.teamHistory
       })
     }

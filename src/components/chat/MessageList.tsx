@@ -196,7 +196,7 @@ function selectTaskScopedTeamState(
 ): TaskScopedTeamSelection {
   if (!taskId) return EMPTY_TASK_TEAM_SELECTION
 
-  const activeTeam = state.activeTeam?.taskId === taskId ? state.activeTeam : null
+  const activeTeam = state.activeTeams[taskId] ?? null
   let teamHistory = EMPTY_TEAM_HISTORY
   const signatureParts: string[] = []
 

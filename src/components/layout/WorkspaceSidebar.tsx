@@ -161,7 +161,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
       .sort()
       .join(',')
   )
-  const activeTeamTaskId = useTeamStore((state) => state.activeTeam?.taskId ?? null)
+  const activeTeams = useTeamStore((state) => state.activeTeams)
   const unreadCountsByTask = useInboxStore((state) => state.unreadCountsByTask)
   const blockedCountsByTask = useInboxStore((state) => state.blockedCountsByTask)
   const language = useSettingsStore((state) => state.language)
@@ -245,9 +245,9 @@ export function WorkspaceSidebar(): React.JSX.Element {
       runningAgentTaskIds.has(taskId) ||
       runningBackgroundTaskIds.has(taskId) ||
       streamingTaskIds.has(taskId) ||
-      activeTeamTaskId === taskId,
+      activeTeams[taskId] !== undefined,
     [
-      activeTeamTaskId,
+      activeTeams,
       runningBackgroundTaskIds,
       runningTasks,
       runningAgentTaskIds,
@@ -392,7 +392,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
       runningAgentTaskIds.has(deleteTarget.id) ||
       runningBackgroundTaskIds.has(deleteTarget.id) ||
       streamingTaskIds.has(deleteTarget.id) ||
-      activeTeamTaskId === deleteTarget.id
+      activeTeams[deleteTarget.id] !== undefined
     if (hasRunning) {
       abortTask(deleteTarget.id)
     }
@@ -401,7 +401,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     toast.success(t('sidebar_toast.taskDeleted'))
     setDeleteTarget(null)
   }, [
-    activeTeamTaskId,
+    activeTeams,
     deleteTask,
     deleteTarget,
     runningBackgroundTaskIds,

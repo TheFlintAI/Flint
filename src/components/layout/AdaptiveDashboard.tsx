@@ -47,7 +47,10 @@ export function AdaptiveDashboard(): React.JSX.Element {
     }),
   )
 
-  const activeTeam = useTeamStore((state) => state.activeTeam)
+  // Team is per-task — look up directly from the activeTeams map.
+  const team = useTeamStore((state) =>
+    activeTaskId ? (state.activeTeams[activeTaskId] ?? null) : null
+  )
 
   // Progress card: has todos from either the todo store or team tasks
   const taskJobs = useTodoStore(
@@ -58,8 +61,8 @@ export function AdaptiveDashboard(): React.JSX.Element {
     }),
   )
   const teamTasks = useMemo(
-    () => (activeTeam?.tasks ?? []).map(teamTaskToItem),
-    [activeTeam?.tasks],
+    () => (team?.tasks ?? []).map(teamTaskToItem),
+    [team?.tasks],
   )
   const hasTodos = taskJobs.length > 0 || teamTasks.length > 0
 
@@ -72,8 +75,8 @@ export function AdaptiveDashboard(): React.JSX.Element {
     )
   }, [activeTaskId, changeSets])
 
-  // Team card: active when a team is present
-  const hasTeam = !!activeTeam
+  // Team card: active when the current task has a running team
+  const hasTeam = !!team
 
   const anyCardVisible = hasTodos || hasChanges || hasTeam
 
@@ -100,7 +103,7 @@ export function AdaptiveDashboard(): React.JSX.Element {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto overflow-x-hidden">
       <div className="space-y-2.5 p-2.5">
         <AnimatePresence mode="popLayout">
           {/* Progress card — only when there are todos */}

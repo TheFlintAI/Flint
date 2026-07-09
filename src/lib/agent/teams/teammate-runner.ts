@@ -26,6 +26,7 @@ import { loadMemoryIndex } from '../memory-files'
 import { COMPLETE_WORK_TOOL_NAME } from './tools/complete-work'
 import { refreshSkillTools } from '@/lib/tools/skill-tool'
 import { createLogger } from '@/lib/logger'
+import type { ToolContext } from '../../tools/tool-types'
 
 const log = createLogger('Teammate')
 
@@ -92,7 +93,10 @@ interface RunTeammateOptions {
   memberId: string
   memberName: string
   prompt: string
-  taskId: string | undefined
+  /** The owning chat task's ID — used to look up the team in activeTeams. */
+  owningTaskId: string | undefined
+  /** The team task ID to start working on (specific team-internal task). */
+  taskId?: string
   model: string | null
   workingFolder?: string
   sshConnectionId?: string
@@ -110,16 +114,17 @@ interface SingleTaskResult {
 export async function runTeammate(options: RunTeammateOptions): Promise<void> {
   const { memberId, memberName, model, workingFolder, sshConnectionId } = options
   let { prompt } = options
-  const chatTaskId: string | undefined = options.taskId
+  const chatTaskId: string | undefined = options.owningTaskId
+  const owningTaskId = chatTaskId
 
-  const team = useTeamStore.getState().activeTeam
-  let taskId = team?.taskId
+  const team = owningTaskId ? (useTeamStore.getState().activeTeams[owningTaskId] ?? null) : null
+  let taskId = owningTaskId
   const abortController = new AbortController()
   teammateAbortControllers.set(memberId, abortController)
 
   log.debug('teammate starting', { memberName, taskId, model, workingFolder })
 
-  await refreshSkillTools()
+  await refreshSkillTools(workingFolder)
 
   const disallowedSet = new Set(MANDATORY_AGENT_DISALLOWED_TOOLS)
   const baseToolDefs = toolRegistry.getDefinitions().filter(
@@ -153,6 +158,8 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
   startWorkerInboxPoller({
     memberId,
     memberName,
+    teamName: team?.name ?? memberName,
+    taskId: owningTaskId ?? '',
     onMessage: (content, createdAt) => {
       messageQueue.push({
         id: nanoid(),
@@ -169,7 +176,7 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
 
   try {
     if (!taskId) {
-      const initialTask = findNextClaimableTask()
+      const initialTask = findNextClaimableTask(owningTaskId)
       if (initialTask) {
         taskId = initialTask.id
         prompt = buildTeamTaskPrompt(initialTask)
@@ -194,6 +201,7 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
       prompt,
       taskId,
       chatTaskId,
+      owningTaskId,
       model,
       workingFolder,
       sshConnectionId,
@@ -241,7 +249,7 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
         lastStreamingText,
         fullOutput,
         taskId
-      })
+      }, owningTaskId)
     }
   }
 }
@@ -252,6 +260,7 @@ async function runSingleTaskLoop(opts: {
   prompt: string
   taskId: string | undefined
   chatTaskId?: string
+  owningTaskId?: string
   model: string | null
   workingFolder?: string
   sshConnectionId?: string
@@ -265,6 +274,7 @@ async function runSingleTaskLoop(opts: {
     prompt,
     taskId,
     chatTaskId,
+    owningTaskId,
     model,
     workingFolder,
     sshConnectionId,
@@ -308,7 +318,7 @@ async function runSingleTaskLoop(opts: {
     throw new Error('No tools available for teammate.')
   }
 
-  const team = useTeamStore.getState().activeTeam
+  const team = owningTaskId ? (useTeamStore.getState().activeTeams[owningTaskId] ?? null) : null
   const teamTaskId = team?.taskId
   const taskInfo = teamTaskId && team ? team.tasks.find((task) => task.id === teamTaskId) : null
 
@@ -373,7 +383,7 @@ async function runSingleTaskLoop(opts: {
   const initialMessages: UnifiedMessage[] = []
 
   if (team?.permissionMode === 'plan') {
-    const planPrompt = buildPlanRequestText(taskInfo ?? null, effectivePrompt)
+    const planPrompt = buildPlanRequestText(taskInfo ?? null, prompt)
     const planRuntime = await runSharedAgentRuntime({
       initialMessages: [
         {
@@ -617,7 +627,8 @@ async function runSingleTaskLoop(opts: {
   }
 
   if (taskId && resolvedOutput) {
-    const currentTask = useTeamStore.getState().activeTeam?.tasks.find((task) => task.id === taskId)
+    const team = owningTaskId ? (useTeamStore.getState().activeTeams[owningTaskId] ?? null) : null
+    const currentTask = team?.tasks.find((task) => task.id === taskId)
     if (!currentTask?.report?.trim()) {
       teamEvents.emit({
         type: 'team_task_update',
@@ -638,8 +649,9 @@ async function runSingleTaskLoop(opts: {
   }
 }
 
-export function findNextClaimableTask(): TeamTask | null {
-  const team = useTeamStore.getState().activeTeam
+export function findNextClaimableTask(teamTaskId?: string): TeamTask | null {
+  if (!teamTaskId) return null
+  const team = useTeamStore.getState().activeTeams[teamTaskId] ?? null
   if (!team) return null
 
   const completedTaskIds = new Set(
@@ -664,9 +676,10 @@ function emitCompletionMessage(
     lastStreamingText: string
     fullOutput: string
     taskId: string | undefined
-  }
+  },
+  owningTaskId?: string
 ): void {
-  const team = useTeamStore.getState().activeTeam
+  const team = owningTaskId ? (useTeamStore.getState().activeTeams[owningTaskId] ?? null) : null
   if (!team) return
 
   const header = `**${memberName}** finished (${endReason}).`

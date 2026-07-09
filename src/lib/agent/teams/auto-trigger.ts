@@ -161,7 +161,7 @@ export function drainLeadMessages(): void {
   const parts = batch.map((msg) => `[Team message from ${msg.from}]:\n${msg.content}`)
 
   // Append team progress summary so the lead can decide whether to wait or summarize
-  const team = useTeamStore.getState().activeTeam
+  const team = useTeamStore.getState().activeTeams[activeTaskId] ?? null
   if (team) {
     const total = team.tasks.length
     const completed = team.tasks.filter((t) => t.status === 'completed').length

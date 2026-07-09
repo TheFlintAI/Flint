@@ -679,7 +679,7 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
     return (
       <div className={cn('relative flex min-h-0 min-w-0 flex-col overflow-hidden', className)}>
         {!hasContent && placeholder && (
-          <div className="composer-editor-placeholder pointer-events-none absolute inset-0 p-2 pb-12 pr-3 text-base md:text-sm">
+          <div className="composer-editor-placeholder pointer-events-none absolute inset-0 p-2 pb-2 pr-3 text-base leading-relaxed md:text-sm">
             {placeholder}
           </div>
         )}
@@ -689,8 +689,7 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
           suppressContentEditableWarning
           spellCheck={false}
           data-gramm="false"
-          className="composer-editor-content block min-h-[60px] min-w-0 max-h-full flex-1 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words p-2 pb-12 pr-3 text-base outline-none md:text-sm"
-          style={{ scrollbarGutter: 'stable' }}
+          className="composer-editor-content block min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words p-2 pb-2 pr-3 text-base leading-relaxed outline-none md:text-sm"
           onInput={handleInput}
           onKeyDown={onKeyDown}
           onPaste={onPaste}

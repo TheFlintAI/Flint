@@ -61,10 +61,11 @@ export function RightPanelStatusBar(): React.JSX.Element {
       { input: 0, output: 0, cacheRead: 0, reasoning: 0 }
     )
 
-    // Include team member token usage
+    // Include team member token usage — only for the current task's team.
     const teamStore = useTeamStore.getState()
+    const taskTeam = activeTaskId ? (teamStore.activeTeams[activeTaskId] ?? null) : null
     const allTeamMembers = [
-      ...(teamStore.activeTeam?.taskId === activeTaskId ? teamStore.activeTeam.members : []),
+      ...(taskTeam?.members ?? []),
       ...teamStore.teamHistory.filter((t) => t.taskId === activeTaskId).flatMap((t) => t.members)
     ]
     for (const member of allTeamMembers) {

@@ -8,6 +8,7 @@ import { tauriCommands } from '@/services/tauri-api/command-client'
 import { encodeToolError } from './tool-result-format'
 import { createLogger } from '@/lib/logger'
 import type { SkillInfo } from '@/lib/resources/resource-manager'
+import { scanWorkspaceSkills, mergeSkills } from '@/lib/resources/resource-manager'
 import { getSkillNameFromInput } from '@/components/chat/tool-panel/utils'
 
 const log = createLogger('Skills')
@@ -30,18 +31,21 @@ function buildSkillSignature(skills: SkillInfo[]): string {
   return JSON.stringify({ skills })
 }
 
-async function loadRegisteredSkills(): Promise<SkillInfo[] | null> {
+async function loadRegisteredSkills(workspace?: string): Promise<SkillInfo[] | null> {
   try {
-    const result = await tauriCommands.invoke('skills:list')
-    return Array.isArray(result) ? (result as SkillInfo[]) : []
+    const globalSkills = await tauriCommands.invoke<SkillInfo[]>('skills:list')
+    const base = Array.isArray(globalSkills) ? globalSkills : []
+    if (!workspace) return base
+    const wsSkills = await scanWorkspaceSkills(workspace)
+    return mergeSkills(base, wsSkills)
   } catch (err) {
     log.error('Failed to load skills from TAURI_COMMANDS:', err)
     return null
   }
 }
 
-export async function refreshSkillTools(): Promise<void> {
-  const nextSkills = await loadRegisteredSkills()
+export async function refreshSkillTools(workspace?: string): Promise<void> {
+  const nextSkills = await loadRegisteredSkills(workspace)
   if (!nextSkills) {
     if (!toolRegistry.has('Skill')) {
       toolRegistry.add(createSkillHandler())

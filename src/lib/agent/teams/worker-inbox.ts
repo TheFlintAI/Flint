@@ -24,12 +24,16 @@ function parsePermissionUpdate(content: string): TeamRuntimePermissionUpdatePayl
 export function startWorkerInboxPoller(params: {
   memberId: string
   memberName: string
+  /** The team's runtime name (for message bus routing). */
+  teamName: string
+  /** The owning task ID (for store lookups). */
+  taskId: string
   onMessage: (content: string, createdAt: number) => void
 }): void {
   if (workerInboxPollers.has(params.memberId)) return
 
   const timer = setInterval(() => {
-    const team = useTeamStore.getState().activeTeam
+    const team = useTeamStore.getState().activeTeams[params.taskId] ?? null
     if (!team?.name) return
 
     const afterTimestamp = workerMessageCursor.get(params.memberId) ?? 0
@@ -62,7 +66,7 @@ export function startWorkerInboxPoller(params: {
           if (message.type === 'team_permission_update' || message.type === 'mode_set_request') {
             const payload = parsePermissionUpdate(message.content)
             if (!payload) continue
-            useTeamStore.getState().updateTeamMeta({
+            useTeamStore.getState().updateTeamMeta(params.taskId, {
               ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
               ...(payload.teamAllowedPaths ? { teamAllowedPaths: payload.teamAllowedPaths } : {})
             })

@@ -108,7 +108,7 @@ export function TaskPane({
               <InputArea
                 taskId={resolvedTaskId}
                 onSend={(text, images, options) =>
-                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, undefined, {
+                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, {
                     ...options,
                     clearCompletedTasksOnTurnStart: true
                   })
@@ -137,7 +137,7 @@ export function TaskPane({
               <InputArea
                 taskId={resolvedTaskId}
                 onSend={(text, images, options) =>
-                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, undefined, {
+                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, {
                     ...options,
                     clearCompletedTasksOnTurnStart: true
                   })

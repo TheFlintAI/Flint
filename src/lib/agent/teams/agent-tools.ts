@@ -1,4 +1,4 @@
-export const MANDATORY_AGENT_DISALLOWED_TOOLS = ['AskUserQuestion'] as const
+export const MANDATORY_AGENT_DISALLOWED_TOOLS: readonly string[] = ['AskUserQuestion']
 
 /**
  * Tools available only to the lead coordinator. Removed from every teammate's

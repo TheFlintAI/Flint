@@ -10,8 +10,11 @@ import type { TeamRuntimeMessageRecord } from '@/protocols/team-runtime-types'
 
 export function TeamCard(): React.JSX.Element | null {
   const { t } = useTranslation('layout')
-  const activeTeam = useTeamStore((s) => s.activeTeam)
   const activeTaskId = useChatStore((s) => s.activeTaskId)
+  // Team is per-task — look up directly from the activeTeams map.
+  const activeTeam = useTeamStore((s) =>
+    activeTaskId ? (s.activeTeams[activeTaskId] ?? null) : null
+  )
 
   const { members, tasks, messages } = useMemo<{
     members: TeamMember[]

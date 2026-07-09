@@ -66,5 +66,5 @@ export function replaceChatRoute(state: ChatRouteState): void {
   const nextHash = buildChatRoute(state)
   persistChatRoute(state)
   if (window.location.hash === nextHash) return
-  window.history.replaceState(null, '', nextHash)
+  window.location.hash = nextHash
 }

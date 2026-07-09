@@ -112,8 +112,8 @@ function stripFrontmatter(content: string): string {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    const result = await tauriCommands.invoke<{ exists: boolean }>(TAURI_COMMANDS.FS_STAT_PATH, { path })
-    return result?.exists === true
+    const result = await tauriCommands.invoke<{ stat: { exists: boolean } }>(TAURI_COMMANDS.FS_STAT_PATH, { path })
+    return result?.stat?.exists === true
   } catch {
     return false
   }
@@ -313,6 +313,12 @@ export async function listSkills(): Promise<SkillInfo[]> {
   }
 
   return attachEnabledStates(skills, cleanStates)
+}
+
+/** Merge global + workspace skills; workspace overrides global by name. */
+export function mergeSkills(global: SkillInfo[], workspace: SkillInfo[]): SkillInfo[] {
+  const wsNames = new Set(workspace.map(s => s.name))
+  return [...workspace, ...global.filter(s => !wsNames.has(s.name))]
 }
 
 /**

@@ -320,8 +320,10 @@ export function Layout(): React.JSX.Element {
                   </Tooltip>
                 </div>
               )}
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              {/* Intermediate flex wrappers — no overflow-hidden needed here;
+                   the parent (line 303) already clips for rounded-2xl */}
+              <div className="flex min-h-0 min-w-0 flex-1">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                   <ErrorBoundary
                     renderFallback={(error, reset) => (
                       <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden p-8 text-center">
@@ -384,7 +386,7 @@ export function Layout(): React.JSX.Element {
                       </div>
                     )}
                   >
-                    <div className="flex flex-1 overflow-hidden">
+                    <div className="flex min-w-0 flex-1">
                       <TaskPane windowHeaderOwnsTitle />
                       <WorkingFolderSheet />
                       <RightPanel />

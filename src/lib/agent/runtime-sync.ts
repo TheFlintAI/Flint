@@ -31,6 +31,7 @@ export type AgentRuntimeSyncEvent =
   | { kind: 'team_event'; event: TeamEvent; taskId?: string | null }
   | {
       kind: 'team_meta'
+      taskId: string
       patch: Partial<Pick<ActiveTeam, 'permissionMode' | 'teamAllowedPaths'>>
     }
   | { kind: 'clear_session_team'; taskId: string }

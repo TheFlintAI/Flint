@@ -7,6 +7,7 @@ src-tauri/gen
 .eslintcache
 *.log*
 *.tsbuildinfo
+*.flp
 .vscode
 .claude/settings.local.json
 bin/
