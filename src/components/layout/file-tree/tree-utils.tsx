@@ -8,26 +8,6 @@ import {
 } from 'lucide-react'
 import type { FileEntry, TreeNode } from './types'
 
-export const IGNORED_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.next',
-  '.nuxt',
-  'dist',
-  'build',
-  'out',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.cache',
-  '.idea',
-  '.vscode',
-  'target',
-  'coverage',
-  '.turbo',
-  '.parcel-cache'
-])
-
 export const EXT_ICONS: Record<string, React.ReactNode> = {
   '.ts': <FileCode className="size-3.5 text-blue-400" />,
   '.tsx': <FileCode className="size-3.5 text-blue-400" />,

@@ -62,23 +62,18 @@ export const ThinkingContent = memo(function ThinkingContent({
   }, [hasThinkingContent, isThinking, renderPool.text])
 
   if (hasThinkingContent) {
+    const displayText = isThinking ? renderPool.text : thinking
     return (
       <div ref={contentRef} className="max-h-80 overflow-y-auto">
-        {isThinking ? (
-          <div className="whitespace-pre-wrap break-words leading-relaxed">
-            {renderPool.text}
-          </div>
-        ) : (
-          <div className="typeset typeset-chat">
-            <Markdown
-              remarkPlugins={MARKDOWN_REMARK_PLUGINS}
-              rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-              components={THINKING_MD_COMPONENTS}
-            >
-              {thinking}
-            </Markdown>
-          </div>
-        )}
+        <div className="typeset typeset-chat">
+          <Markdown
+            remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+            rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+            components={THINKING_MD_COMPONENTS}
+          >
+            {displayText}
+          </Markdown>
+        </div>
       </div>
     )
   }

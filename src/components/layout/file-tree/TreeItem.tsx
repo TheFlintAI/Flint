@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   FolderOpen,
@@ -7,12 +7,11 @@ import {
   ChevronRight,
   ChevronDown,
   Copy,
-  Check,
+  Plus,
   Pencil,
   Trash2,
   FilePlus2,
-  FolderPlus,
-  GripVertical
+  FolderPlus
 } from 'lucide-react'
 import {
   ContextMenu,
@@ -25,7 +24,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { DepthGuides } from './DepthGuides'
 import { InlineInput } from './InlineInput'
-import { fileIcon, IGNORED_DIRS } from './tree-utils'
+import { fileIcon } from './tree-utils'
 import type { TreeNode, TreeEditState, TreeActions } from './types'
 
 export function TreeItem({
@@ -33,7 +32,6 @@ export function TreeItem({
   depth,
   onToggle,
   onCopyPath,
-  onFileDragStart,
   editState,
   actions
 }: {
@@ -41,14 +39,11 @@ export function TreeItem({
   depth: number
   onToggle: (path: string) => void
   onCopyPath: (path: string) => void
-  onFileDragStart: (event: React.DragEvent<HTMLElement>, path: string) => void
   editState: TreeEditState
   actions: TreeActions
 }): React.JSX.Element {
   const { t } = useTranslation('layout')
-  const [copied, setCopied] = useState(false)
   const isDir = node.type === 'directory'
-  const isIgnored = isDir && IGNORED_DIRS.has(node.name)
   const safeEditState = editState ?? {
     renamingPath: null,
     newItemParent: null,
@@ -56,30 +51,21 @@ export function TreeItem({
   }
   const isRenaming = safeEditState.renamingPath === node.path
 
-  const handleCopy = useCallback(() => {
+  const handleAdd = useCallback(() => {
     onCopyPath(node.path)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
   }, [node.path, onCopyPath])
 
   const rowContent = (
     <div
       className={cn(
         'workspace-filetree-row group relative flex items-center gap-2 rounded-xl px-2 py-1.5 text-[12px] transition-all',
-        isDir ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
+        isDir ? 'cursor-pointer' : 'cursor-default',
         isDir && node.expanded
           ? 'workspace-filetree-row--expanded workspace-filetree-row--interactive'
-          : 'workspace-filetree-row--interactive',
-        isIgnored && 'opacity-40'
+          : 'workspace-filetree-row--interactive'
       )}
       style={{ paddingLeft: `${depth * 14 + 6}px` }}
-      onClick={() => { if (isDir && !isIgnored) onToggle(node.path) }}
-      onDragStart={(event) => {
-        if (!isDir) {
-          onFileDragStart(event, node.path)
-        }
-      }}
-      draggable={!isDir && !isRenaming}
+      onClick={() => { if (isDir) onToggle(node.path) }}
       title={node.path}
     >
       <DepthGuides depth={depth} />
@@ -97,7 +83,7 @@ export function TreeItem({
           <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
         )
       ) : (
-        <GripVertical className="size-3 shrink-0 text-muted-foreground/25 transition-colors group-hover:text-muted-foreground/60" />
+        <File className="size-3 shrink-0 text-muted-foreground/40" />
       )}
 
       {isDir ? (
@@ -140,11 +126,6 @@ export function TreeItem({
           >
             {node.name}
           </span>
-          {!isDir && (
-            <span className="workspace-filetree-chip rounded-full px-1.5 py-0.5 text-[10px] opacity-0 transition-opacity group-hover:opacity-100">
-              {t('fileTree.dragToReference')}
-            </span>
-          )}
         </div>
       )}
 
@@ -153,11 +134,13 @@ export function TreeItem({
           className="workspace-filetree-action shrink-0 rounded-md p-1 opacity-0 transition-all group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation()
-            handleCopy()
+            handleAdd()
           }}
-          title={t('fileTree.copyPath')}
+          title={t('fileTree.addToAttachments', {
+            defaultValue: 'Add to attachments'
+          })}
         >
-          {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
+          <Plus className="size-3" />
         </button>
       )}
     </div>
@@ -168,7 +151,7 @@ export function TreeItem({
       <ContextMenu>
         <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
         <ContextMenuContent className="w-44">
-          {isDir && !isIgnored && (
+          {isDir && (
             <>
               <ContextMenuItem
                 className="gap-2 text-xs"
@@ -191,7 +174,7 @@ export function TreeItem({
           >
             <Pencil className="size-3.5" /> {t('action.rename', { ns: 'common' })}
           </ContextMenuItem>
-          <ContextMenuItem className="gap-2 text-xs" onSelect={handleCopy}>
+          <ContextMenuItem className="gap-2 text-xs" onSelect={handleAdd}>
             <Copy className="size-3.5" /> {t('action.copyPath', { ns: 'common' })}
           </ContextMenuItem>
           <ContextMenuSeparator />
@@ -239,7 +222,6 @@ export function TreeItem({
                   depth={depth + 1}
                   onToggle={onToggle}
                   onCopyPath={onCopyPath}
-                  onFileDragStart={onFileDragStart}
                   editState={editState}
                   actions={actions}
                 />

@@ -383,6 +383,7 @@ function TranscriptScrollerView({
                   key={row.key}
                   messageId={messageId}
                   scrollAnchor={isScrollAnchor}
+                  sticky={isScrollAnchor}
                 >
                   <TranscriptRow
                     message={message}

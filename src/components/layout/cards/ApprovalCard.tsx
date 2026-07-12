@@ -49,17 +49,17 @@ export const ApprovalCard = memo(function ApprovalCard({
       <div className="flex items-center gap-2 px-2.5 pb-2">
         <button
           type="button"
-          onClick={() => handleResolve(true)}
-          className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/25 dark:text-emerald-400"
+          onClick={() => handleResolve(false)}
+          className="flex-1 rounded-md bg-destructive/10 px-3 py-1.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/20"
         >
-          {t('rightPanel.approvalAllow', { defaultValue: 'Allow' })}
+          {t('rightPanel.approvalDeny', { defaultValue: 'Deny' })}
         </button>
         <button
           type="button"
-          onClick={() => handleResolve(false)}
-          className="rounded-md bg-destructive/10 px-3 py-1.5 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/20"
+          onClick={() => handleResolve(true)}
+          className="flex-1 rounded-md bg-emerald-500/15 px-3 py-1.5 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/25 dark:text-emerald-400"
         >
-          {t('rightPanel.approvalDeny', { defaultValue: 'Deny' })}
+          {t('rightPanel.approvalAllow', { defaultValue: 'Allow' })}
         </button>
       </div>
     </div>

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default permissions for Flint",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:default", "fs:default", "notification:default", "shell:default"]
+  "permissions": ["core:default", "core:event:default", "dialog:default", "fs:default", "notification:default", "shell:default"]
 }

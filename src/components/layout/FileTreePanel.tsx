@@ -36,8 +36,6 @@ import type { TreeNode, FileSearchItem, FileEntry, TreeEditState, TreeActions } 
 
 const log = createLogger('FileTree')
 
-const INTERNAL_FILE_DRAG_MIME = 'application/x-flint-file-paths'
-
 interface FileTreePanelProps {
   taskId?: string | null
   surface?: 'card' | 'sheet'
@@ -374,16 +372,6 @@ export function FileTreePanel({
     onNewItemCancel: handleNewItemCancel
   }
 
-  const handleFileDragStart = useCallback(
-    (event: React.DragEvent<HTMLElement>, filePath: string) => {
-      const relativePath = toRelativePath(filePath, workingFolder)
-      event.dataTransfer.effectAllowed = 'copy'
-      event.dataTransfer.setData(INTERNAL_FILE_DRAG_MIME, JSON.stringify([filePath]))
-      event.dataTransfer.setData('text/plain', relativePath)
-    },
-    [workingFolder]
-  )
-
   const handleCollapseAll = useCallback(() => {
     setTree((current) => collapseTree(current))
   }, [])
@@ -545,8 +533,7 @@ export function FileTreePanel({
                         'workspace-filetree-row group flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-all',
                         'workspace-filetree-row--interactive'
                       )}
-                      draggable
-                      onDragStart={(event) => handleFileDragStart(event, file.path)}
+                      onClick={() => handleCopyPath(file.path)}
                       title={file.path}
                     >
                       <GripVertical className="size-3 shrink-0 text-muted-foreground/25 transition-colors group-hover:text-muted-foreground/60" />
@@ -583,7 +570,6 @@ export function FileTreePanel({
                   depth={0}
                   onToggle={handleToggle}
                   onCopyPath={handleCopyPath}
-                  onFileDragStart={handleFileDragStart}
                   editState={editState}
                   actions={treeActions}
                 />

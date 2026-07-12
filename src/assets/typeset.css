@@ -35,7 +35,7 @@
   .typeset-chat {
     --typeset-size: 1rem;
     --typeset-leading: 1.625;
-    --typeset-flow: 1em;
+    --typeset-flow: 0.75em;
   }
 
   /* Compact — for cards, previews, side panels */
@@ -300,5 +300,13 @@
     vertical-align: middle;
     accent-color: var(--primary);
     transform: translateY(-0.075em);
+  }
+
+  /* ── First-child reset ────────────────────────────────────────────── */
+  /* Must come AFTER all element margin rules so it wins the tie-breaker
+     (both use :where() = zero specificity, so source order decides). */
+
+  :where(.typeset > :first-child) {
+    margin-block-start: 0;
   }
 }

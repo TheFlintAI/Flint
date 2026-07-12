@@ -906,11 +906,19 @@ export function useChatActions(): {
           let userContent: string | ContentBlock[]
           const textBlocks: Array<Extract<ContentBlock, { type: 'text' }>> = []
           const hasImages = Boolean(images && images.length > 0)
-          const textForUserBlock =
+          const cleanText =
             text ||
             (isQueuedInsertion && hasImages
               ? QUEUED_IMAGE_ONLY_TEXT
               : '')
+
+          // Serialize file references as @{path} tokens for the AI.
+          // The clean text (without tokens) is stored in the snapshot for display.
+          const fileTokenPrefix =
+            options?.filePaths && options.filePaths.length > 0
+              ? options.filePaths.map((p) => `@{${p}}`).join('\n') + '\n'
+              : ''
+          const textForUserBlock = fileTokenPrefix + cleanText
 
           if (isQueuedInsertion) {
             textBlocks.push({ type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND })
@@ -935,8 +943,11 @@ export function useChatActions(): {
           if (effectiveWorkspace) {
             contextSnapshot.workspace = effectiveWorkspace
           }
-          if ((options?.fileCount ?? 0) > 0) {
-            contextSnapshot.fileCount = options!.fileCount
+          if (cleanText) {
+            contextSnapshot.text = cleanText
+          }
+          if (options?.filePaths && options.filePaths.length > 0) {
+            contextSnapshot.filePaths = options.filePaths
           }
           if (hasImages && (images?.length ?? 0) > 0) {
             contextSnapshot.imageCount = images!.length

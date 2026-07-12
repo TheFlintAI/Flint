@@ -317,8 +317,6 @@
     "removeImage": "移除图片",
     "imagePreview": "图片预览",
     "saveAndResend": "保存并重发",
-    "fileCount_one": "{{count}} 个文件",
-    "fileCount_other": "{{count}} 个文件",
     "imageCount_one": "{{count}} 张图片",
     "imageCount_other": "{{count}} 张图片",
     "rollback": "回退",

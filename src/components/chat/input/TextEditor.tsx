@@ -127,7 +127,7 @@ export const TextEditor = React.forwardRef<TextEditorHandle, TextEditorProps>(
           'composer-textarea block w-full resize-none border-0 bg-transparent p-2 pb-2 pr-3',
           'text-base leading-relaxed outline-none md:text-sm',
           'placeholder:text-muted-foreground/50',
-          'min-h-0 min-w-0 flex-1',
+          'min-h-0 min-w-0',
           className
         )}
         rows={1}

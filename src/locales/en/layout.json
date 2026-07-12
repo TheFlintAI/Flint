@@ -279,6 +279,8 @@
   "fileTree": {
     "selectFolder": "No files available",
     "searchPlaceholder": "Search file names or paths",
+    "addToAttachments": "Add to attachments",
+    "openInPanel": "Open in full panel",
     "searching": "Searching files...",
     "searchHint": "Click to preview, or drag files into the composer to insert references",
     "noSearchResults": "No matching files",

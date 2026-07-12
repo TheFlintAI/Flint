@@ -50,7 +50,18 @@ Flint was designed with extensibility in mind from day one. For example, the bui
 git clone https://github.com/TheFlintAI/Flint.git
 cd Flint
 bun install
+```
+
+For development:
+
+```bash
 bun run dev
+```
+
+For release:
+
+```bash
+bun run build
 ```
 
 Requires [Bun](https://bun.sh) and [Rust](https://rustup.rs).

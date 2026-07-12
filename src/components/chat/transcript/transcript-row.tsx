@@ -125,7 +125,7 @@ export const TranscriptRow = React.memo(function TranscriptRow({
   onRollbackMessage
 }: TranscriptRowProps): React.JSX.Element {
   const isHighlighted = highlightMessageId === message.id
-  const isStickyLatestUser = isLastUserMessage && message.role === 'user'
+  const isUserMessage = message.role === 'user'
 
   return (
     <div
@@ -133,8 +133,8 @@ export const TranscriptRow = React.memo(function TranscriptRow({
       className={cn(
         MESSAGE_COLUMN_CLASS,
         'transition-colors duration-500',
-        isStickyLatestUser
-          ? 'sticky top-0 z-10 bg-background pt-2 pb-2'
+        isUserMessage
+          ? 'pt-2 pb-4'
           : 'pb-7',
         isHighlighted && 'rounded-md bg-foreground/5 ring-1 ring-foreground/10'
       )}

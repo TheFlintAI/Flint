@@ -282,6 +282,8 @@
   "fileTree": {
     "selectFolder": "暂无可用文件",
     "searchPlaceholder": "搜索文件名或路径",
+    "addToAttachments": "添加到附件",
+    "openInPanel": "在完整面板中打开",
     "searching": "搜索文件中...",
     "noSearchResults": "没有匹配的文件",
     "newFile": "新建文件",

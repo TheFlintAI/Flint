@@ -1,7 +1,6 @@
 import * as React from 'react'
-import { useState as useLocalState } from 'react'
 import { toast } from 'sonner'
-import { AlertTriangle, FileUp, FolderOpen, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, FileUp, Sparkles } from 'lucide-react'
 import { useProviderStore, modelSupportsVision } from '@/stores/provider-store'
 import { useUIStore } from '@/stores/ui-store'
 import { useChatStore } from '@/stores/chat-store'
@@ -27,6 +26,7 @@ import {
 } from '@/lib/chat/select-file-tags'
 import type { SelectedFileItem } from '@/lib/chat/select-file-editor'
 import { ComposerActionsMenu } from './ComposerActionsMenu'
+import { WorkspaceFilePopover } from './WorkspaceFilePopover'
 import { TextEditor, type TextEditorHandle } from './input/TextEditor'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
@@ -63,13 +63,12 @@ import {
   type ComposerAttachment,
   type ComposerFileAttachment
 } from '@/lib/chat/composer-attachment'
-import { createSelectFileToken } from '@/lib/chat/select-file-tags'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 const log = createLogger('InputArea')
 
 const EMPTY_QUEUED_MESSAGES: PendingTaskMessageItem[] = []
-const INTERNAL_FILE_DRAG_MIME = 'application/x-flint-file-paths'
-const MIN_INPUT_HEIGHT = 160
+const MIN_INPUT_HEIGHT = 100
 
 interface InputAreaProps {
   taskId?: string | null
@@ -618,24 +617,28 @@ export function InputArea({
       })
     }
 
-    // Build file reference tokens: file attachments + image attachments (when vision unsupported)
-    const allFileTokens: string[] = []
-    for (const f of currentFileAttachments) {
-      const token = createSelectFileToken(f.sendPath)
-      if (token) allFileTokens.push(token)
-    }
-    // When vision is NOT supported, treat image attachments as file references too
+    // Collect file paths from the structured attachment list.
+    // The chat action will serialize them as @{path} tokens for the AI.
+    const allFilePaths: string[] = currentFileAttachments.map((f) => f.sendPath)
+
+    // When vision is NOT supported, treat image attachments as file references
     if (!supportsVision) {
       for (const img of currentImageAttachments) {
-        // ImageAttachment has dataUrl + mediaType but no path; we use the label as token
-        // Since we loaded from disk in handleAttachMedia, we need the original path.
-        // Fall back to the media type label — the agent will see it as a filename hint.
         const label = img.mediaType.split('/')[1]?.toUpperCase() || 'IMAGE'
-        allFileTokens.push(`@{${label}}`)
+        allFilePaths.push(label)
       }
     }
-    const fileTokensText = allFileTokens.join('\n')
-    const finalText = fileTokensText ? `${fileTokensText}\n${trimmed}` : trimmed
+
+    // Strip <select-file> editor tags from the text — file references are
+    // carried as structured data in filePaths, not embedded in the message.
+    const cleanText = (() => {
+      if (!trimmed) return ''
+      const segments = parseSelectFileText(trimmed)
+      return segments
+        .filter((s) => s.type === 'text')
+        .map((s) => s.text)
+        .join('')
+    })()
 
     // Only send images to the model when vision is supported
     const imagesToSend =
@@ -644,11 +647,11 @@ export function InputArea({
         : undefined
 
     onSend(
-      finalText,
+      cleanText,
       imagesToSend,
       {
         clearCompletedTasksOnTurnStart: true,
-        ...(allFileTokens.length > 0 ? { fileCount: allFileTokens.length } : {})
+        ...(allFilePaths.length > 0 ? { filePaths: allFilePaths } : {})
       }
     )
 
@@ -679,62 +682,47 @@ export function InputArea({
     [handleSend]
   )
 
-  // ---- Drag & Drop ----
-  const getDraggedFilePaths = React.useCallback((dataTransfer: DataTransfer | null): string[] => {
-    if (!dataTransfer) return []
-    const payload = dataTransfer.getData(INTERNAL_FILE_DRAG_MIME)
-    if (!payload) return []
+  // ---- Drag & Drop (external OS file drops via Tauri native API) ----
+  const [dragging, setDragging] = React.useState(false)
 
-    try {
-      const parsed = JSON.parse(payload)
-      if (!Array.isArray(parsed)) return []
-      return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0)
-    } catch {
-      return []
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined
+
+    getCurrentWebviewWindow()
+      .onDragDropEvent((event) => {
+        const el = containerRef.current
+        if (!el) return
+
+        const type = event.payload.type.toLowerCase()
+        const scale = window.devicePixelRatio || 1
+        const x = event.payload.position.x / scale
+        const y = event.payload.position.y / scale
+        const target = document.elementFromPoint(x, y)
+        const isOverComposer = target !== null && el.contains(target)
+
+        if (type === 'enter' || type === 'over') {
+          setDragging(isOverComposer)
+        } else if (type === 'leave' || type === 'drop') {
+          setDragging(false)
+          if (type === 'drop' && isOverComposer && event.payload.paths.length > 0) {
+            addFiles(event.payload.paths)
+          }
+        }
+      })
+      .then((fn) => { unlisten = fn })
+      .catch((err) => { log.error('Tauri onDragDropEvent failed:', err) })
+
+    return () => { unlisten?.() }
+  }, [addFiles])
+
+  // Reset on escape
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDragging(false)
     }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
-
-  const [dragging, setDragging] = useLocalState(false)
-
-  const handleDragOver = React.useCallback(
-    (e: React.DragEvent<HTMLDivElement>): void => {
-      const transfer = e.dataTransfer
-      const types = Array.from(transfer?.types ?? [])
-      const canHandle = types.includes('Files') || types.includes(INTERNAL_FILE_DRAG_MIME)
-      if (!canHandle) return
-      e.preventDefault()
-      if (transfer) {
-        transfer.dropEffect = 'copy'
-      }
-      setDragging(true)
-    },
-    [setDragging]
-  )
-
-  const handleDragLeave = React.useCallback(
-    (e: React.DragEvent<HTMLDivElement>): void => {
-      const nextTarget = e.relatedTarget as Node | null
-      if (nextTarget && e.currentTarget.contains(nextTarget)) return
-      setDragging(false)
-    },
-    [setDragging]
-  )
-
-  const handleDropWrapped = React.useCallback(
-    (e: React.DragEvent<HTMLDivElement>): void => {
-      const draggedPaths = getDraggedFilePaths(e.dataTransfer)
-      const hasNativeFiles = (e.dataTransfer?.files?.length ?? 0) > 0
-      if (draggedPaths.length === 0 && !hasNativeFiles) return
-      e.preventDefault()
-      setDragging(false)
-      if (draggedPaths.length > 0) {
-        addFiles(draggedPaths)
-        return
-      }
-      handleDropFiles(e.dataTransfer?.files ?? null)
-    },
-    [addFiles, getDraggedFilePaths, handleDropFiles, setDragging]
-  )
 
   // ---- Toolbar controls ----
   const composerActionsControl = (
@@ -794,22 +782,12 @@ export function InputArea({
           </PopoverContent>
         </Popover>
       )}
-      {workspaceDisplayName && (
-        <Badge variant="outline" className="h-8 gap-1 px-2.5">
-          <FolderOpen className="size-3 shrink-0" />
-          <span className="max-w-[100px] truncate">{workspaceDisplayName}</span>
-          <button
-            type="button"
-            className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
-            onClick={() => {
-              if (!activeTaskId) return
-              useChatStore.getState().setWorkingFolder(activeTaskId, '')
-            }}
-            aria-label={t('input.contextBar.clearWorkspace', { defaultValue: 'Clear workspace' })}
-          >
-            <X className="size-2.5" />
-          </button>
-        </Badge>
+      {workingFolder && workspaceDisplayName && (
+        <WorkspaceFilePopover
+          workingFolder={workingFolder}
+          workspaceDisplayName={workspaceDisplayName}
+          activeTaskId={activeTaskId ?? null}
+        />
       )}
     </div>
   )
@@ -879,9 +857,6 @@ export function InputArea({
           )}
           data-composer-variant="task"
           style={{ minHeight: MIN_INPUT_HEIGHT }}
-          onDrop={handleDropWrapped}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
         >
           {/* Drag overlay */}
           {dragging && (
@@ -908,11 +883,12 @@ export function InputArea({
               disabled={disabled}
               placeholder={undefined}
               minHeight={80}
+              maxHeight={300}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               onFocus={() => {}}
               onBlur={() => {}}
-              className="flex-1 min-h-0 w-full"
+              className="min-h-0 w-full"
             />
           </div>
 

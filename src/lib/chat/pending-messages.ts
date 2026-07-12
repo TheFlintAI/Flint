@@ -12,8 +12,8 @@ export type MessageSource = 'team' | 'queued' | 'continue'
 export interface SendMessageOptions {
   longRunningMode?: boolean
   clearCompletedTasksOnTurnStart?: boolean
-  /** Number of file references in the user message, for context snapshot */
-  fileCount?: number
+  /** File paths referenced in the message (for structured display and AI serialization) */
+  filePaths?: string[]
   /** Workspace folder path to set on the task before sending */
   workspace?: string
 }

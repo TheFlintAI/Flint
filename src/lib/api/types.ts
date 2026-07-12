@@ -195,8 +195,10 @@ export interface CompactSummaryMeta {
 export interface MessageContextSnapshot {
   /** Working folder path active when this message was sent */
   workspace?: string
-  /** Number of file references in the message */
-  fileCount?: number
+  /** Clean user-authored text (without file tokens or editor tags) */
+  text?: string
+  /** File paths referenced in the message (for attachment display) */
+  filePaths?: string[]
   /** Number of image attachments in the message */
   imageCount?: number
 }

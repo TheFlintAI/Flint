@@ -16,9 +16,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   Check,
   Copy,
-  ImagePlus,
   FolderOpen,
-  FileCode2,
+  FileText,
   Undo2
 } from 'lucide-react'
 import { formatTokens } from '@/lib/utils/format-tokens'
@@ -29,11 +28,15 @@ import {
 } from '@/lib/chat/image-clipboard'
 import type { ContentBlock, MessageContextSnapshot } from '@/lib/api/types'
 import {
-  extractEditableUserMessageDraft,
+  extractEditableImages,
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
-import { selectFileTextToPlainText } from '@/lib/chat/select-file-tags'
-import { SelectFileInlineText } from './SelectFileInlineText'
+import {
+  Attachment,
+  AttachmentMedia,
+  AttachmentContent,
+  AttachmentTitle,
+} from '@/components/ui/attachment'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('UserMessage')
@@ -73,15 +76,15 @@ function ActionIconButton({
 }
 
 const USER_MESSAGE_BUBBLE_CLASS =
-  'rounded-lg border border-border/60 bg-muted/60 px-4 py-3 text-base text-foreground'
+  'rounded-lg border border-border/60 bg-transparent px-4 py-3 text-base text-foreground'
 function MessageContextBadges({ snapshot }: { snapshot: MessageContextSnapshot }): React.JSX.Element | null {
-  const { t } = useTranslation('chat')
-  const items: React.JSX.Element[] = []
+  if (!snapshot.workspace) return null
 
-  if (snapshot.workspace) {
-    const displayName = snapshot.workspace.split(/[\\/]/).pop() || snapshot.workspace
-    items.push(
-      <Tooltip key="ws">
+  const displayName = snapshot.workspace.split(/[\\/]/).pop() || snapshot.workspace
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1">
+      <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
             <FolderOpen className="size-3 shrink-0" />
@@ -90,29 +93,8 @@ function MessageContextBadges({ snapshot }: { snapshot: MessageContextSnapshot }
         </TooltipTrigger>
         <TooltipContent side="top">{snapshot.workspace}</TooltipContent>
       </Tooltip>
-    )
-  }
-
-  if (snapshot.fileCount && snapshot.fileCount > 0) {
-    items.push(
-      <span key="files" className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-        <FileCode2 className="size-3 shrink-0" />
-        <span>{t('userMessage.fileCount', { count: snapshot.fileCount })}</span>
-      </span>
-    )
-  }
-
-  if (snapshot.imageCount && snapshot.imageCount > 0) {
-    items.push(
-      <span key="images" className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-        <ImagePlus className="size-3 shrink-0" />
-        <span>{t('userMessage.imageCount', { count: snapshot.imageCount })}</span>
-      </span>
-    )
-  }
-
-  if (items.length === 0) return null
-  return <div className="mb-2 flex flex-wrap items-center gap-1">{items}</div>
+    </div>
+  )
 }
 
 async function copyImageSourceToClipboard(src: string): Promise<void> {
@@ -212,12 +194,21 @@ export function UserMessage({
   onRollback
 }: UserMessageProps): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const currentDraft = useMemo(() => extractEditableUserMessageDraft(content), [content])
-  const plainText = currentDraft.text
-  const allImages = currentDraft.images
-  const displayText = plainText
-  const copyBodyText = selectFileTextToPlainText(displayText)
-  const copyText = copyBodyText
+  const allImages = useMemo(() => extractEditableImages(content), [content])
+
+  // Display data comes from the structured context snapshot.
+  // The message content is AI-bound (includes @{path} tokens); the snapshot
+  // carries the clean display data — no text parsing required.
+  const filePaths: string[] = contextSnapshot?.filePaths ?? []
+  const displayText: string = contextSnapshot?.text ?? ''
+
+  // Copy text includes file paths for context
+  const copyText = useMemo(() => {
+    const parts: string[] = []
+    if (filePaths.length > 0) parts.push(filePaths.join('\n'))
+    if (displayText) parts.push(displayText)
+    return parts.join('\n')
+  }, [filePaths, displayText])
 
   const memoizedTokens = useMemoizedTokens(displayText)
 
@@ -261,10 +252,37 @@ export function UserMessage({
     <div className="group/user flex flex-col">
       <div className="w-full">
         <div className={`${USER_MESSAGE_BUBBLE_CLASS} w-full relative`}>
-          {contextSnapshot && <MessageContextBadges snapshot={contextSnapshot} />}
+          {/* File attachments — same style as composer strip */}
+          {filePaths.length > 0 && (
+            <div className="flex flex-wrap gap-2 pb-3">
+              {filePaths.map((filePath) => {
+                const fileName = filePath.split('/').pop() || filePath
+                return (
+                  <Attachment
+                    key={filePath}
+                    orientation="horizontal"
+                    size="xs"
+                    state="done"
+                    className="bg-muted/50 focus-within:ring-0"
+                    style={{ minWidth: 0 }}
+                  >
+                    <AttachmentMedia variant="icon">
+                      <FileText />
+                    </AttachmentMedia>
+                    <AttachmentContent>
+                      <AttachmentTitle title={filePath}>
+                        {fileName}
+                      </AttachmentTitle>
+                    </AttachmentContent>
+                  </Attachment>
+                )
+              })}
+            </div>
+          )}
+          {/* Plain text — file tags are already rendered as attachments above */}
           {displayText && (
-            <div className="text-base leading-relaxed">
-              <SelectFileInlineText text={displayText} />
+            <div className="text-base leading-relaxed whitespace-pre-wrap break-words">
+              {displayText}
             </div>
           )}
           {allImages.length > 0 && (
@@ -278,6 +296,9 @@ export function UserMessage({
               ))}
             </div>
           )}
+
+          {/* Workspace badge at the bottom */}
+          {contextSnapshot && <MessageContextBadges snapshot={contextSnapshot} />}
 
           <Dialog
             open={Boolean(previewImageSrc)}
