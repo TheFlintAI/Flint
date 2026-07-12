@@ -693,7 +693,14 @@ export function InputArea({
         const el = containerRef.current
         if (!el) return
 
-        const type = event.payload.type.toLowerCase()
+        const type = event.payload.type
+
+        // 'leave' has no position — just reset drag state
+        if (type === 'leave') {
+          setDragging(false)
+          return
+        }
+
         const scale = window.devicePixelRatio || 1
         const x = event.payload.position.x / scale
         const y = event.payload.position.y / scale
@@ -702,9 +709,9 @@ export function InputArea({
 
         if (type === 'enter' || type === 'over') {
           setDragging(isOverComposer)
-        } else if (type === 'leave' || type === 'drop') {
+        } else if (type === 'drop') {
           setDragging(false)
-          if (type === 'drop' && isOverComposer && event.payload.paths.length > 0) {
+          if (isOverComposer && event.payload.paths.length > 0) {
             addFiles(event.payload.paths)
           }
         }
