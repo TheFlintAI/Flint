@@ -35,8 +35,6 @@ export type AgentRuntimeSyncEvent =
       patch: Partial<Pick<ActiveTeam, 'permissionMode' | 'teamAllowedPaths'>>
     }
   | { kind: 'clear_session_team'; taskId: string }
-  | { kind: 'resolve_approval'; toolCallId: string; approved: boolean }
-  | { kind: 'clear_pending_approvals' }
 
 let suppressionDepth = 0
 

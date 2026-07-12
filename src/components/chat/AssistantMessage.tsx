@@ -210,9 +210,6 @@ export function AssistantMessage({
       }
       const idSet = new Set(liveToolCallIds)
       const matches: ToolCallState[] = []
-      for (const tc of s.pendingToolCalls) {
-        if (idSet.has(tc.id)) matches.push(tc)
-      }
       for (const tc of s.executedToolCalls) {
         if (idSet.has(tc.id)) matches.push(tc)
       }

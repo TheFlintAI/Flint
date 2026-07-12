@@ -7,6 +7,7 @@ import type {
 } from '@/lib/api/types'
 import { emitTaskRuntimeSync } from '@/lib/agent/task-runtime-sync'
 import { useChatStore } from '@/stores/chat-store'
+import { useAgentStore } from '@/stores/agent-store'
 import { summarizeToolInputForHistory } from '@/lib/tools/tool-input-sanitizer'
 import { useInboxStore } from '@/stores/inbox-store'
 import { recordStreamingForegroundFlush } from '@/lib/devtools/streaming-performance'
@@ -516,6 +517,11 @@ export function addRuntimeMessage(taskId: string, message: UnifiedMessage): void
 export async function flushBackgroundTaskToForeground(taskId: string): Promise<void> {
   if (!taskId) return
   cancelDebouncedMarkTaskUpdate(taskId)
+  // Clear completed dot indicator when user opens the task
+  const agentState = useAgentStore.getState()
+  if (agentState.runningTasks[taskId] === 'completed') {
+    agentState.setTaskStatus(taskId, null)
+  }
   useInboxStore.getState().flushPendingMutationsNow()
   const snapshot = useInboxStore.getState().takeTaskSnapshot(taskId)
   if (!snapshot) return

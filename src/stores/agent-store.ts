@@ -8,6 +8,7 @@ import { TAURI_COMMANDS } from '@/services/tauri-api/command-channels'
 import { emitAgentRuntimeSync, isAgentRuntimeSyncSuppressed } from '@/lib/agent/runtime-sync'
 import { useTeamStore } from './team-store'
 import { createChangeTrackingSlice, type ChangeTrackingState } from './agent/change-tracking'
+import { resolveApproval } from '@/lib/agent/tool-approval-resolver'
 
 // Re-export types for consumers that still import from agent-store
 export { type FileSnapshot, type FileChange, type ChangeSet, type FileOp } from './agent/change-tracking'
@@ -23,15 +24,6 @@ import {
   createClearForegroundShellExec,
   createAbortForegroundShellExec
 } from './agent/background-process'
-
-import { approvalResolvers } from './agent/approval-flow'
-import {
-  createRequestApproval,
-  createRegisterApprovalSource,
-  createResolveApproval,
-  createClearPendingApprovals,
-  createAddApprovedTool
-} from './agent/approval-flow'
 
 import {
   createSwitchToolCallTask,
@@ -51,7 +43,6 @@ interface AgentStore extends ChangeTrackingState {
   isRunning: boolean
   currentLoopId: string | null
   liveTaskId: string | null
-  pendingToolCalls: ToolCallState[]
   executedToolCalls: ToolCallState[]
   taskBackgroundProcessSummaries: Record<string, BackgroundProcessState[]>
 
@@ -60,11 +51,7 @@ interface AgentStore extends ChangeTrackingState {
   taskRequestRetryState: Record<string, RequestRetryState>
 
   /** Per-task tool-call cache — stores tool calls when switching away from a task */
-  taskToolCallsCache: Record<string, { pending: ToolCallState[]; executed: ToolCallState[] }>
-
-  /** Tool names approved by user during this task — auto-approve on repeat */
-  approvedToolNames: string[]
-  addApprovedTool: (name: string) => void
+  taskToolCallsCache: Record<string, { executed: ToolCallState[] }>
 
   /** Background command tasks (spawned by Bash with run_in_background=true) */
   backgroundProcesses: Record<string, BackgroundProcessState>
@@ -102,19 +89,13 @@ interface AgentStore extends ChangeTrackingState {
   clearToolCalls: () => void
   abort: () => void
 
+  /** Resolve a pending tool approval (true = allow, false = deny). */
+  resolveToolApproval: (toolCallId: string, approved: boolean) => void
+
   /** Remove all data bound to the given task */
   purgeTaskData: (taskId: string) => void
   trimDormantTaskData: (residentTaskIds: string[]) => void
 
-  // Approval flow
-  requestApproval: (toolCallId: string) => Promise<boolean>
-  registerApprovalSource: (
-    toolCallId: string,
-    meta: { requestId: string; replyTo: string; source?: 'teammate' | 'teammate-plan' }
-  ) => void
-  resolveApproval: (toolCallId: string, approved: boolean) => void
-  /** Resolve all pending approvals as denied and clear pendingToolCalls (e.g. on team delete) */
-  clearPendingApprovals: () => void
 }
 
 export const useAgentStore = create<AgentStore>()(
@@ -159,28 +140,6 @@ export const useAgentStore = create<AgentStore>()(
         get as Parameters<typeof createRemoveBackgroundProcess>[1]
       )
 
-      // ---- Approval flow ----
-      const _requestApproval = createRequestApproval(
-        set as Parameters<typeof createRequestApproval>[0],
-        get as Parameters<typeof createRequestApproval>[1]
-      )
-      const _registerApprovalSource = createRegisterApprovalSource(
-        set as Parameters<typeof createRegisterApprovalSource>[0],
-        get as Parameters<typeof createRegisterApprovalSource>[1]
-      )
-      const _resolveApproval = createResolveApproval(
-        set as Parameters<typeof createResolveApproval>[0],
-        get as Parameters<typeof createResolveApproval>[1]
-      )
-      const _clearPendingApprovals = createClearPendingApprovals(
-        set as Parameters<typeof createClearPendingApprovals>[0],
-        get as Parameters<typeof createClearPendingApprovals>[1]
-      )
-      const _addApprovedTool = createAddApprovedTool(
-        set as Parameters<typeof createAddApprovedTool>[0],
-        get as Parameters<typeof createAddApprovedTool>[1]
-      )
-
       // ---- Tool call cache ----
       const _switchToolCallTask = createSwitchToolCallTask(
         set as Parameters<typeof createSwitchToolCallTask>[0],
@@ -207,12 +166,10 @@ export const useAgentStore = create<AgentStore>()(
         isRunning: false,
         currentLoopId: null,
         liveTaskId: null,
-        pendingToolCalls: [],
         executedToolCalls: [],
         runningTasks: {},
         taskRequestRetryState: {},
         taskToolCallsCache: {},
-        approvedToolNames: [],
         taskBackgroundProcessSummaries: {},
         backgroundProcesses: {},
         foregroundShellExecByToolUseId: {},
@@ -242,17 +199,6 @@ export const useAgentStore = create<AgentStore>()(
           })
           if (!isAgentRuntimeSyncSuppressed()) {
             emitAgentRuntimeSync({ kind: 'set_session_status', taskId, status })
-          }
-          // Auto-clear 'completed' after 3 seconds
-          if (status === 'completed') {
-            setTimeout(() => {
-              set((state) => {
-                if (state.runningTasks[taskId] === 'completed') {
-                  delete state.runningTasks[taskId]
-                  delete state.taskRequestRetryState[taskId]
-                }
-              })
-            }, 3000)
           }
         },
 
@@ -312,13 +258,6 @@ export const useAgentStore = create<AgentStore>()(
         updateToolCall: _updateToolCall,
         clearToolCalls: _clearToolCalls,
 
-        // Approval flow
-        addApprovedTool: _addApprovedTool,
-        requestApproval: _requestApproval,
-        registerApprovalSource: _registerApprovalSource,
-        resolveApproval: _resolveApproval,
-        clearPendingApprovals: _clearPendingApprovals,
-
         // Change tracking slice
         ...createChangeTrackingSlice(set as (recipe: (state: ChangeTrackingState) => void) => void),
 
@@ -327,10 +266,10 @@ export const useAgentStore = create<AgentStore>()(
             state.isRunning = false
             state.currentLoopId = null
           })
-          for (const [, resolve] of approvalResolvers) {
-            resolve(false)
-          }
-          approvalResolvers.clear()
+        },
+
+        resolveToolApproval: (toolCallId, approved) => {
+          resolveApproval(toolCallId, approved)
         },
 
         purgeTaskData: (taskId) => {
@@ -340,7 +279,6 @@ export const useAgentStore = create<AgentStore>()(
             delete state.taskToolCallsCache[taskId]
 
             if (state.liveTaskId === taskId) {
-              state.pendingToolCalls = []
               state.executedToolCalls = []
             }
 
@@ -392,7 +330,7 @@ export const useAgentStore = create<AgentStore>()(
       name: AGENT_STORE_STORAGE_KEY,
       storage: createJSONStorage(() => commandStorage),
       partialize: (state) => ({
-        approvedToolNames: state.approvedToolNames
+        executedToolCalls: state.executedToolCalls
       })
     }
   )

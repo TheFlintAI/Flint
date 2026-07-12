@@ -42,7 +42,7 @@ export interface ToolCallStateWire {
   id: string
   name: string
   input: Record<string, unknown>
-  status: 'streaming' | 'pending_approval' | 'running' | 'completed' | 'error' | 'canceled'
+  status: 'streaming' | 'running' | 'awaiting_approval' | 'completed' | 'error' | 'canceled'
   output?: string | Array<TextBlockWire | ImageBlockWire>
   error?: string
   extraContent?: ToolCallExtraContentWire

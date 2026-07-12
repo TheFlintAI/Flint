@@ -7,10 +7,12 @@ import { useChatStore } from '@/stores/chat-store'
 import { useTeamStore } from '@/stores/team-store'
 import { useAgentStore } from '@/stores/agent-store'
 import { useTodoStore } from '@/stores/todo-store'
+import { useInboxStore } from '@/stores/inbox-store'
 import { teamTaskToItem, EMPTY_TASKS } from '@/lib/todo-utils'
 import { ProgressCard } from './cards/ProgressCard'
 import { TeamCard } from './cards/TeamCard'
 import { ChangesCard } from './cards/ChangesCard'
+import { ApprovalCard } from './cards/ApprovalCard'
 import { PanelEmptyState } from '@/components/ui/PanelEmptyState'
 
 function cardAnimation() {
@@ -47,6 +49,15 @@ export function AdaptiveDashboard(): React.JSX.Element {
     }),
   )
 
+  // Approval items for the active task
+  const approvalItems = useInboxStore(
+    useShallow((s) =>
+      activeTaskId
+        ? s.inboxItems.filter((item) => item.type === 'approval' && item.taskId === activeTaskId)
+        : []
+    )
+  )
+
   // Team is per-task — look up directly from the activeTeams map.
   const team = useTeamStore((state) =>
     activeTaskId ? (state.activeTeams[activeTaskId] ?? null) : null
@@ -78,7 +89,8 @@ export function AdaptiveDashboard(): React.JSX.Element {
   // Team card: active when the current task has a running team
   const hasTeam = !!team
 
-  const anyCardVisible = hasTodos || hasChanges || hasTeam
+  const hasApprovals = approvalItems.length > 0
+  const anyCardVisible = hasApprovals || hasTodos || hasChanges || hasTeam
 
   if (!activeTask) {
     return (
@@ -106,6 +118,13 @@ export function AdaptiveDashboard(): React.JSX.Element {
     <div className="h-full overflow-y-auto overflow-x-hidden">
       <div className="space-y-2.5 p-2.5">
         <AnimatePresence mode="popLayout">
+          {/* Approval cards — pinned at top, one per pending approval */}
+          {approvalItems.map((item) => (
+            <motion.div key={`approval-${item.id}`} {...cardAnimation()}>
+              <ApprovalCard item={item} />
+            </motion.div>
+          ))}
+
           {/* Progress card — only when there are todos */}
           {hasTodos && (
             <motion.div key="progress" {...cardAnimation()}>

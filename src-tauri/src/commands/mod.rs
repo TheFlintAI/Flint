@@ -1,4 +1,5 @@
 mod desktop;
+mod document;
 mod fs;
 mod image;
 mod process;
@@ -327,12 +328,26 @@ async fn emit_app_command(
 
 /// Read a text file, optionally restricted to a 1-indexed line range.
 /// Returns `{ content, path }`, with `truncated`/`totalLines` when a range is applied.
+/// Binary document formats (PDF, DOCX, XLSX, PPTX) are auto-detected and routed
+/// to the document reader.
 fn read_file_text(input: &ReadFileArgs) -> Result<Value, String> {
     let path = &input.path;
+
+    // Binary document formats — dispatch to document reader
+    if document::detect_document_format(path).is_some() {
+        return document::read_document(path, input.pages.as_deref());
+    }
+
     let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(json!({ "notFound": true, "path": path }));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+            return Err(
+                "Cannot read binary file. Supported binary formats: PDF, DOCX, XLSX, PPTX"
+                    .to_string(),
+            );
         }
         Err(error) => return Err(error.to_string()),
     };
@@ -397,6 +412,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState::load())
         .invoke_handler(tauri::generate_handler![

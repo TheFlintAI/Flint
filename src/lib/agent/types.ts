@@ -16,8 +16,8 @@ import type { CompressionConfig } from './context-compression'
 
 export type ToolCallStatus =
   | 'streaming'
-  | 'pending_approval'
   | 'running'
+  | 'awaiting_approval'
   | 'completed'
   | 'error'
   | 'canceled'
@@ -33,7 +33,6 @@ export interface ToolCallState {
   taskId?: string
   startedAt?: number
   completedAt?: number
-  permission?: 'ask' | 'allow'
 }
 
 // --- Message Queue for mid-loop injection ---

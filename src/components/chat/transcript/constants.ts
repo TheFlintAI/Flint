@@ -1,0 +1,9 @@
+export const TAIL_STATIC_MESSAGE_COUNT = 4
+export const TAIL_LIVE_MESSAGE_COUNT = 6
+export const PENDING_ASSISTANT_ROW_KEY_PREFIX = '__pending_assistant__'
+export const USER_LOCATOR_PREVIEW_LIMIT = 88
+export const USER_LOCATOR_SCROLL_OFFSET = 28
+export const USER_LOCATOR_HIGHLIGHT_MS = 1400
+export const MIN_RENDERABLE_HISTORY_ROWS = 3
+export const MESSAGE_COLUMN_CLASS = 'mx-auto w-full max-w-[820px] px-5'
+export const MESSAGE_COLUMN_COMPACT_CLASS = 'mx-auto w-full max-w-[720px] px-5'

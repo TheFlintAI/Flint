@@ -178,12 +178,13 @@ type ReadFileTextResult = { content: string } | { error: string }
 async function readFileText(
   ctx: ToolContext,
   resolvedPath: string,
-  options?: { offset?: unknown; limit?: unknown }
+  options?: { offset?: unknown; limit?: unknown; pages?: unknown }
 ): Promise<ReadFileTextResult> {
   const result = await ctx.commands.invoke(TAURI_COMMANDS.FS_READ_FILE, {
     path: resolvedPath,
     offset: options?.offset,
-    limit: options?.limit
+    limit: options?.limit,
+    pages: options?.pages
   })
   if (isErrorResult(result)) return { error: `Read failed: ${result.error}` }
 
@@ -488,7 +489,11 @@ function lsBody(ctx: ToolPanelContext): React.ReactNode {
 const readHandler: ToolHandler = {
   definition: {
     name: 'Read',
-    description: 'Read a file from the filesystem',
+    description:
+      'Reads a file from the filesystem.\n\n' +
+      '- Text files (code, config, markdown, etc.): supports offset/limit for line ranges.\n' +
+      '- Documents (PDF, DOCX, XLSX, PPTX): extracts text content. Use `pages` for PDF page ranges (e.g. "1-5", "1,3,7").\n' +
+      '- Images (PNG, JPEG, GIF, WEBP): returned as visual attachments.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -496,8 +501,9 @@ const readHandler: ToolHandler = {
           type: 'string',
           description: 'Absolute path or relative to the working folder'
         },
-        offset: { type: 'number', description: 'Start line (1-indexed)' },
-        limit: { type: 'number', description: 'Number of lines to read' }
+        offset: { type: 'number', description: 'Start line (1-indexed, text files only)' },
+        limit: { type: 'number', description: 'Number of lines to read (text files only)' },
+        pages: { type: 'string', description: 'Page range for PDF (e.g. "1-5", "1,3,7"). Ignored for other formats.' }
       },
       required: ['file_path']
     }
@@ -510,14 +516,14 @@ const readHandler: ToolHandler = {
     const resolvedPath = resolveToolPath(inputPath, ctx.workingFolder)
     const result = await readFileText(ctx, resolvedPath, {
       offset: input.offset,
-      limit: input.limit
+      limit: input.limit,
+      pages: input.pages
     })
     if ('error' in result) throw new Error(result.error)
     await recordRead(ctx, resolvedPath)
     return result.content
   },
   render: { kind: 'native-panel', renderHeader: readHeader, renderBody: readBody, expandForImages: true },
-  formatApprovalSummary: (input) => `Read: ${input.file_path ?? input.path ?? ''}`,
 }
 
 const writeHandler: ToolHandler = {
@@ -567,7 +573,6 @@ const writeHandler: ToolHandler = {
     return encodeStructuredToolResult({ success: true, path: resolvedPath })
   },
   render: { kind: 'native-panel', renderHeader: fileHeader, renderBody: writeBody },
-  formatApprovalSummary: (input) => `Create/overwrite: ${input.file_path ?? input.path ?? ''}`,
 }
 
 const editHandler: ToolHandler = {
@@ -649,7 +654,6 @@ const editHandler: ToolHandler = {
     })
   },
   render: { kind: 'native-panel', renderHeader: fileHeader, renderBody: editBody },
-  formatApprovalSummary: (input) => `Edit: ${input.file_path ?? input.path ?? ''}`,
 }
 
 const lsHandler: ToolHandler = {
@@ -686,7 +690,6 @@ const lsHandler: ToolHandler = {
     return encodeStructuredToolResult(formatLsResultForPrompt(result))
   },
   render: { kind: 'native-panel', renderHeader: lsHeader, renderBody: lsBody },
-  formatApprovalSummary: (input) => `List: ${input.path ?? '.'}`,
 }
 
 const deleteHandler: ToolHandler = {

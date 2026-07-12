@@ -625,7 +625,6 @@ const globHandler: ToolHandler = {
     )
   },
   render: { kind: 'native-panel', renderHeader: globHeader, renderBody: globBody },
-  formatApprovalSummary: (input) => `Pattern: ${input.pattern ?? ''} in ${input.path ?? '.'}`,
 }
 
 const grepHandler: ToolHandler = {
@@ -686,7 +685,6 @@ const grepHandler: ToolHandler = {
     return typeof formatted === 'string' ? formatted : encodeStructuredToolResult(formatted)
   },
   render: { kind: 'native-panel', renderHeader: grepHeader, renderBody: grepBody },
-  formatApprovalSummary: (input) => `Search: "${input.pattern ?? ''}" in ${input.path ?? '.'}`,
 }
 
 export function registerSearchTools(): void {

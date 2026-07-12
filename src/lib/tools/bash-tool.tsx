@@ -30,59 +30,135 @@ const LIVE_ERROR_PREVIEW_MAX_LINES = 24
 const ERROR_LIKE_RE =
   /\b(error|failed|exception|traceback|fatal|panic|cannot|unable|undefined reference|syntax error|test(?:s)? failed?)\b/i
 
-// Permission classifier
+// Permission classifier: three-tier model.
+// - WHITELIST: read-only, safe commands → auto-allow
+// - BLACKLIST: destructive, irreversible commands → auto-deny
+// - Everything else → ask user for approval
 
-const ALLOW_PATTERNS: RegExp[] = [
-  // File listing / reading
-  /\b(ls|dir)(?:\s|$)/,
-  /\b(cat|head|tail|less|more|zcat|bzcat)(?:\s|$)/,
-  // Path / navigation
-  /\b(pwd|which|where|whereis|type|realpath|readlink)(?:\s|$)/,
-  // Search / filter / count
-  /\b(find|grep|rg|ag|ack|wc|sort|uniq|cut|tr|awk|sed)(?:\s|$)/,
-  // System info / diagnostics
-  /\b(echo|printenv|env|date|whoami|id|uname|hostname|uptime|df|du|free)(?:\s|$)/,
-  // Safe git (read-only operations)
-  /\bgit\s+(status|log|diff|branch|show|stash\s+list|remote\s+-v|tag|rev-parse|config|ls-files|blame|shortlog|describe|reflog|worktree\s+list)(?:\s|$)/,
-  // Version checks
-  /\b(git|node|npm|pnpm|yarn|rustc|cargo|go|python|pip|docker|kubectl|helm|terraform|java|javac|gcc|g\+\+|clang|make|cmake)(?:\s+.*)?\s+(--version|-v|-V|version)(?:\s|$)/,
-  // Package listing (read-only)
-  /\b(npm|pnpm|yarn)\s+(list|outdated|why|info|view)(?:\s|$)/,
-  /\b(pip|pip3)\s+(list|freeze|show|search)(?:\s|$)/,
-  /\bcargo\s+(tree|metadata|read-manifest)(?:\s|$)/,
-  // Docker read-only
-  /\bdocker\s+(ps|images|inspect|stats|info|version|compose\s+ps|compose\s+config|compose\s+logs(?!\s+-f)|system\s+info|system\s+df)(?:\s|$)/,
-  // Kubernetes read-only
-  /\bkubectl\s+(get|describe|top|explain|api-resources|api-versions|cluster-info|config\s+view|auth\s+can-i|rollout\s+status|rollout\s+history)(?:\s|$)/,
-  // Cargo check (read-only compile check)
-  /\bcargo\s+check\b/,
-  /\btsc\s+.*--noEmit\b/,
+const WHITELIST: RegExp[] = [
+  // Navigation & directory
+  /^cd\b/,
+  /^pwd$/,
+  /^ls\b/,
+  /^dir\b/i,
+  /^tree\b/,
+  // File inspection (read-only)
+  /^cat\b/,
+  /^head\b/,
+  /^tail\b/,
+  /^less\b/,
+  /^more\b/,
+  /^wc\b/,
+  /^nl\b/,
+  /^file\b/,
+  /^stat\b/,
+  /^readlink\b/,
+  /^basename\b/,
+  /^dirname\b/,
+  /^realpath\b/,
+  /^which\b/,
+  /^type\b/,
+  /^whereis\b/,
+  /^whatis\b/,
+  // Search (read-only)
+  /^grep\b/,
+  /^egrep\b/,
+  /^fgrep\b/,
+  /^rg\b/,
+  /^find\b/,
+  /^locate\b/,
+  /^fd\b/,
+  // Archive listing (no extract)
+  /^tar\s+(-[a-zA-Z]*t[a-zA-Z]*|--list)\b/,
+  /^unzip\s+-l\b/,
+  /^7z\s+l\b/,
+  // Environment & system info
+  /^echo\b/,
+  /^printf\b/,
+  /^env\b/,
+  /^printenv\b/,
+  /^uname\b/,
+  /^hostname\b/,
+  /^date\b/,
+  /^uptime\b/,
+  /^whoami\b/,
+  /^id\b/,
+  /^groups\b/,
+  /^df\b/,
+  /^du\b/,
+  /^free\b/,
+  /^ps\b/,
+  /^top\b.*-bn?1/,
+  /^lscpu\b/,
+  /^lsblk\b/,
+  /^lsusb\b/,
+  /^lspci\b/,
+  /^ifconfig\b/,
+  /^ip\b/,
+  /^netstat\b/,
+  /^ss\b/,
+  // Version & help
+  /^node\s+(-v|--version)$/,
+  /^npm\s+(-v|--version|list|ls|outdated|info|view)\b/,
+  /^npx\s+.*(-v|--version|help)$/,
+  /^yarn\s+(-v|--version|list|info|why)\b/,
+  /^pnpm\s+(-v|--version|list|ls|outdated|why)\b/,
+  /^bun\s+(-v|--version)\b/,
+  /^python3?\s+(-V|--version)$/,
+  /^pip3?\s+(list|show|freeze)\b/,
+  /^git\s+(status|log|diff|show|blame|branch|tag|remote|stash\s+list|reflog|shortlog)\b/,
+  /^docker\s+(ps|images|inspect|logs|history|info|version)\b/,
+  /^kubectl\s+(get|describe|logs|explain|version|api-resources)\b/,
+  // Checksums & hashing
+  /^(md5|sha1|sha256|sha512)(sum)?\b/,
+  // Misc read-only
+  /^sort\b/,
+  /^uniq\b/,
+  /^diff\b/,
+  /^cmp\b/,
+  /^comm\b/,
+  /^cut\b/,
+  /^paste\b/,
+  /^tr\b/,
+  /^sed\s+-n\b/,
+  /^awk\b/,
+  /^xargs\b/,
+  /^tee\s*$/,
+  /^true$/,
+  /^false$/,
+  /^sleep\b/,
+  /^test\b/,
+  /^\[/,
+  /^time\b/,
 ]
 
-const DENY_PATTERNS: RegExp[] = [
-  // Recursive delete from root / home
-  /\brm\s+.*-r.*\s+\/(\*|\s|$)/,
-  /\brm\s+.*-r.*\s+~\/(\*|\s|$)/,
-  /\brm\s+.*-rf\s+\/\*/,
-  // Force push to protected branches
-  /\bgit\s+push\s+.*(--force|--force-with-lease|-f).*\b(main|master)\b/,
-  // Destructive git reset
-  /\bgit\s+reset\s+--hard\b/,
+const BLACKLIST: RegExp[] = [
+  // Recursive delete from root or home
+  /\brm\s+.*-[a-zA-Z]*[rR][a-zA-Z]*\s+\/\*?(\s|$)/,
+  /\brm\s+.*-[a-zA-Z]*[rR][a-zA-Z]*\s+~\/(?:\*|\.\*)(\s|$)/,
+  // Force push to main/master
+  /\bgit\s+push\b(?=.*(?:--force-with-lease|--force|-f\b)).*\b(main|master)\b/,
   // Fork bomb
   /:\(\)\s*\{/,
-  /\b:\(\)\s*\{\s*:\s*\|/,
   // Disk formatting / device writes
   /\bmkfs\.\w+/,
   /\b(format)\s+[a-zA-Z]:/i,
   /\bdd\s+if=.*of=\/dev\//,
-  // Chmod / chown on root
-  /\bchmod\s+.*777\s+\//,
-  /\bchmod\s+-R\s+777\s+\//,
-  /\bchown\s+-R\s+.*\s+\//,
-  // Dangerous sudo operations
-  /\bsudo\s+rm\s+-rf\s+\//,
-  /\bsudo\s+shutdown\b/,
-  /\bsudo\s+reboot\b/,
+  // chmod 777 on root directory
+  /\bchmod\s+(-R\s+)?777\s+\/\s/,
+  /\bchmod\s+(-R\s+)?777\s+\/$/,
+  // Shutdown / reboot
+  /\b(shutdown|reboot|init\s+[06]|poweroff|halt)\b/,
+  // Infrastructure destruction
+  /\bterraform\s+destroy\b/,
+  // Dangerous permission changes on system dirs
+  /\bchown\s+.*\s+\/\s/,
+  /\bchmod\s+.*\s+\/\s/,
+  // Dangerous writes to system files
+  /\btee\s+\/etc\//,
+  /\bsudo\s+.*>\s*\/etc\//,
+  // Dangerous package operations
+  /\b(pacman|apt|apt-get|yum|dnf)\s+.*(-R|--remove|remove|purge)\b/,
 ]
 
 export function classifyBashCommand(
@@ -92,17 +168,17 @@ export function classifyBashCommand(
   const command = String(input.command ?? '').trim()
   if (!command) return 'deny'
 
-  // Check deny patterns first (highest priority)
-  for (const pattern of DENY_PATTERNS) {
+  // Check blacklist first (deny takes priority)
+  for (const pattern of BLACKLIST) {
     if (pattern.test(command)) return 'deny'
   }
 
-  // Check allow patterns
-  for (const pattern of ALLOW_PATTERNS) {
+  // Check whitelist
+  for (const pattern of WHITELIST) {
     if (pattern.test(command)) return 'allow'
   }
 
-  // Default: ask for user approval
+  // Everything else requires approval
   return 'ask'
 }
 
@@ -589,7 +665,6 @@ const bashHandler: ToolHandler = {
     }
   },
   render: { kind: 'native-panel', renderHeader: bashHeader, renderBody: bashBody },
-  formatApprovalSummary: (input) => String(input.command ?? ''),
 }
 
 export function registerBashTools(): void {

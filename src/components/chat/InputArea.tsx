@@ -23,18 +23,11 @@ import {
   selectFileTextToPlainText
 } from '@/lib/chat/select-file-tags'
 import {
-  deserializeEditorState,
-  documentHasFileReferences,
-  editorDocumentToPlainText,
-  mergeSelectedFiles,
-  removeReferenceNode,
-  replaceEditorRange,
-  serializeEditorDocument,
-  type EditorDocumentNode,
-  type SelectedFileItem
-} from '@/lib/chat/select-file-editor'
+  parseSelectFileText
+} from '@/lib/chat/select-file-tags'
+import type { SelectedFileItem } from '@/lib/chat/select-file-editor'
 import { ComposerActionsMenu } from './ComposerActionsMenu'
-import { FileAwareEditor, type FileAwareEditorHandle } from './FileAwareEditor'
+import { TextEditor, type TextEditorHandle } from './input/TextEditor'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 
@@ -56,18 +49,27 @@ import { createLogger } from '@/lib/logger'
 import type { SkillInfo } from '@/lib/resources/resource-manager'
 
 import { QueuedMessagesPanel, areQueuedMessagesEqual } from './input/QueuedMessagesPanel'
-import { ImageAttachmentStrip } from './input/ImageAttachmentStrip'
+import { ComposerAttachmentStrip } from './input/ComposerAttachmentStrip'
 import { ComposerToolbar } from './input/ComposerToolbar'
-import { setUserMessageFlyInOrigin } from './message-list/user-message-fly-in'
+import { setUserMessageFlyInOrigin } from './transcript/user-message-fly-in'
 import { useComposerDraft } from '@/hooks/use-composer-draft'
-import { useComposerImages } from '@/hooks/use-composer-images'
+import { useComposerAttachments } from '@/hooks/use-composer-attachments'
+import {
+  isImageAttachment,
+  isFileAttachment,
+  composerImageToImageAttachment,
+  composerFileToSelectedFile,
+  selectedFileToComposer,
+  type ComposerAttachment,
+  type ComposerFileAttachment
+} from '@/lib/chat/composer-attachment'
+import { createSelectFileToken } from '@/lib/chat/select-file-tags'
 
 const log = createLogger('InputArea')
 
 const EMPTY_QUEUED_MESSAGES: PendingTaskMessageItem[] = []
 const INTERNAL_FILE_DRAG_MIME = 'application/x-flint-file-paths'
 const MIN_INPUT_HEIGHT = 160
-const MAX_INPUT_HEIGHT = 360
 
 interface InputAreaProps {
   taskId?: string | null
@@ -91,18 +93,17 @@ export function InputArea({
   suppressPendingQueue = false
 }: InputAreaProps): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const [documentNodes, setDocumentNodes] = React.useState<EditorDocumentNode[]>([])
-  const [selectedFiles, setSelectedFiles] = React.useState<SelectedFileItem[]>([])
-  const [highlightedFileId, setHighlightedFileId] = React.useState<string | null>(null)
-  const [editorSelection, setEditorSelection] = React.useState({ start: 0, end: 0 })
-  const text = React.useMemo(
-    () => editorDocumentToPlainText(documentNodes, selectedFiles),
-    [documentNodes, selectedFiles]
-  )
-  const finalSerializedText = React.useMemo(
-    () => serializeEditorDocument(documentNodes, selectedFiles),
-    [documentNodes, selectedFiles]
-  )
+
+  // ---- Unified state ----
+  const [text, setText] = React.useState('')
+  const textRef = React.useRef(text)
+
+  const textEditorRef = React.useRef<TextEditorHandle | null>(null)
+  const queueFileInputRef = React.useRef<HTMLInputElement>(null)
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const bottomToolbarRef = React.useRef<HTMLDivElement>(null)
+
   const skills = useSkillsStore(
     useShallow((s) => s.skills.filter((sk) => sk.enabled !== false))
   )
@@ -110,14 +111,7 @@ export function InputArea({
   const [workspaceSkills, setWorkspaceSkills] = React.useState<SkillInfo[]>([])
   const [skillsPopoverOpen, setSkillsPopoverOpen] = React.useState(false)
   const [queuePreviewImage, setQueuePreviewImage] = React.useState<ImageAttachment | null>(null)
-  const editorRef = React.useRef<FileAwareEditorHandle | null>(null)
-  const queueFileInputRef = React.useRef<HTMLInputElement>(null)
-  const rootRef = React.useRef<HTMLDivElement>(null)
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const bottomToolbarRef = React.useRef<HTMLDivElement>(null)
-  const textRef = React.useRef(text)
-  const documentRef = React.useRef(documentNodes)
-  const selectedFilesRef = React.useRef(selectedFiles)
+
   const activeProvider = useProviderStore(
     useShallow((s) => {
       const { providers, activeProviderId, activeModelId } = s
@@ -157,10 +151,10 @@ export function InputArea({
   const removePersistedDraft = useInputDraftStore((s) => s.removeDraft)
 
   // Draft persistence
+  const draftReadyKeyRef = React.useRef<string | null>(null)
   const {
     activeDraftKey,
     persistedDraft,
-    draftReadyKeyRef,
     saveDraft
   } = useComposerDraft({
     taskId,
@@ -168,75 +162,36 @@ export function InputArea({
     inputDraftHydrated
   })
 
-  const replaceSelectionWithText = React.useCallback(
-    (
-      replacement: string,
-      selection: { start: number; end: number } = editorSelection,
-      cursorOffset = 0,
-      nextSelectedFiles?: SelectedFileItem[]
-    ) => {
-      const replacementState = deserializeEditorState(
-        replacement,
-        workingFolder,
-        nextSelectedFiles ?? selectedFilesRef.current
-      )
-      const candidateFiles = mergeSelectedFiles(
-        nextSelectedFiles ?? selectedFilesRef.current,
-        replacementState.selectedFiles
-      )
-      const nextDocument = replaceEditorRange(
-        documentRef.current,
-        selectedFilesRef.current,
-        selection.start,
-        selection.end,
-        replacementState.document
-      )
-      const referencedFileIds = new Set(
-        nextDocument
-          .filter(
-            (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
-          )
-          .map((node) => node.fileId)
-      )
-      const nextFiles = candidateFiles.filter((file) => referencedFileIds.has(file.id))
-      const nextCursor =
-        selection.start +
-        editorDocumentToPlainText(replacementState.document, candidateFiles).length +
-        cursorOffset
-
-      setDocumentNodes(nextDocument)
-      setSelectedFiles(nextFiles)
-      requestAnimationFrame(() => {
-        editorRef.current?.focus()
-        editorRef.current?.setSelectionOffsets(nextCursor, nextCursor)
-        setEditorSelection({ start: nextCursor, end: nextCursor })
-      })
-    },
-    [editorSelection, workingFolder]
-  )
-
-  // Image handling
+  // ---- Attachment handling ----
   const {
-    attachedImages,
+    attachments,
     pendingImageReads,
-    removeImage,
+    addImages,
+    addFiles,
+    removeAttachment,
     readImagePathAsAttachment,
-    addFilesToEditor,
     handlePaste,
     handleDropFiles,
     getPastedImageFiles,
     getImageMediaTypeForPath,
-    setAttachedImages,
+    setAttachments,
     setPendingImageReads
-  } = useComposerImages({
+  } = useComposerAttachments({
     supportsVision,
-    workingFolder,
-    editorSelection,
-    selectedFilesRef,
-    replaceSelectionWithText
+    workingFolder
   })
 
-  // Queued messages
+  // Derived attachment lists
+  const imageAttachments = React.useMemo(
+    () => attachments.filter(isImageAttachment).map(composerImageToImageAttachment),
+    [attachments]
+  )
+  const fileAttachments = React.useMemo(
+    () => attachments.filter(isFileAttachment),
+    [attachments]
+  )
+
+  // ---- Queued messages ----
   const queuedMessagesSnapshotRef = React.useRef<PendingTaskMessageItem[]>(EMPTY_QUEUED_MESSAGES)
   const getQueuedMessagesSnapshot = React.useCallback(() => {
     if (suppressPendingQueue) return EMPTY_QUEUED_MESSAGES
@@ -361,38 +316,15 @@ export function InputArea({
     [addQueuedImages, getPastedImageFiles]
   )
 
-  // Editor helpers
-
+  // ---- Refs sync ----
   React.useEffect(() => {
     textRef.current = text
   }, [text])
-  React.useEffect(() => {
-    documentRef.current = documentNodes
-  }, [documentNodes])
-  React.useEffect(() => {
-    selectedFilesRef.current = selectedFiles
-  }, [selectedFiles])
-
-  React.useEffect(() => {
-    if (!highlightedFileId) return
-    const timer = window.setTimeout(() => {
-      setHighlightedFileId((current) => (current === highlightedFileId ? null : current))
-    }, 1600)
-    return () => window.clearTimeout(timer)
-  }, [highlightedFileId])
-
-  const applyEditorStateFromSerializedText = React.useCallback(
-    (nextText: string, baseFiles: SelectedFileItem[] = selectedFilesRef.current) => {
-      const nextState = deserializeEditorState(nextText, workingFolder, baseFiles)
-      setDocumentNodes(nextState.document)
-      setSelectedFiles(nextState.selectedFiles)
-    },
-    [workingFolder]
-  )
 
   const hasApiKey = !!activeProvider?.apiKey || activeProvider?.requiresApiKey === false
   const needsWorkingFolder = false
 
+  // ---- Queued message lifecycle ----
   React.useEffect(() => {
     setEditingQueueItemId(null)
     setEditingQueueText('')
@@ -419,22 +351,17 @@ export function InputArea({
     setQueueClearConfirmOpen(false)
   }, [queuedMessages.length])
 
-  // Draft hydration
+  // ---- Draft hydration ----
   React.useEffect(() => {
     if (!inputDraftHydrated) return
 
     const persistedText = persistedDraft?.text ?? ''
-    const persistedSelectedFiles = persistedDraft?.selectedFiles ?? []
+    const persistedSelectedFiles: SelectedFileItem[] = persistedDraft?.selectedFiles ?? []
 
     draftReadyKeyRef.current = null
-    applyEditorStateFromSerializedText(
-      persistedText,
-      persistedSelectedFiles
-    )
-    setAttachedImages([])
+    setText(persistedText)
+    setAttachments(persistedSelectedFiles.map(selectedFileToComposer))
     setQueuePreviewImage(null)
-    setHighlightedFileId(null)
-    setEditorSelection({ start: 0, end: 0 })
 
     const rafId = window.requestAnimationFrame(() => {
       draftReadyKeyRef.current = activeDraftKey
@@ -445,18 +372,17 @@ export function InputArea({
     }
   }, [
     activeDraftKey,
-    applyEditorStateFromSerializedText,
     inputDraftHydrated,
     persistedDraft,
     workingFolder
   ])
 
-  // Eagerly load skills
+  // ---- Eagerly load skills ----
   React.useEffect(() => {
     loadSkills()
   }, [loadSkills])
 
-  // Load workspace skills when workingFolder changes
+  // ---- Load workspace skills when workingFolder changes ----
   React.useEffect(() => {
     if (!workingFolder) {
       setWorkspaceSkills([])
@@ -474,15 +400,16 @@ export function InputArea({
     return () => { cancelled = true }
   }, [workingFolder])
 
-  // Draft persistence
+  // ---- Draft persistence ----
   React.useEffect(() => {
+    const selectedFiles = fileAttachments.map(composerFileToSelectedFile)
     saveDraft({
-      serializedText: finalSerializedText,
+      serializedText: text,
       selectedFiles
     })
-  }, [saveDraft, finalSerializedText, selectedFiles])
+  }, [saveDraft, text, fileAttachments])
 
-  // Auto-focus when draft is ready
+  // ---- Auto-focus when draft is ready ----
   React.useEffect(() => {
     if (isStreaming || disabled || !inputDraftHydrated) return
 
@@ -498,7 +425,7 @@ export function InputArea({
         return
       }
 
-      editorRef.current?.focus()
+      textEditorRef.current?.focus()
     })
 
     return () => {
@@ -506,28 +433,51 @@ export function InputArea({
     }
   }, [activeDraftKey, disabled, inputDraftHydrated, isStreaming])
 
-  // Consume pendingInsertText from FileTree clicks
+  // ---- Consume pendingInsertText from FileTree clicks ----
   const pendingInsert = useUIStore((s) => s.pendingInsertText)
   React.useEffect(() => {
     if (!pendingInsert) return
 
-    const selection = editorRef.current?.getSelectionOffsets() ?? {
-      start: text.length,
-      end: text.length
+    // Parse <select-file> tags to extract file paths for attachment
+    const segments = parseSelectFileText(pendingInsert)
+    const filePaths = segments
+      .filter((s) => s.type === 'file')
+      .map((s) => s.text)
+      .filter(Boolean)
+
+    if (filePaths.length > 0) {
+      addFiles(filePaths)
+    } else {
+      // Plain text insert at cursor
+      const sel = textEditorRef.current?.getSelection() ?? {
+        start: textRef.current.length,
+        end: textRef.current.length
+      }
+      const pendingPlainText = selectFileTextToPlainText(pendingInsert)
+      const needsPrefix =
+        sel.start === sel.end &&
+        sel.start > 0 &&
+        !/\s$/.test(textRef.current.slice(0, sel.start)) &&
+        pendingPlainText.length > 0 &&
+        !/^\s/.test(pendingPlainText)
+
+      const prefix = needsPrefix ? ' ' : ''
+      const newText =
+        textRef.current.slice(0, sel.start) +
+        prefix +
+        pendingInsert +
+        textRef.current.slice(sel.end)
+      setText(newText)
+      const cursorPos = sel.start + prefix.length + pendingInsert.length
+      requestAnimationFrame(() => {
+        textEditorRef.current?.setSelection(cursorPos, cursorPos)
+      })
     }
-    const pendingPlainText = selectFileTextToPlainText(pendingInsert)
-    const needsPrefix =
-      selection.start === selection.end &&
-      selection.start > 0 &&
-      !/\s$/.test(text.slice(0, selection.start)) &&
-      pendingPlainText.length > 0 &&
-      !/^\s/.test(pendingPlainText)
 
-    replaceSelectionWithText(`${needsPrefix ? ' ' : ''}${pendingInsert}`, selection)
     useUIStore.getState().setPendingInsertText(null)
-  }, [pendingInsert, replaceSelectionWithText, text])
+  }, [pendingInsert, addFiles])
 
-  // Attach media handler (uses t() for i18n)
+  // ---- Attach media handler ----
   const handleAttachMedia = React.useCallback(async (): Promise<void> => {
     try {
       const result = (await tauriCommands.invoke(TAURI_COMMANDS.FS_SELECT_FILE, {
@@ -573,9 +523,9 @@ export function InputArea({
       )
       if (result.canceled || paths.length === 0) return
 
-      const imagePaths = supportsVision
-        ? paths.filter((filePath) => Boolean(getImageMediaTypeForPath(filePath)))
-        : []
+      // Always load images as previews, regardless of vision support.
+      // Vision check gates only whether images are sent to the model (see handleSend).
+      const imagePaths = paths.filter((filePath) => Boolean(getImageMediaTypeForPath(filePath)))
       const filePaths = paths.filter((filePath) => !imagePaths.includes(filePath))
       const imageFallbackPaths: string[] = []
 
@@ -585,13 +535,28 @@ export function InputArea({
           const images = await Promise.all(
             imagePaths.map(async (filePath) => {
               const attachment = await readImagePathAsAttachment(filePath)
-              if (!attachment) imageFallbackPaths.push(filePath)
-              return attachment
+              if (!attachment) {
+                imageFallbackPaths.push(filePath)
+                return null
+              }
+              const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath
+              return { attachment, name }
             })
           )
-          const validImages = images.filter((image): image is ImageAttachment => Boolean(image))
-          if (validImages.length > 0) {
-            setAttachedImages((prev) => [...prev, ...validImages])
+          const valid = images.filter(
+            (item): item is NonNullable<typeof item> => item !== null
+          )
+          if (valid.length > 0) {
+            setAttachments((prev) => [
+              ...prev,
+              ...valid.map(({ attachment, name }) => ({
+                type: 'image' as const,
+                id: attachment.id,
+                name,
+                dataUrl: attachment.dataUrl,
+                mediaType: attachment.mediaType
+              }))
+            ])
           }
         } finally {
           setPendingImageReads((prev) => Math.max(0, prev - imagePaths.length))
@@ -600,13 +565,13 @@ export function InputArea({
 
       const pathsForFileReferences = [...filePaths, ...imageFallbackPaths]
       if (pathsForFileReferences.length > 0) {
-        addFilesToEditor(pathsForFileReferences)
+        addFiles(pathsForFileReferences)
       }
     } catch (error) {
       log.error('Failed to attach media:', error)
       toast.error(t('input.attachMediaFailed'))
     }
-  }, [addFilesToEditor, readImagePathAsAttachment, getImageMediaTypeForPath, supportsVision, t])
+  }, [addFiles, readImagePathAsAttachment, getImageMediaTypeForPath, supportsVision, t])
 
   const handleSelectWorkspace = React.useCallback(async (): Promise<void> => {
     try {
@@ -616,97 +581,30 @@ export function InputArea({
       }
       if (result.canceled || !result.path || !activeTaskId) return
       useChatStore.getState().setWorkingFolder(activeTaskId, result.path)
-      editorRef.current?.focus()
+      textEditorRef.current?.focus()
     } catch (error) {
       log.error('Failed to select workspace:', error)
     }
   }, [activeTaskId])
 
-  const handleLocateFileReference = React.useCallback((fileId: string) => {
-    setHighlightedFileId(fileId)
-    editorRef.current?.scrollToReference(fileId)
-    editorRef.current?.focus()
-  }, [])
-
-  const handleEditorSelectionChange = React.useCallback(
-    (selection: { start: number; end: number }) => {
-      setEditorSelection((current) =>
-        current.start === selection.start && current.end === selection.end ? current : selection
-      )
-    },
-    []
-  )
-
-  const handleRemoveFileReference = React.useCallback((nodeId: string) => {
-    const currentDocument = documentRef.current
-    const targetNode = currentDocument.find(
-      (node): node is Extract<EditorDocumentNode, { type: 'file' }> =>
-        node.type === 'file' && node.id === nodeId
-    )
-    if (!targetNode) return
-
-    const nextDocument = removeReferenceNode(currentDocument, nodeId, selectedFilesRef.current)
-    const hasRemainingReferences = documentHasFileReferences(nextDocument, targetNode.fileId)
-    const nextFiles = hasRemainingReferences
-      ? selectedFilesRef.current
-      : selectedFilesRef.current.filter((file) => file.id !== targetNode.fileId)
-
-    setDocumentNodes(nextDocument)
-    setSelectedFiles(nextFiles)
-  }, [])
-
-  const handleEditorDocumentChange = React.useCallback((nextDocument: EditorDocumentNode[]) => {
-    const referencedFileIds = new Set(
-      nextDocument
-        .filter(
-          (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
-        )
-        .map((node) => node.fileId)
-    )
-    setDocumentNodes(nextDocument)
-    setSelectedFiles((currentFiles) =>
-      currentFiles.filter((file) => referencedFileIds.has(file.id))
-    )
-  }, [])
-
-  const getLiveEditorState = React.useCallback(() => {
-    const liveDocument = editorRef.current?.getDocumentSnapshot() ?? documentRef.current
-    const referencedFileIds = new Set(
-      liveDocument
-        .filter(
-          (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
-        )
-        .map((node) => node.fileId)
-    )
-    const liveSelectedFiles = selectedFilesRef.current.filter((file) =>
-      referencedFileIds.has(file.id)
-    )
-
-    return {
-      plainText: editorDocumentToPlainText(liveDocument, liveSelectedFiles),
-      serializedText: serializeEditorDocument(liveDocument, liveSelectedFiles)
-    }
-  }, [])
-
+  // ---- Reset composer ----
   const resetComposer = React.useCallback((): void => {
     if (activeDraftKey) {
       removePersistedDraft(activeDraftKey)
     }
 
-    setDocumentNodes([])
-    setSelectedFiles([])
-    setHighlightedFileId(null)
-    setEditorSelection({ start: 0, end: 0 })
-    setAttachedImages([])
-    requestAnimationFrame(() => {
-      editorRef.current?.setSelectionOffsets(0, 0)
-    })
+    textEditorRef.current?.clear()
+    setText('')
+    setAttachments([])
   }, [activeDraftKey, removePersistedDraft])
 
+  // ---- Send ----
   const handleSend = React.useCallback((): void => {
-    const liveEditorState = getLiveEditorState()
-    const serialized = liveEditorState.serializedText.trim()
-    if (!serialized && attachedImages.length === 0) return
+    const trimmed = text.trim()
+    const currentFileAttachments = fileAttachments
+    const currentImageAttachments = imageAttachments
+
+    if (!trimmed && currentImageAttachments.length === 0 && currentFileAttachments.length === 0) return
     if (disabled || needsWorkingFolder || pendingImageReads > 0) return
 
     const composerEl = containerRef.current
@@ -720,26 +618,57 @@ export function InputArea({
       })
     }
 
-    onSend(serialized, attachedImages.length > 0 ? attachedImages : undefined, {
-      clearCompletedTasksOnTurnStart: true,
-      ...(selectedFiles.length > 0 ? { fileCount: selectedFiles.length } : {})
-    })
+    // Build file reference tokens: file attachments + image attachments (when vision unsupported)
+    const allFileTokens: string[] = []
+    for (const f of currentFileAttachments) {
+      const token = createSelectFileToken(f.sendPath)
+      if (token) allFileTokens.push(token)
+    }
+    // When vision is NOT supported, treat image attachments as file references too
+    if (!supportsVision) {
+      for (const img of currentImageAttachments) {
+        // ImageAttachment has dataUrl + mediaType but no path; we use the label as token
+        // Since we loaded from disk in handleAttachMedia, we need the original path.
+        // Fall back to the media type label — the agent will see it as a filename hint.
+        const label = img.mediaType.split('/')[1]?.toUpperCase() || 'IMAGE'
+        allFileTokens.push(`@{${label}}`)
+      }
+    }
+    const fileTokensText = allFileTokens.join('\n')
+    const finalText = fileTokensText ? `${fileTokensText}\n${trimmed}` : trimmed
+
+    // Only send images to the model when vision is supported
+    const imagesToSend =
+      supportsVision && currentImageAttachments.length > 0
+        ? currentImageAttachments
+        : undefined
+
+    onSend(
+      finalText,
+      imagesToSend,
+      {
+        clearCompletedTasksOnTurnStart: true,
+        ...(allFileTokens.length > 0 ? { fileCount: allFileTokens.length } : {})
+      }
+    )
 
     resetComposer()
   }, [
-    getLiveEditorState,
-    attachedImages,
+    text,
+    fileAttachments,
+    imageAttachments,
     disabled,
     needsWorkingFolder,
     pendingImageReads,
-    selectedFiles,
+    supportsVision,
     onSend,
     resetComposer,
     taskId
   ])
 
+  // ---- Keyboard ----
   const handleKeyDown = React.useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
       if (e.nativeEvent.isComposing) return
 
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -750,6 +679,7 @@ export function InputArea({
     [handleSend]
   )
 
+  // ---- Drag & Drop ----
   const getDraggedFilePaths = React.useCallback((dataTransfer: DataTransfer | null): string[] => {
     if (!dataTransfer) return []
     const payload = dataTransfer.getData(INTERNAL_FILE_DRAG_MIME)
@@ -798,14 +728,15 @@ export function InputArea({
       e.preventDefault()
       setDragging(false)
       if (draggedPaths.length > 0) {
-        addFilesToEditor(draggedPaths)
+        addFiles(draggedPaths)
         return
       }
       handleDropFiles(e.dataTransfer?.files ?? null)
     },
-    [addFilesToEditor, getDraggedFilePaths, handleDropFiles, setDragging]
+    [addFiles, getDraggedFilePaths, handleDropFiles, setDragging]
   )
 
+  // ---- Toolbar controls ----
   const composerActionsControl = (
     <ComposerActionsMenu
       onAttachMedia={() => void handleAttachMedia()}
@@ -899,7 +830,15 @@ export function InputArea({
     onPaste: handleQueueEditPaste
   }
 
-  // Render
+  // Derived send state
+  const canSend = text.trim().length > 0 || attachments.length > 0
+  const isSendDisabled =
+    (!text.trim() && attachments.length === 0) ||
+    disabled ||
+    needsWorkingFolder ||
+    pendingImageReads > 0
+
+  // ---- Render ----
   return (
     <div ref={rootRef} className="px-4 py-3 pb-4">
       {/* API key warning */}
@@ -939,46 +878,42 @@ export function InputArea({
             dragging && 'ring-2 ring-primary/50'
           )}
           data-composer-variant="task"
-          style={{ minHeight: MIN_INPUT_HEIGHT, maxHeight: MAX_INPUT_HEIGHT }}
+          style={{ minHeight: MIN_INPUT_HEIGHT }}
+          onDrop={handleDropWrapped}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
         >
-          {/* Image preview strip */}
-          <ImageAttachmentStrip
-            images={attachedImages}
-            onRemove={removeImage}
+          {/* Drag overlay */}
+          {dragging && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent/70 pointer-events-none">
+              <span className="flex items-center gap-1.5 text-xs text-primary/70 font-medium">
+                <FileUp className="size-3.5" />
+                {supportsVision ? t('input.dropImages') : t('input.dropFiles')}
+              </span>
+            </div>
+          )}
+
+          {/* Unified attachment strip */}
+          <ComposerAttachmentStrip
+            attachments={attachments}
+            onRemove={removeAttachment}
           />
 
           {/* Text input area */}
-          <div
-            className="relative flex min-h-0 flex-1 flex-col px-2 pt-2"
-            onDrop={handleDropWrapped}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            {dragging && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent/70 pointer-events-none">
-                <span className="flex items-center gap-1.5 text-xs text-primary/70 font-medium">
-                  <FileUp className="size-3.5" />
-                  {supportsVision ? t('input.dropImages') : t('input.dropFiles')}
-                </span>
-              </div>
-            )}
-            <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
-              <FileAwareEditor
-                ref={editorRef}
-                document={documentNodes}
-                files={selectedFiles}
-                disabled={disabled}
-                placeholder={undefined}
-                highlightedFileId={highlightedFileId}
-                onDocumentChange={handleEditorDocumentChange}
-                onSelectionChange={handleEditorSelectionChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                onReferenceLocate={handleLocateFileReference}
-                onReferenceDelete={handleRemoveFileReference}
-                className="flex-1 min-h-0 w-full"
-              />
-            </div>
+          <div className="relative flex min-h-0 flex-1 flex-col px-2 pt-2">
+            <TextEditor
+              ref={textEditorRef}
+              value={text}
+              onChange={setText}
+              disabled={disabled}
+              placeholder={undefined}
+              minHeight={80}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              onFocus={() => {}}
+              onBlur={() => {}}
+              className="flex-1 min-h-0 w-full"
+            />
           </div>
 
           {/* Hidden file input for queue image upload */}
@@ -999,13 +934,8 @@ export function InputArea({
           {/* Bottom toolbar */}
           <ComposerToolbar
             isStreaming={isStreaming}
-            isDisabled={
-              (!finalSerializedText.trim() && attachedImages.length === 0) ||
-              disabled ||
-              needsWorkingFolder ||
-              pendingImageReads > 0
-            }
-            canSend={!!finalSerializedText.trim() || attachedImages.length > 0}
+            isDisabled={isSendDisabled}
+            canSend={canSend}
             hasMessages={hasMessages}
             showClearButton={showInlineClear}
             queuedMessagesCount={queuedMessages.length}

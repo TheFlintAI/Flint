@@ -192,12 +192,6 @@ function App(): React.JSX.Element {
             case 'clear_session_team':
               useTeamStore.getState().clearTaskTeam(event.taskId)
               return
-            case 'resolve_approval':
-              store.resolveApproval(event.toolCallId, event.approved)
-              return
-            case 'clear_pending_approvals':
-              store.clearPendingApprovals()
-              return
           }
         })
       }),

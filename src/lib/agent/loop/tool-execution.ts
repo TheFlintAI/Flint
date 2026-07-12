@@ -13,6 +13,7 @@ import { compactBashToolResultContent } from '../../tools/bash-output'
 import { classifyBashCommand } from '../../tools/bash-tool'
 import { interceptFsCommands } from '../../tools/fs-interceptor'
 import { agentEvents } from '../events/event-bus'
+import { requestApproval } from '../tool-approval-resolver'
 
 // Wraps the tool context's command client so filesystem mutations within this
 // tool call are journaled onto the run's change set.
@@ -101,7 +102,6 @@ export async function* executeToolCalls(
   toolCalls: ToolCallState[],
   config: AgentLoopConfig,
   toolCtx: ToolContext,
-  onApprovalNeeded: ((tc: ToolCallState) => Promise<boolean>) | undefined,
   buildLoopEndEvent: (reason: 'completed' | 'max_iterations' | 'aborted' | 'error') => AgentEvent
 ): AsyncGenerator<AgentEvent, { shouldStopForUserReview: boolean; toolResults: Array<ContentBlock | undefined> }> {
   const toolResults: Array<ContentBlock | undefined> = new Array(toolCalls.length)
@@ -110,18 +110,74 @@ export async function* executeToolCalls(
   const startedAtByToolId = new Map<string, number>()
 
   for (const [index, tc] of toolCalls.entries()) {
-    // Bash: classify command and handle deny/ask
-    if (tc.name === 'Bash') {
-      const bashPermission = classifyBashCommand(tc.input, toolCtx)
+    if (config.signal.aborted) {
+      yield buildLoopEndEvent('aborted')
+      return { shouldStopForUserReview: true, toolResults }
+    }
 
-      if (bashPermission === 'deny') {
+    // Resolve permission: Bash uses classifier, other tools auto-allow
+    const permission = tc.name === 'Bash' ? classifyBashCommand(tc.input, toolCtx) : 'allow'
+
+    if (permission === 'deny') {
+      const deniedAt = Date.now()
+      const deniedResult = buildToolCallResult({
+        tc,
+        index,
+        output: 'Command denied by security policy',
+        toolError: 'Command denied by security policy',
+        startedAt: deniedAt,
+        completedAt: deniedAt
+      })
+      toolResults[index] = deniedResult.resultBlock
+      yield {
+        type: 'tool_call_result',
+        toolCall: deniedResult.resultEvent
+      }
+      continue
+    }
+
+    if (permission === 'ask') {
+      // Emit start with awaiting_approval status
+      const startedAt = Date.now()
+      startedAtByToolId.set(tc.id, startedAt)
+      yield {
+        type: 'tool_call_start',
+        toolCall: {
+          ...tc,
+          input: summarizeToolInputForHistory(tc.name, tc.input),
+          status: 'awaiting_approval',
+          startedAt
+        }
+      }
+      // Emit approval-needed event (UI uses this to show the approval card)
+      yield {
+        type: 'tool_call_approval_needed',
+        toolCall: {
+          ...tc,
+          input: summarizeToolInputForHistory(tc.name, tc.input),
+          status: 'awaiting_approval',
+          startedAt
+        }
+      }
+
+      // Block until user decides
+      let approved: boolean
+      try {
+        approved = await requestApproval(tc.id, config.signal)
+      } catch {
+        // AbortSignal fired
+        yield buildLoopEndEvent('aborted')
+        return { shouldStopForUserReview: true, toolResults }
+      }
+
+      if (!approved) {
         const deniedAt = Date.now()
         const deniedResult = buildToolCallResult({
           tc,
           index,
-          output: 'Permission denied by system policy',
-          toolError: 'Permission denied by system policy',
-          startedAt: deniedAt,
+          output: 'User denied the command',
+          toolError: 'User denied the command',
+          startedAt,
           completedAt: deniedAt
         })
         toolResults[index] = deniedResult.resultBlock
@@ -131,42 +187,22 @@ export async function* executeToolCalls(
         }
         continue
       }
-
-      if (bashPermission === 'ask' && onApprovalNeeded) {
-        yield {
-          type: 'tool_call_approval_needed',
-          toolCall: {
-            ...tc,
-            input: summarizeToolInputForHistory(tc.name, tc.input)
-          }
-        }
-        const approved = await onApprovalNeeded(tc)
-        if (!approved) {
-          if (config.signal.aborted) {
-            yield buildLoopEndEvent('aborted')
-            return { shouldStopForUserReview: true, toolResults }
-          }
-          const deniedAt = Date.now()
-          const deniedResult = buildToolCallResult({
-            tc,
-            index,
-            output: 'Permission denied by user',
-            toolError: 'User denied permission',
-            startedAt: deniedAt,
-            completedAt: deniedAt
-          })
-          toolResults[index] = deniedResult.resultBlock
-          shouldStopForUserReview ||= isAwaitingUserReviewToolResult('Permission denied by user')
-          yield {
-            type: 'tool_call_result',
-            toolCall: deniedResult.resultEvent
-          }
-          continue
+      // Approved: transition to running
+      logTool.debug('tool call approved by user', { name: tc.name, id: tc.id })
+      yield {
+        type: 'tool_call_start',
+        toolCall: {
+          ...tc,
+          input: summarizeToolInputForHistory(tc.name, tc.input),
+          status: 'running',
+          startedAt
         }
       }
+      runnableToolCalls.push({ tc, index })
+      continue
     }
 
-    // Execute
+    // permission === 'allow'
     const startedAt = Date.now()
     startedAtByToolId.set(tc.id, startedAt)
     logTool.debug('tool call started', { name: tc.name, id: tc.id })

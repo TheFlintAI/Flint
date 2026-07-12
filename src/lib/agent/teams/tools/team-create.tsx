@@ -30,7 +30,7 @@ export const teamCreateTool: ToolHandler = {
     // One active team at a time — enforced against the live in-memory store,
     // never against on-disk state. The store is the single source of truth for
     // team lifecycle; the on-disk runtime is just a transport.
-    const existing = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+    const existing = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
     if (existing) {
       return encodeToolError(
         `Team "${existing.name}" is already active. Call TeamDelete before creating a new one.`

@@ -55,6 +55,6 @@ export function formatToolLogTitle(
   if (!extract) return null
   const detail = extract(input ?? {})
   if (!detail) return null
-  const templated = t(`permission.toolLogTitle.${name}`, { detail, defaultValue: '' })
+  const templated = t(`toolLogTitle.${name}`, { detail, defaultValue: '' })
   return templated || null
 }

@@ -1,7 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '@/stores/settings-store'
-import { confirm } from '@/components/ui/confirm-dialog'
-import { Switch } from '@/components/ui/switch'
 import { SettingsRow } from '@/components/ui/settings-row'
 import {
   Select,
@@ -37,24 +35,6 @@ export function GeneralPanel(): React.JSX.Element {
           </SelectContent>
         </Select>
       </SettingsRow>
-
-      <SettingsRow
-        label={t('general.autoApprove')}
-      >
-        <Switch
-          checked={settings.autoApprove}
-          onCheckedChange={async (checked) => {
-            if (checked) {
-              const ok = await confirm({ title: t('general.autoApproveWarning') })
-              if (!ok) return
-            }
-            settings.updateSettings({ autoApprove: checked })
-          }}
-        />
-      </SettingsRow>
-      {settings.autoApprove && (
-        <p className="text-xs text-destructive -mt-4">{t('general.autoApproveWarning')}</p>
-      )}
     </div>
   )
 }

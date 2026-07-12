@@ -10,6 +10,7 @@ import { encodeStructuredToolResult, encodeToolError } from './tool-result-forma
 import type { ToolHandler } from './tool-types'
 import type { ToolPanelContext } from './tool-render-types'
 import { AskUserQuestionCard } from '@/components/chat/AskUserQuestionCard'
+import { notifyUserInputNeeded } from '@/services/notifications'
 
 export interface AskUserOption {
   label: string
@@ -540,6 +541,21 @@ const askUserToolExecute: ToolHandler['execute'] = async (input, ctx) => {
     )
   }
 
+  // Notify regardless of task foreground — notify() gates on app focus internally
+  if (ctx.taskId) {
+    const taskTitle =
+      useChatStore.getState().tasks.find((item) => item.id === ctx.taskId)?.title ??
+      i18n.t('askUser.backgroundTaskFallback', {
+        ns: 'chat',
+        defaultValue: 'Background task'
+      })
+    notifyUserInputNeeded(
+      ctx.taskId,
+      i18n.t('notifications.inputNeededTitle', { ns: 'chat' }),
+      i18n.t('notifications.inputNeededBody', { ns: 'chat', title: taskTitle }),
+    )
+  }
+
   const payload = await new Promise<AskUserResolvedPayload>((resolve) => {
     answerResolvers.set(toolUseId, resolve)
 
@@ -586,7 +602,7 @@ const askUserQuestionHandler: ToolHandler = {
         input={ctx.input}
         output={ctx.output}
         status={ctx.status}
-        isLive={!ctx.output && (ctx.status === 'streaming' || ctx.status === 'running' || ctx.status === 'pending_approval')}
+        isLive={!ctx.output && (ctx.status === 'streaming' || ctx.status === 'running')}
       />
     ),
   },

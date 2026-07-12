@@ -6,7 +6,7 @@ import { SlideIn } from '@/components/animate-ui'
 import { UserMessage } from './UserMessage'
 import { AssistantMessage } from './AssistantMessage'
 import { ContextCompressionMessage } from './ContextCompressionMessage'
-import { UserMessageEntrance } from './message-list/UserMessageEntrance'
+import { UserMessageEntrance } from './transcript/user-message-entrance'
 import type { UnifiedMessage, ToolResultContent } from '@/lib/api/types'
 import type { RequestRetryState, ToolCallState } from '@/lib/agent/types'
 import { isCompactSummaryLikeMessage } from '@/lib/agent/context-compression'
@@ -64,7 +64,7 @@ function TeamNotification({ content }: { content: string }): React.JSX.Element {
         style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-cyan-500/20 px-3 py-2 text-xs text-muted-foreground prose prose-sm dark:prose-invert max-w-none [&_h2]:text-sm [&_h2]:mt-3 [&_h2]:mb-1 [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0">
+          <div className="border-t border-cyan-500/20 px-3 py-2 text-xs text-muted-foreground typeset typeset-sm">
             <Markdown
               remarkPlugins={MARKDOWN_REMARK_PLUGINS}
               rehypePlugins={MARKDOWN_REHYPE_PLUGINS}

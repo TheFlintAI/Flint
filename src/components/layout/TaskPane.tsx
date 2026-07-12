@@ -3,7 +3,7 @@ import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { MessageList } from '@/components/chat/MessageList'
+import { TranscriptScroller } from '@/components/chat/TranscriptScroller'
 import { InputArea } from '@/components/chat/InputArea'
 import { useChatActions } from '@/hooks/use-chat-actions'
 import { cn } from '@/lib/utils'
@@ -61,7 +61,7 @@ export function TaskPane({
   }
 
   return (
-    <div className="relative flex min-w-0 flex-1 flex-col bg-background">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       <div
         className={cn(
           'flex shrink-0 items-center gap-3 px-3 pt-3',
@@ -96,59 +96,42 @@ export function TaskPane({
       </div>
 
       <div key={taskRoot} className="flex min-h-0 flex-1 flex-col">
-        {taskView.messageCount === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            <motion.div
-              key="input-centered"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              className="w-full max-w-[760px]"
-            >
-              <InputArea
-                taskId={resolvedTaskId}
-                onSend={(text, images, options) =>
-                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, {
-                    ...options,
-                    clearCompletedTasksOnTurnStart: true
-                  })
-                }
-                onStop={stopStreaming}
-                workingFolder={taskView.workingFolder}
-                isStreaming={isStreaming}
-              />
-            </motion.div>
-          </div>
-        ) : (
-          <>
-            <MessageList
-              taskId={resolvedTaskId}
-              onRetry={retryLastMessage}
-              onContinue={continueLastToolExecution}
-              onDeleteMessage={deleteMessage}
-              onRollbackMessage={rollbackMessage}
-            />
-            <motion.div
-              key="input-bottom"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              <InputArea
-                taskId={resolvedTaskId}
-                onSend={(text, images, options) =>
-                  void sendMessage(text, images, undefined, resolvedTaskId, undefined, {
-                    ...options,
-                    clearCompletedTasksOnTurnStart: true
-                  })
-                }
-                onStop={stopStreaming}
-                workingFolder={taskView.workingFolder}
-                isStreaming={isStreaming}
-              />
-            </motion.div>
-          </>
+        {taskView.messageCount > 0 && (
+          <TranscriptScroller
+            taskId={resolvedTaskId}
+            onRetry={retryLastMessage}
+            onContinue={continueLastToolExecution}
+            onDeleteMessage={deleteMessage}
+            onRollbackMessage={rollbackMessage}
+          />
         )}
+        <div
+          className={
+            taskView.messageCount === 0
+              ? 'flex-1 flex flex-col items-center justify-center px-4'
+              : 'shrink-0'
+          }
+        >
+          <motion.div
+            className={taskView.messageCount === 0 ? 'w-full max-w-[820px]' : ''}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <InputArea
+              taskId={resolvedTaskId}
+              onSend={(text, images, options) =>
+                void sendMessage(text, images, undefined, resolvedTaskId, undefined, {
+                  ...options,
+                  clearCompletedTasksOnTurnStart: true
+                })
+              }
+              onStop={stopStreaming}
+              workingFolder={taskView.workingFolder}
+              isStreaming={isStreaming}
+            />
+          </motion.div>
+        </div>
       </div>
     </div>
   )

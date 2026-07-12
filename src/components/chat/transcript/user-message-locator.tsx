@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { MessagesSquare } from 'lucide-react'
 import type { UnifiedMessage } from '@/lib/api/types'
-import type { MessageListRow, AskUserQuestionPresence } from './types'
+import type { TranscriptRow, PendingAskQuestion } from './types'
 import { USER_LOCATOR_PREVIEW_LIMIT, USER_LOCATOR_SCROLL_OFFSET, USER_LOCATOR_HIGHLIGHT_MS } from './constants'
 
-export { AskUserQuestionPresence }
+export type { PendingAskQuestion }
 
 export interface UserMessageLocatorItem {
   id: string
@@ -128,10 +128,10 @@ export function buildUserLocatorItem(
 }
 
 export function findPendingAskUserQuestion(
-  rows: MessageListRow[],
+  rows: TranscriptRow[],
   toolResultsLookup: Map<string, import('./types').ToolResultsLookup>,
   messageLookup: Map<string, UnifiedMessage>
-): AskUserQuestionPresence | null {
+): PendingAskQuestion | null {
   for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
     const row = rows[rowIndex]
     if (row.type !== 'message') continue

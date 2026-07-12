@@ -4,7 +4,6 @@ import type { ToolPanelContext } from '@/lib/tools/tool-render-types'
 import { encodeStructuredToolResult, encodeToolError, decodeStructuredToolResult } from '@/lib/tools/tool-result-format'
 import { teamEvents } from '../events'
 import { useTeamStore } from '@/stores/team-store'
-import { useAgentStore } from '@/stores/agent-store'
 import { abortAllTeammates } from '../teammate-runner'
 import { removeTeamLimiter } from './spawn-agent'
 import { deleteTeamRuntime } from '@/services/tauri-api/team-runtime'
@@ -22,7 +21,7 @@ export const teamDeleteTool: ToolHandler = {
     }
   },
   execute: async (_input, ctx) => {
-    const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+    const team = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
     if (!team) {
       return encodeToolError('No active team to delete')
     }
@@ -33,7 +32,6 @@ export const teamDeleteTool: ToolHandler = {
     const completedCount = team.tasks.filter((t) => t.status === 'completed').length
 
     abortAllTeammates()
-    useAgentStore.getState().clearPendingApprovals()
     removeTeamLimiter(teamName)
 
     try {

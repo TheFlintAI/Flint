@@ -40,6 +40,7 @@ export function ToolShell({
   trailing,
 }: ToolShellProps): React.JSX.Element {
   const hasVisualOutput = hasImageBlocks(output)
+
   const [open, setOpen] = React.useState(
     (expandWhileActive && isActive) || (expandForImages && hasVisualOutput)
   )

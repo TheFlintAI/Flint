@@ -5,10 +5,8 @@ import type { BackgroundProcessState } from './background-process'
 /** Minimal shape the extracted modules need from the agent store. */
 export interface AgentStoreState {
   liveTaskId: string | null
-  pendingToolCalls: ToolCallState[]
   executedToolCalls: ToolCallState[]
   taskToolCallsCache: Record<string, TaskToolCallCache>
-  approvedToolNames: string[]
   backgroundProcesses: Record<string, BackgroundProcessState>
   foregroundShellExecByToolUseId: Record<string, string>
   taskBackgroundProcessSummaries: Record<string, BackgroundProcessState[]>
@@ -16,7 +14,6 @@ export interface AgentStoreState {
 }
 
 export interface TaskToolCallCache {
-  pending: ToolCallState[]
   executed: ToolCallState[]
 }
 

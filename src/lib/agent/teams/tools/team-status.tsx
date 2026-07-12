@@ -23,7 +23,7 @@ export const teamStatusTool: ToolHandler = {
     }
   },
   execute: async (_input, ctx) => {
-    const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+    const team = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
     if (!team) {
       return encodeToolError('No active team')
     }

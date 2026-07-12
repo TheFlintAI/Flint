@@ -113,7 +113,6 @@ interface SettingsStore {
   baseUrl: string
   model: string
   language: 'en' | 'zh'
-  autoApprove: boolean
   thinkingEnabled: boolean
   fastModeEnabled: boolean
   reasoningEffort: ReasoningEffortLevel
@@ -137,7 +136,6 @@ export const useSettingsStore = create<SettingsStore>()(
       baseUrl: '',
       model: 'claude-sonnet-4-20250514',
       language: getSystemLanguage(),
-      autoApprove: false,
       thinkingEnabled: true,
       fastModeEnabled: false,
       reasoningEffort: 'medium',
@@ -158,7 +156,6 @@ export const useSettingsStore = create<SettingsStore>()(
         baseUrl: state.baseUrl,
         model: state.model,
         language: state.language,
-        autoApprove: state.autoApprove,
         thinkingEnabled: state.thinkingEnabled,
         fastModeEnabled: state.fastModeEnabled,
         reasoningEffort: state.reasoningEffort,

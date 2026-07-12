@@ -38,7 +38,9 @@ export function startWorkerPlanApprovalPoller(memberName: string): void {
   if (workerPlanPollers.has(memberName)) return
 
   const timer = setInterval(() => {
-    const team = useTeamStore.getState().activeTeam
+    const team = Object.values(useTeamStore.getState().activeTeams).find(t =>
+      t.members.some(m => m.name === memberName)
+    ) ?? null
     if (!team?.name) return
 
     const afterTimestamp = workerPlanCursors.get(memberName) ?? 0
@@ -91,7 +93,7 @@ export async function requestPlanApproval(params: {
   plan: string
   taskId?: string | null
 }): Promise<{ approved: boolean; feedback?: string }> {
-  const team = useTeamStore.getState().activeTeam
+  const team = params.taskId ? (useTeamStore.getState().activeTeams[params.taskId] ?? null) : null
   if (!team) return { approved: false, feedback: 'No active team' }
 
   startWorkerPlanApprovalPoller(params.memberName)
@@ -127,7 +129,9 @@ export async function sendPlanApprovalResponse(params: {
   to: string
   feedback?: string
 }): Promise<void> {
-  const team = useTeamStore.getState().activeTeam
+  const team = Object.values(useTeamStore.getState().activeTeams).find(t =>
+    t.members.some(m => m.name === params.to)
+  ) ?? null
   if (!team) return
 
   const payload: TeamRuntimePlanApprovalResponsePayload = {

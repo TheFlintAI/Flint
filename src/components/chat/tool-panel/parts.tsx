@@ -60,8 +60,8 @@ export function Badge({
 
 function statusPillTone(status: ToolCallStatus | 'completed'): BadgeTone {
   if (status === 'error') return 'red'
-  if (status === 'pending_approval') return 'amber'
   if (status === 'running') return 'blue'
+  if (status === 'awaiting_approval') return 'amber'
   return 'default'
 }
 
@@ -92,8 +92,9 @@ export function StatusPill({
     } else {
       label = t('toolCall.executing')
     }
-  } else if (status === 'pending_approval') label = t('permission.title')
-  else if (status === 'error') label = t('error.label')
+  } else if (status === 'awaiting_approval') {
+    label = t('toolCall.awaitingApproval')
+  } else if (status === 'error') label = t('error.label')
   if (!label) return null
   return (
     <Badge tone={statusPillTone(status)} title={title}>
@@ -331,10 +332,10 @@ export function LinkList({ items }: { items: LinkItem[] }): React.JSX.Element {
   )
 }
 
-// --- Shared utility: is the tool in a live (streaming/running) state ---
+// --- Shared utility: is the tool in a live (streaming/running/awaiting_approval) state ---
 
 export function isToolLive(status: ToolCallStatus | 'completed'): boolean {
-  return status === 'streaming' || status === 'running'
+  return status === 'streaming' || status === 'running' || status === 'awaiting_approval'
 }
 
 // --- Shared error block ---

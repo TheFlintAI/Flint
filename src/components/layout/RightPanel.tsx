@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils'
 import { RightPanelHeader } from './RightPanelHeader'
-import { RightPanelStatusBar } from './RightPanelStatusBar'
 import { AdaptiveDashboard } from './AdaptiveDashboard'
 import {
   RIGHT_PANEL_GUTTER_WIDTH,
@@ -99,8 +98,6 @@ export function RightPanel(): React.JSX.Element {
           <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
             <AdaptiveDashboard />
           </div>
-
-          <RightPanelStatusBar />
         </aside>
       </div>
 

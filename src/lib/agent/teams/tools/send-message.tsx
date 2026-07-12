@@ -78,7 +78,7 @@ export const sendMessageTool: ToolHandler = {
     }
   },
   execute: async (input, ctx) => {
-    const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+    const team = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
     if (!team) {
       return encodeToolError('No active team')
     }
@@ -113,7 +113,7 @@ export const sendMessageTool: ToolHandler = {
       // Meta changes live in the in-memory store (single source of truth) and
       // are broadcast to workers via the message bus itself (the
       // team_permission_update message below). No disk manifest write.
-      useTeamStore.getState().updateTeamMeta(ctx.taskId, {
+      useTeamStore.getState().updateTeamMeta(ctx.taskId!, {
         ...(payload.permissionMode ? { permissionMode: payload.permissionMode } : {}),
         ...(payload.teamAllowedPaths ? { teamAllowedPaths: payload.teamAllowedPaths } : {})
       })

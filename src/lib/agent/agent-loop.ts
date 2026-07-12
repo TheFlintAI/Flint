@@ -48,8 +48,7 @@ function findRecentContextUsage(messages: UnifiedMessage[]): number {
 export async function* runAgentLoop(
   messages: UnifiedMessage[],
   config: AgentLoopConfig,
-  toolCtx: ToolContext,
-  onApprovalNeeded?: (tc: ToolCallState) => Promise<boolean>
+  toolCtx: ToolContext
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'loop_start' }
   agentEvents.dispatch({
@@ -352,7 +351,7 @@ export async function* runAgentLoop(
 
       // 3. Execute tool calls
       const { shouldStopForUserReview, toolResults } =
-        yield* executeToolCalls(toolCalls, config, toolCtx, onApprovalNeeded, buildLoopEndEvent)
+        yield* executeToolCalls(toolCalls, config, toolCtx, buildLoopEndEvent)
 
       // 4. Append tool results as user message and loop
       const toolResultMsg: UnifiedMessage = {

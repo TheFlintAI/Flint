@@ -31,6 +31,7 @@ pub(crate) struct ReadFileArgs {
     pub(crate) path: String,
     pub(crate) offset: Option<usize>,
     pub(crate) limit: Option<usize>,
+    pub(crate) pages: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

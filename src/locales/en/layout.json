@@ -19,13 +19,13 @@
     "selectAll": "Select All",
     "selectedCount": "{{count}} selected",
     "selectedCount_one": "1 selected",
-    "toggleSidebar": "Toggle Sidebar"
+    "toggleSidebar": "Toggle Sidebar",
+    "statusBlocked": "Blocked",
+    "statusRunning": "Running",
+    "statusCompleted": "Completed"
   },
   "sidebar_toast": {
     "taskDeleted": "Task deleted",
-    "exported": "Exported tasks",
-    "exportedOne": "Exported task",
-    "exportedAsJson": "Exported as JSON",
     "taskDuplicated": "Task duplicated",
     "messagesCleared": "Messages cleared",
     "unpinned": "Unpinned",
@@ -43,8 +43,6 @@
   },
   "topbar": {
     "togglePanel": "Toggle Panel",
-    "autoApproveOn": "Auto-approve is ON — all tools run without confirmation",
-    "autoApproveOff": "Auto-approve is OFF — tool calls require confirmation",
     "pendingCount": "{{count}} pending",
     "toolCallAwaiting": "Tool call awaiting approval — press Y to allow, N to deny",
     "errorsCount": "{{count}} error(s)",
@@ -155,6 +153,10 @@
     "planEmptyTitle": "No active task",
     "planEmptyDesc": "Start a task to see the plan and progress here.",
     "noActivities": "No activities",
+    "approvalTitle": "Command Approval",
+    "approvalFrom": "from {{source}}",
+    "approvalAllow": "Allow",
+    "approvalDeny": "Deny",
     "planNoTodosTitle": "No plans yet",
     "planNoTodosDesc": "Assign tasks to agents or use /todo to create a plan.",
     "goal": "Goal",
@@ -165,7 +167,6 @@
     "taskInfo": "Task info",
     "toolCalls": "{{count}} tool calls",
     "agentRuns": "{{count}} agent runs",
-    "autoApprovedTools": "Auto-approved: {{tools}}",
     "filesEmptyTitle": "No active task",
     "filesEmptyDesc": "Start a task to manage its working directory and file changes.",
     "workingDir": "Working directory",
@@ -181,10 +182,7 @@
     "teamEmptyTitle": "No active team",
     "teamEmptyDesc": "Create a team to collaborate with AI teammates. Team members and tasks will appear here.",
     "teamWaitingMembers": "Waiting for team members...",
-    "terminalNoOutput": "[no output yet]",
-    "statusBar": {
-      "idle": "No active task"
-    }
+    "terminalNoOutput": "[no output yet]"
   },
   "detailPanel": {
     "team": "Team",
@@ -224,8 +222,6 @@
     "taskDuplicated": "Task duplicated",
     "pinned": "Pinned",
     "unpinned": "Unpinned",
-    "taskCopied": "Task copied to clipboard",
-    "exportedTask": "Task exported",
     "deleteConfirm": "Are you sure you want to delete \"{{title}}\"?",
     "somethingWentWrong": "Something went wrong",
     "unexpectedError": "An unexpected error occurred.",

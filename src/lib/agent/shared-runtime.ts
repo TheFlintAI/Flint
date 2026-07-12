@@ -39,7 +39,6 @@ export interface SharedAgentRuntimeOptions {
   initialMessages: UnifiedMessage[]
   loopConfig: AgentLoopConfig
   toolContext: ToolContext
-  onApprovalNeeded?: (toolCall: ToolCallState) => Promise<boolean>
   hooks?: {
     beforeHandleEvent?: (
       args: SharedAgentRuntimeHookArgs
@@ -68,7 +67,7 @@ export interface SharedAgentRuntimeResult {
 export async function runSharedAgentRuntime(
   options: SharedAgentRuntimeOptions
 ): Promise<SharedAgentRuntimeResult> {
-  const { initialMessages, loopConfig, toolContext, onApprovalNeeded, hooks } = options
+  const { initialMessages, loopConfig, toolContext, hooks } = options
 
   const state: SharedAgentRuntimeState = {
     iteration: 0,
@@ -109,8 +108,7 @@ export async function runSharedAgentRuntime(
     for await (const event of runAgentLoop(
       initialMessages,
       loopConfig,
-      toolContext,
-      onApprovalNeeded
+      toolContext
     )) {
       if (toolContext.signal.aborted) {
         stopReason = 'aborted'
@@ -135,6 +133,7 @@ export async function runSharedAgentRuntime(
           break
 
         case 'tool_call_start':
+        case 'tool_call_approval_needed':
         case 'tool_call_result': {
           if (event.type === 'tool_call_result') {
             state.toolCallCount += 1

@@ -51,7 +51,7 @@ import { displayName } from '@/lib/localized-string'
 
 /** Compute initial unit and display value from raw context length */
 function initContextLength(raw: number | undefined): { value: string; unit: 'K' | 'M' } {
-  if (!raw) return { value: '', unit: 'K' }
+  if (!raw) return { value: '', unit: 'M' }
   if (raw >= 1_000_000 && raw % 1_000_000 === 0) {
     return { value: (raw / 1_000_000).toString(), unit: 'M' }
   }
@@ -64,6 +64,25 @@ function contextLengthToRaw(displayVal: string, unit: 'K' | 'M'): string {
   const n = parseInt(displayVal, 10)
   if (isNaN(n)) return ''
   return (n * (unit === 'M' ? 1_000_000 : 1000)).toString()
+}
+
+type MaxOutputUnit = 'raw' | 'K'
+
+/** Compute initial unit and display value from raw max output tokens */
+function initMaxOutputTokens(raw: number | undefined): { value: string; unit: MaxOutputUnit } {
+  if (!raw) return { value: '', unit: 'K' }
+  if (raw >= 1000 && raw % 1000 === 0) {
+    return { value: (raw / 1000).toString(), unit: 'K' }
+  }
+  return { value: raw.toString(), unit: 'raw' }
+}
+
+/** Convert display value + unit to raw number string for max output tokens */
+function maxOutputTokensToRaw(displayVal: string, unit: MaxOutputUnit): string {
+  if (!displayVal.trim()) return ''
+  const n = parseInt(displayVal, 10)
+  if (isNaN(n)) return ''
+  return (n * (unit === 'K' ? 1000 : 1)).toString()
 }
 
 function ModelFormDialog({
@@ -88,7 +107,9 @@ function ModelFormDialog({
   const ctxInit = initContextLength(initial?.contextLength)
   const [contextLengthDisplay, setContextLengthDisplay] = useState(ctxInit.value)
   const [contextLengthUnit, setContextLengthUnit] = useState<'K' | 'M'>(ctxInit.unit)
-  const [maxOutputTokens, setMaxOutputTokens] = useState(initial?.maxOutputTokens?.toString() ?? '')
+  const moInit = initMaxOutputTokens(initial?.maxOutputTokens)
+  const [maxOutputDisplay, setMaxOutputDisplay] = useState(moInit.value)
+  const [maxOutputUnit, setMaxOutputUnit] = useState<MaxOutputUnit>(moInit.unit)
   const [supportsVision, setSupportsVision] = useState(initial?.supportsVision ?? false)
   const [supportsThinking, setSupportsThinking] = useState(initial?.supportsThinking ?? true)
 
@@ -105,7 +126,8 @@ function ModelFormDialog({
     model.category = category
     const rawCtx = contextLengthToRaw(contextLengthDisplay, contextLengthUnit)
     if (rawCtx) { const v = parseInt(rawCtx); if (!isNaN(v)) model.contextLength = v }
-    if (maxOutputTokens.trim()) { const v = parseInt(maxOutputTokens); if (!isNaN(v)) model.maxOutputTokens = v }
+    const rawMo = maxOutputTokensToRaw(maxOutputDisplay, maxOutputUnit)
+    if (rawMo) { const v = parseInt(rawMo); if (!isNaN(v)) model.maxOutputTokens = v }
     const result = onSave(model)
     if (result !== false) onOpenChange(false)
   }
@@ -116,6 +138,14 @@ function ModelFormDialog({
     if (!raw) return
     const n = parseInt(raw, 10)
     setContextLengthDisplay((n / (newUnit === 'M' ? 1_000_000 : 1000)).toString())
+  }
+
+  const handleMaxOutputUnitChange = (newUnit: MaxOutputUnit) => {
+    const raw = maxOutputTokensToRaw(maxOutputDisplay, maxOutputUnit)
+    setMaxOutputUnit(newUnit)
+    if (!raw) return
+    const n = parseInt(raw, 10)
+    setMaxOutputDisplay((n / (newUnit === 'K' ? 1000 : 1)).toString())
   }
 
   return (
@@ -157,7 +187,7 @@ function ModelFormDialog({
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="128"
+                  placeholder="1"
                   value={contextLengthDisplay}
                   onChange={(e) => setContextLengthDisplay(e.target.value)}
                   className="flex-1 min-w-0 border-0 bg-transparent px-3 py-1 outline-none placeholder:text-muted-foreground h-8 text-xs"
@@ -172,8 +202,23 @@ function ModelFormDialog({
               </div>
             </SettingsRow>
             <SettingsRow layout="vertical" label={t('provider.maxOutputTokens')}>
-              <Input placeholder="4096" value={maxOutputTokens}
-                onChange={(e) => setMaxOutputTokens(e.target.value)} className="h-8 text-xs" />
+              <div className="relative flex items-center w-full rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring/40 focus-within:ring-ring/20 focus-within:ring-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="128"
+                  value={maxOutputDisplay}
+                  onChange={(e) => setMaxOutputDisplay(e.target.value)}
+                  className="flex-1 min-w-0 border-0 bg-transparent px-3 py-1 outline-none placeholder:text-muted-foreground h-8 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleMaxOutputUnitChange(maxOutputUnit === 'K' ? 'raw' : 'K')}
+                  className="h-6 px-1.5 mr-1 text-[10px] font-semibold rounded-sm hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors shrink-0"
+                >
+                  {maxOutputUnit === 'K' ? 'K' : '×1'}
+                </button>
+              </div>
             </SettingsRow>
           </div>
 

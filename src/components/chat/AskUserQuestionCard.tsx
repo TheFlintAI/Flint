@@ -164,8 +164,8 @@ function PreviewPane({ preview }: { preview: string }): React.JSX.Element {
           Markdown
         </Badge>
       </div>
-      <div className="max-h-56 overflow-auto rounded-lg border border-border/60 bg-background px-3 py-2 font-mono text-[12px] leading-relaxed text-foreground">
-        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted prose-pre:px-3 prose-pre:py-2 prose-code:before:content-none prose-code:after:content-none prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:font-mono prose-pre:font-mono">
+      <div className="max-h-56 overflow-auto rounded-lg border border-border/60 bg-background px-3 py-2 text-foreground">
+        <div className="typeset typeset-sm">
           <Markdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS}>
             {preview}
           </Markdown>

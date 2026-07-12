@@ -16,7 +16,6 @@ export interface TaskScopedAgentSelectionOptions {
 
 export interface TaskScopedAgentStateSource {
   liveTaskId: string | null
-  pendingToolCalls: ToolCallState[]
   executedToolCalls: ToolCallState[]
   taskToolCallsCache: Record<string, TaskToolCallCache | undefined>
   runningTasks: Record<string, 'running' | 'retrying' | 'completed'>
@@ -37,13 +36,11 @@ function getTaskToolCalls(
 ): TaskToolCallCache {
   if (state.liveTaskId === taskId) {
     return {
-      pending: state.pendingToolCalls,
       executed: state.executedToolCalls
     }
   }
   return (
     state.taskToolCallsCache[taskId] ?? {
-      pending: EMPTY_TOOL_CALLS,
       executed: EMPTY_TOOL_CALLS
     }
   )
@@ -51,7 +48,7 @@ function getTaskToolCalls(
 
 function hasRunningToolCall(toolCalls: ToolCallState[]): boolean {
   return toolCalls.some(
-    (toolCall) => toolCall.status === 'running' || toolCall.status === 'streaming'
+    (toolCall) => toolCall.status === 'running' || toolCall.status === 'streaming' || toolCall.status === 'awaiting_approval'
   )
 }
 
@@ -64,7 +61,7 @@ export function selectTaskScopedAgentState(
 
   const toolCalls = getTaskToolCalls(state, taskId)
   const hasActiveToolCallOutput =
-    hasRunningToolCall(toolCalls.pending) || hasRunningToolCall(toolCalls.executed)
+    hasRunningToolCall(toolCalls.executed)
   const hasRunningBackgroundProcess = Object.values(state.backgroundProcesses).some(
     (process) => process.taskId === taskId && process.status === 'running'
   )

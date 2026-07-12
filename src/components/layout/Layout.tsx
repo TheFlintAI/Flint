@@ -6,7 +6,6 @@ import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { RightPanel } from './RightPanel'
-import { ToolApprovalDialog } from '@/components/chat/ToolApprovalDialog'
 import { TaskPane } from './TaskPane'
 import { WorkingFolderSheet } from './WorkingFolderSheet'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -16,9 +15,12 @@ import { useChatStore } from '@/stores/chat-store'
 import { useAgentStore } from '@/stores/agent-store'
 import { useChatActions } from '@/hooks/use-chat-actions'
 import { toast } from 'sonner'
-import { taskToMarkdown } from '@/lib/chat/export-chat'
 import { useShallow } from 'zustand/react/shallow'
 import { PageFallback } from '@/components/ui/lazy-fallback'
+import {
+  initFocusTracking,
+  destroyFocusTracking,
+} from '@/services/notifications'
 
 const SettingsPage = lazy(async () => {
   const mod = await import('@/components/settings/SettingsPage')
@@ -41,14 +43,6 @@ export function Layout(): React.JSX.Element {
   const activeTaskId = useChatStore((s) => s.activeTaskId)
   const tasksLoaded = useChatStore((s) => s._loaded)
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
-  const pendingToolCallCount = useAgentStore((s) => s.pendingToolCalls.length)
-  const pendingApproval = useAgentStore(
-    (s) =>
-      s.pendingToolCalls.find((tc) => tc.taskId === activeTaskId) ??
-      s.pendingToolCalls[0] ??
-      null
-  )
-  const resolveApproval = useAgentStore((s) => s.resolveApproval)
   const initBackgroundProcessTracking = useAgentStore((s) => s.initBackgroundProcessTracking)
 
   const { stopStreaming } = useChatActions()
@@ -59,6 +53,14 @@ export function Layout(): React.JSX.Element {
     void initBackgroundProcessTracking()
   }, [initBackgroundProcessTracking])
 
+  // Initialise notification focus tracking — runs once at mount
+  useEffect(() => {
+    initFocusTracking().catch(() => {})
+    return () => {
+      destroyFocusTracking()
+    }
+  }, [])
+
   useEffect(() => {
     if (shouldUseStaticWindowTitle) {
       document.title = 'Flint'
@@ -66,19 +68,12 @@ export function Layout(): React.JSX.Element {
     }
 
     const base = activeTaskTitle ? `${activeTaskTitle} — Flint` : 'Flint'
-    const prefix =
-      pendingToolCallCount > 0
-        ? `(${t('topbar.pendingCount', { count: pendingToolCallCount })}) `
-        : streamingMessageId
-          ? '• '
-          : ''
+    const prefix = streamingMessageId ? '• ' : ''
     document.title = `${prefix}${base}`
   }, [
     activeTaskTitle,
-    pendingToolCallCount,
     shouldUseStaticWindowTitle,
-    streamingMessageId,
-    t
+    streamingMessageId
   ])
 
   useEffect(() => {
@@ -195,43 +190,6 @@ export function Layout(): React.JSX.Element {
       if ((e.metaKey || e.ctrlKey) && e.key === '/') {
         e.preventDefault()
         useUIStore.getState().setShortcutsOpen(true)
-      }
-      // Ctrl+Shift+C: Copy task as markdown
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
-        e.preventDefault()
-        if (activeTaskId) {
-          await useChatStore.getState().loadTaskMessages(activeTaskId)
-        }
-        const taskItem = useChatStore.getState().tasks.find((s) => s.id === activeTaskId)
-        if (taskItem && taskItem.messageCount > 0) {
-          navigator.clipboard.writeText(taskToMarkdown(taskItem))
-          toast.success(t('layout.taskCopied'))
-        }
-        return
-      }
-      // Ctrl+Shift+E: Export current task
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'E') {
-        e.preventDefault()
-        if (activeTaskId) {
-          await useChatStore.getState().loadTaskMessages(activeTaskId)
-        }
-        const taskItem = useChatStore.getState().tasks.find((s) => s.id === activeTaskId)
-        if (taskItem && taskItem.messageCount > 0) {
-          const md = taskToMarkdown(taskItem)
-          const filename =
-            taskItem.title
-              .replace(/[^a-zA-Z0-9-_ ]/g, '')
-              .slice(0, 50)
-              .trim() || 'task'
-          const blob = new Blob([md], { type: 'text/markdown' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `${filename}.md`
-          a.click()
-          URL.revokeObjectURL(url)
-          toast.success(t('layout.exportedTask'))
-        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -386,7 +344,7 @@ export function Layout(): React.JSX.Element {
                       </div>
                     )}
                   >
-                    <div className="flex min-w-0 flex-1">
+                    <div className="flex min-h-0 min-w-0 flex-1">
                       <TaskPane windowHeaderOwnsTitle />
                       <WorkingFolderSheet />
                       <RightPanel />
@@ -423,11 +381,6 @@ export function Layout(): React.JSX.Element {
       <Suspense fallback={null}>
         <KeyboardShortcutsDialog />
       </Suspense>
-      <ToolApprovalDialog
-        toolCall={pendingApproval}
-        onAllow={() => pendingApproval && resolveApproval(pendingApproval.id, true)}
-        onDeny={() => pendingApproval && resolveApproval(pendingApproval.id, false)}
-      />
     </TooltipProvider>
   )
 }

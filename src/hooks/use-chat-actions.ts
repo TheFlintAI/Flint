@@ -155,6 +155,13 @@ import {
 import { useManualCompression } from './use-manual-compression'
 
 import { createLogger } from '@/lib/logger'
+import {
+  ensureNotificationPermission,
+  notifyTaskComplete,
+  notifyApprovalNeeded,
+  notifyTaskError,
+  isAppFocused,
+} from '@/services/notifications'
 
 const log = createLogger('ChatActions')
 
@@ -286,15 +293,13 @@ function hasLiveToolOrBackgroundWork(taskId: string): boolean {
   const agentState = useAgentStore.getState()
   const toolCalls =
     agentState.liveTaskId === taskId
-      ? [...agentState.pendingToolCalls, ...agentState.executedToolCalls]
+      ? [...agentState.executedToolCalls]
       : [
-          ...(agentState.taskToolCallsCache[taskId]?.pending ?? []),
           ...(agentState.taskToolCallsCache[taskId]?.executed ?? [])
         ]
   const hasToolStillRunning = toolCalls.some(
     (toolCall) =>
       toolCall.status === 'streaming' ||
-      toolCall.status === 'pending_approval' ||
       toolCall.status === 'running'
   )
   if (hasToolStillRunning) return true
@@ -526,9 +531,7 @@ function reconcileIterationToolResults(
   const agentStore = useAgentStore.getState()
   const taskToolCalls = agentStore.taskToolCallsCache[taskId]
   const candidates = [
-    ...agentStore.pendingToolCalls,
     ...agentStore.executedToolCalls,
-    ...(taskToolCalls?.pending ?? []),
     ...(taskToolCalls?.executed ?? [])
   ]
   const completedAt = Date.now()
@@ -568,9 +571,7 @@ function getStoredToolCallResult(
   const agentState = useAgentStore.getState()
   const taskCache = agentState.taskToolCallsCache[taskId]
   const candidates = [
-    ...agentState.pendingToolCalls,
     ...agentState.executedToolCalls,
-    ...(taskCache?.pending ?? []),
     ...(taskCache?.executed ?? [])
   ]
 
@@ -619,16 +620,12 @@ function collectAvailableContinuationToolResults(
 registerHasActiveTaskRun(hasActiveTaskRun)
 
 // Wire up: abort team callback for task-abort-control
-registerAbortTeam((taskId: string, clearPendingApprovals?: boolean) => {
+registerAbortTeam((taskId: string) => {
   const team = useTeamStore.getState().activeTeams[taskId] ?? null
   if (!team) return
 
   resetTeamAutoTrigger()
   abortAllTeammatesLazy()
-
-  if (clearPendingApprovals) {
-    useAgentStore.getState().clearPendingApprovals()
-  }
 })
 
 // Wire up: setStreamingNull for task-abort-control
@@ -1128,9 +1125,7 @@ export function useChatActions(): {
           // in register.ts — not scoped here, because teammate loops outlive the lead's loop.
 
           // Request notification permission on first agent run
-          if (Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {})
-          }
+          ensureNotificationPermission().catch(() => {})
 
           let streamDeltaBuffer: StreamDeltaBuffer | null = null
           const preRunTaskSnapshot = getTaskProgressSnapshot(taskId)
@@ -1274,20 +1269,14 @@ export function useChatActions(): {
               sharedState: {}
             }
 
-            const handleApproval = async (tc: ToolCallState): Promise<boolean> => {
-              const autoApprove = useSettingsStore.getState().autoApprove
-              if (autoApprove) return true
-              return useAgentStore.getState().requestApproval(tc.id)
-            }
-
             // Ensure agent store's liveTaskId matches the executing task
-            // so tool calls are written to pendingToolCalls, not the task cache
+            // so tool calls are written to executedToolCalls, not the task cache
             const currentLiveTaskId = useAgentStore.getState().liveTaskId
             if (currentLiveTaskId !== taskId) {
               useAgentStore.getState().switchToolCallTask(currentLiveTaskId, taskId!)
             }
 
-            const loop = runAgentLoop(messagesToSend, loopConfig, toolCtx, handleApproval)
+            const loop = runAgentLoop(messagesToSend, loopConfig, toolCtx)
 
             let thinkingDone = false
             let hasThinkingDelta = false
@@ -1640,10 +1629,8 @@ export function useChatActions(): {
                     isFg &&
                     [
                       ...useAgentStore.getState().executedToolCalls,
-                      ...useAgentStore.getState().pendingToolCalls,
                       ...(useAgentStore.getState().taskToolCallsCache[taskId!]?.executed ??
-                        []),
-                      ...(useAgentStore.getState().taskToolCallsCache[taskId!]?.pending ?? [])
+                        [])
                     ].some((tc) => tc.id === event.toolUseBlock.id)
                   if (!alreadyTracked) {
                     streamDeltaBuffer.flushNow()
@@ -1728,21 +1715,23 @@ export function useChatActions(): {
                   break
 
                 case 'tool_call_approval_needed': {
-                  liveToolNames.set(event.toolCall.id, event.toolCall.name)
-                  // Skip adding to pendingToolCalls when auto-approve is active —
-                  // the callback will return true immediately, so no dialog needed.
-                  const willAutoApprove = useSettingsStore.getState().autoApprove
-                  if (!willAutoApprove) {
-                    useAgentStore.getState().addToolCall(
-                      {
-                        ...event.toolCall,
-                        input: summarizeImmediateLiveToolInput(
-                          event.toolCall.id,
-                          event.toolCall.name,
-                          event.toolCall.input
-                        )
-                      },
-                      taskId!
+                  const command = String(event.toolCall.input?.command ?? event.toolCall.name)
+                  useInboxStore.getState().addInboxItem({
+                    taskId: taskId!,
+                    type: 'approval',
+                    title: command,
+                    description: event.toolCall.name,
+                    toolUseId: event.toolCall.id,
+                  })
+                  useUIStore.getState().openRightPanel(taskId)
+                  // Notify when approval is needed and app is in background
+                  {
+                    const taskTitle =
+                      useChatStore.getState().tasks.find((t) => t.id === taskId)?.title ?? ''
+                    notifyApprovalNeeded(
+                      taskId!,
+                      t('notifications.approvalNeededTitle'),
+                      t('notifications.approvalNeededBody', { title: taskTitle }),
                     )
                   }
                   break
@@ -2042,6 +2031,17 @@ export function useChatActions(): {
                       description: `${taskTitle} · ${errorMessage}`
                     })
                   }
+                  // Notify regardless of task foreground — notify() gates on app focus internally
+                  {
+                    const taskTitle =
+                      useChatStore.getState().tasks.find((item) => item.id === taskId)
+                        ?.title ?? t('errors.backgroundTask')
+                    notifyTaskError(
+                      taskId!,
+                      t('notifications.taskErrorTitle'),
+                      t('notifications.taskErrorBody', { title: taskTitle }),
+                    )
+                  }
                   appendRuntimeContentBlock(taskId!, assistantMsgId, {
                     type: 'agent_error',
                     code: 'runtime_error',
@@ -2076,6 +2076,17 @@ export function useChatActions(): {
                     description: `${taskTitle} · ${errMsg}`
                   })
                 }
+                // Notify regardless of task foreground — notify() gates on app focus internally
+                {
+                  const taskTitle =
+                    useChatStore.getState().tasks.find((item) => item.id === taskId)?.title ??
+                    t('errors.backgroundTask')
+                  notifyTaskError(
+                    taskId!,
+                    t('notifications.taskErrorTitle'),
+                    t('notifications.taskErrorBody', { title: taskTitle }),
+                  )
+                }
                 appendRuntimeTextDelta(taskId!, assistantMsgId, `\n\n> **${t('error.label')}:** ${errMsg}`)
               }
               if (err instanceof ApiStreamError) {
@@ -2094,14 +2105,12 @@ export function useChatActions(): {
               setGeneratingImageWithSync(assistantMsgId, false)
               // Defensive cleanup: if provider stream ended without completing a tool call,
               // avoid leaving tool cards stuck at "receiving args".
-              const { executedToolCalls, pendingToolCalls, taskToolCallsCache, updateToolCall } =
+              const { executedToolCalls, taskToolCallsCache, updateToolCall } =
                 useAgentStore.getState()
               const taskToolCalls = taskToolCallsCache[taskId]
               for (const tc of [
                 ...executedToolCalls,
-                ...pendingToolCalls,
-                ...(taskToolCalls?.executed ?? []),
-                ...(taskToolCalls?.pending ?? [])
+                ...(taskToolCalls?.executed ?? [])
               ]) {
                 if (tc.status === 'streaming') {
                   updateToolCall(
@@ -2117,7 +2126,10 @@ export function useChatActions(): {
               }
             }
             clearRequestRetryState(taskId)
-            agentStore.setTaskStatus(taskId, 'completed')
+            // Only show completed dot for background tasks — if the user is
+            // actively viewing this task they already witnessed the completion.
+            const isActiveTask = useChatStore.getState().activeTaskId === taskId
+            agentStore.setTaskStatus(taskId, isActiveTask ? null : 'completed')
             setStreamingMessageIdWithSync(taskId, null)
             deleteTaskAbortController(taskId)
             // Derive global isRunning from remaining running tasks
@@ -2139,9 +2151,16 @@ export function useChatActions(): {
                 toast.success(t('errors.backgroundTaskCompleted'), { description: taskTitle })
               }
 
-              // Notify when agent finishes and window is not focused
-              if (!document.hasFocus() && Notification.permission === 'granted') {
-                new Notification('Flint', { body: 'Agent finished working', silent: true })
+              // Notify when agent finishes and app is in background
+              if (!isAppFocused()) {
+                const taskTitle =
+                  useChatStore.getState().tasks.find((taskItem) => taskItem.id === taskId)
+                    ?.title ?? t('errors.backgroundTask')
+                notifyTaskComplete(
+                  taskId,
+                  t('notifications.taskCompletedTitle'),
+                  t('notifications.taskCompletedBody', { title: taskTitle }),
+                )
               }
 
               // If there's an active team, set up the lead message listener

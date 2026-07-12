@@ -5,6 +5,8 @@ import { useTeamStore } from '@/stores/team-store'
 import { useSettingsStore } from '@/stores/settings-store'
 import { useProviderStore } from '@/stores/provider-store'
 import { useAgentStore } from '@/stores/agent-store'
+import { useInboxStore } from '@/stores/inbox-store'
+import { useUIStore } from '@/stores/ui-store'
 import { tauriCommands } from '@/services/tauri-api/command-client'
 import { buildWorkerSystemPrompt, resolveEnvironmentContext } from '../system-prompt'
 import { MessageQueue } from '../types'
@@ -17,7 +19,6 @@ import { buildRuntimeCompression } from '../context-compression-runtime'
 import { LEAD_ONLY_TOOLS, MANDATORY_AGENT_DISALLOWED_TOOLS } from './agent-tools'
 import { requestFallbackReport, runSharedAgentRuntime } from '../shared-runtime'
 import { appendTeamRuntimeMessage } from '@/services/tauri-api/team-runtime'
-import { requestTeammatePermission, stopWorkerPermissionPoller } from './permission-client'
 import { requestPlanApproval, stopWorkerPlanApprovalPoller } from './plan-approval-client'
 import { startWorkerInboxPoller, stopWorkerInboxPoller } from './worker-inbox'
 import { DEFAULT_AGENT_MAX_TURNS, resolveAgentMaxTurns, resolveAgentTemperature } from './agent-limits'
@@ -240,7 +241,6 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
     teammateAbortControllers.delete(memberId)
     teammateShutdownRequested.delete(memberId)
     unsubMessages()
-    stopWorkerPermissionPoller(memberName)
     stopWorkerPlanApprovalPoller(memberName)
     stopWorkerInboxPoller(memberId)
 
@@ -488,22 +488,6 @@ async function runSingleTaskLoop(opts: {
       callerAgent: 'teammate',
       sharedState: workerSharedState
     },
-    onApprovalNeeded: async (toolCall) => {
-      const autoApprove = useSettingsStore.getState().autoApprove
-      if (autoApprove) return true
-      const approved = useAgentStore.getState().approvedToolNames
-      if (approved.includes(toolCall.name)) return true
-      const result = await requestTeammatePermission({
-        memberName,
-        toolCall: {
-          ...toolCall,
-          status: 'pending_approval',
-          permission: 'ask'
-        }
-      })
-      if (result) useAgentStore.getState().addApprovedTool(toolCall.name)
-      return result
-    },
     hooks: {
       beforeHandleEvent: ({ event }) => {
         if (event.type !== 'iteration_start') return
@@ -544,6 +528,19 @@ async function runSingleTaskLoop(opts: {
               patch: { toolCalls: [...state.toolCalls], toolCursors: { ...toolCursors } }
             })
             break
+
+          case 'tool_call_approval_needed': {
+            const command = String(event.toolCall.input?.command ?? event.toolCall.name)
+            useInboxStore.getState().addInboxItem({
+              taskId: taskId!,
+              type: 'approval',
+              title: command,
+              description: `${memberName}: ${event.toolCall.name}`,
+              toolUseId: event.toolCall.id,
+            })
+            useUIStore.getState().openRightPanel(taskId)
+            break
+          }
 
           case 'tool_call_result':
             flushStreamingText()

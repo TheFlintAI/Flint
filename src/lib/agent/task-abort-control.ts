@@ -11,8 +11,8 @@ import {
 } from '@/lib/chat/pending-messages'
 
 // Helpers that need to be defined in main file (imported here)
-let _onAbortTeam: ((taskId: string, clearPendingApprovals?: boolean) => void) | null = null
-export function registerAbortTeam(fn: (taskId: string, clearPendingApprovals?: boolean) => void): void {
+let _onAbortTeam: ((taskId: string) => void) | null = null
+export function registerAbortTeam(fn: (taskId: string) => void): void {
   _onAbortTeam = fn
 }
 
@@ -88,7 +88,7 @@ export function stopTaskLocally(taskId: string): void {
 
 function abortTaskLocally(taskId: string): void {
   finishStoppingTask(taskId)
-  _onAbortTeam?.(taskId, true)
+  _onAbortTeam?.(taskId)
 }
 
 function applyTaskRuntimeControlSyncEvent(event: TaskRuntimeControlSyncEvent): void {

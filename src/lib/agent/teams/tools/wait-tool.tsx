@@ -58,7 +58,7 @@ export const waitTool: ToolHandler = {
   },
 
   execute: async (input, ctx) => {
-    const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+    const team = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
     if (!team) return encodeToolError('No active team. Call TeamCreate first.')
 
     const memberIds: string[] =

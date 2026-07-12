@@ -19,13 +19,13 @@
     "selectAll": "全选",
     "selectedCount": "已选 {{count}} 项",
     "selectedCount_one": "已选 1 项",
-    "toggleSidebar": "切换侧边栏"
+    "toggleSidebar": "切换侧边栏",
+    "statusBlocked": "已阻塞",
+    "statusRunning": "运行中",
+    "statusCompleted": "已完成"
   },
   "sidebar_toast": {
     "taskDeleted": "任务已删除",
-    "exported": "已导出所有任务",
-    "exportedOne": "已导出任务",
-    "exportedAsJson": "已导出为 JSON",
     "taskDuplicated": "任务已复制",
     "messagesCleared": "消息已清空",
     "unpinned": "已取消置顶",
@@ -41,8 +41,6 @@
   },
   "topbar": {
     "togglePanel": "切换面板",
-    "autoApproveOn": "自动批准已开启 — 所有工具调用无需确认",
-    "autoApproveOff": "自动批准已关闭 — 工具调用需要确认",
     "pendingCount": "{{count}} 个待处理",
     "toolCallAwaiting": "工具调用等待审批 — 按 Y 允许，按 N 拒绝",
     "errorsCount": "{{count}} 个错误",
@@ -157,6 +155,10 @@
     "planEmptyTitle": "无活跃任务",
     "planEmptyDesc": "开始任务以查看计划和进度。",
     "noActivities": "暂无活动",
+    "approvalTitle": "命令审批",
+    "approvalFrom": "来自 {{source}}",
+    "approvalAllow": "允许",
+    "approvalDeny": "拒绝",
     "planNoTodosTitle": "暂无计划",
     "planNoTodosDesc": "向代理分配任务或使用 /todo 创建计划。",
     "goal": "目标",
@@ -167,7 +169,6 @@
     "taskInfo": "任务信息",
     "toolCalls": "{{count}} 次工具调用",
     "agentRuns": "{{count}} 次代理运行",
-    "autoApprovedTools": "自动批准：{{tools}}",
     "filesEmptyTitle": "无活跃任务",
     "filesEmptyDesc": "开始任务以管理工作目录和文件预览。",
     "workingDir": "工作目录",
@@ -184,10 +185,7 @@
     "teamEmptyDesc": "创建团队以与 AI 成员协作。团队成员和任务将显示在此处。",
     "teamWaitingMembers": "等待团队成员加入...",
     "terminalNoOutput": "[暂无输出]",
-    "previewEmpty": "暂无预览内容",
-    "statusBar": {
-      "idle": "无活跃任务"
-    }
+    "previewEmpty": "暂无预览内容"
   },
   "detailPanel": {
     "team": "团队",
@@ -227,8 +225,6 @@
     "taskDuplicated": "任务已复制",
     "pinned": "已置顶",
     "unpinned": "已取消置顶",
-    "taskCopied": "任务已复制到剪贴板",
-    "exportedTask": "已导出任务",
     "deleteConfirm": "确定要删除「{{title}}」吗？",
     "somethingWentWrong": "出了点问题",
     "unexpectedError": "发生了意外错误。",

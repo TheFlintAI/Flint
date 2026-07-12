@@ -1,7 +1,7 @@
 ﻿@import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'katex/dist/katex.min.css';
-@plugin "@tailwindcss/typography";
+@import './typeset.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -325,8 +325,50 @@
     animation: shimmer 2s linear infinite;
   }
 
-  .composer-flyout,
-  .composer-image-badge {
+  /* Approval pending — silver-white flowing border effect.
+     Uses a pseudo-element with a conic-gradient that rotates continuously. */
+  @keyframes approval-border-rotate {
+    0%   { --approval-angle: 0deg; }
+    100% { --approval-angle: 360deg; }
+  }
+
+  @property --approval-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  .approval-pending {
+    position: relative;
+    border: none;
+    isolation: isolate;
+  }
+
+  .approval-pending::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from var(--approval-angle),
+      hsl(0 0% 70%) 0%,
+      hsl(0 0% 95%) 25%,
+      hsl(0 0% 70%) 50%,
+      hsl(0 0% 40%) 75%,
+      hsl(0 0% 70%) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: approval-border-rotate 3s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .composer-flyout {
     backdrop-filter: none;
   }
 
@@ -338,17 +380,6 @@
     background: var(--composer-chip-bg);
     color: var(--composer-chip-text);
     box-shadow: none;
-  }
-
-  .composer-image-badge {
-    border: 1px solid var(--composer-chip-border);
-    background: var(--composer-chip-bg);
-    color: var(--composer-chip-text);
-  }
-
-  .composer-image-badge button:hover {
-    background: var(--composer-chip-hover);
-    color: var(--foreground);
   }
 
   .composer-image-thumb {
@@ -368,42 +399,14 @@
     background: transparent;
   }
 
-  .composer-editor-placeholder {
-    color: var(--composer-placeholder);
-  }
-
-  .composer-editor-content {
-    position: relative;
-    z-index: 1;
-    color: var(--foreground);
-  }
-
-  .composer-file-ref {
-    border: 1px solid var(--composer-chip-border);
-    background: var(--composer-chip-bg);
-    color: var(--composer-chip-text);
-    box-shadow: none;
-  }
-
-  .composer-file-ref--highlighted {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent),
-      0 0 0 4px color-mix(in srgb, var(--primary) 8%, transparent);
-  }
-
-  .composer-file-ref-action {
-    color: color-mix(in srgb, var(--composer-chip-text) 82%, transparent);
-  }
-
-  .composer-file-ref-action:hover {
-    background: var(--composer-chip-hover);
-    color: var(--foreground);
-  }
-
   textarea.composer-aux-textarea {
     border-color: var(--composer-chip-border);
     background: transparent;
     box-shadow: none;
+  }
+
+  .composer-textarea {
+    font-family: inherit;
   }
 
   .workspace-folder-sheet {

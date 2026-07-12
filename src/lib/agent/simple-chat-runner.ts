@@ -29,6 +29,7 @@ import { resolveCompressionContextLength } from '@/lib/agent/context-compression
 import {
   shouldSuppressTransientRuntimeError
 } from '@/lib/chat/message-utils'
+import { notifyTaskError } from '@/services/notifications'
 
 import { toast } from 'sonner'
 import { createLogger } from '@/lib/logger'
@@ -309,6 +310,17 @@ export async function runSimpleChat(
               description: `${taskTitle} · ${errorMessage}`
             })
           }
+          // Notify regardless of task foreground — notify() gates on app focus internally
+          {
+            const taskTitle =
+              useChatStore.getState().tasks.find((item) => item.id === taskId)?.title ??
+              i18n.t('chat:errors.backgroundTask')
+            notifyTaskError(
+              taskId,
+              i18n.t('chat:notifications.taskErrorTitle'),
+              i18n.t('chat:notifications.taskErrorBody', { title: taskTitle }),
+            )
+          }
           break
         }
       }
@@ -330,6 +342,17 @@ export async function runSimpleChat(
             title: 'Runtime error',
             description: `${taskTitle} · ${errMsg}`
           })
+        }
+        // Notify regardless of task foreground — notify() gates on app focus internally
+        {
+          const taskTitle =
+            useChatStore.getState().tasks.find((item) => item.id === taskId)?.title ??
+            'Background task'
+          notifyTaskError(
+            taskId,
+            i18n.t('chat:notifications.taskErrorTitle'),
+            i18n.t('chat:notifications.taskErrorBody', { title: taskTitle }),
+          )
         }
         appendRuntimeTextDelta(taskId, assistantMsgId, `\n\n> **Error:** ${errMsg}`)
       }

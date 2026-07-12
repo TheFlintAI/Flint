@@ -4,10 +4,7 @@
     "language": "Language",
     "languageDesc": "Set the interface display language",
     "chinese": "中文",
-    "english": "English",
-    "autoApprove": "Auto-approve tool calls",
-    "autoApproveDesc": "Skip permission confirmation for all tool calls",
-    "autoApproveWarning": "Dangerous: All tool calls will execute automatically without confirmation"
+    "english": "English"
   },
   "memory": {
     "title": "Memory",
@@ -131,9 +128,9 @@
     "addModel": "Add Model",
     "addModelTitle": "Add Model",
     "modelId": "Model ID",
-    "modelIdPlaceholder": "e.g. gpt-4o",
+    "modelIdPlaceholder": "e.g. gpt-5.5",
     "modelName": "Display Name",
-    "modelNamePlaceholder": "GPT-4o",
+    "modelNamePlaceholder": "GPT-5.5",
     "contextLength": "Context Length",
     "contextCompressionThreshold": "Context compression threshold (%)",
     "contextCompressionThresholdDesc": "Trigger full compression at this context usage ratio. Range: {{min}}% - {{max}}%",

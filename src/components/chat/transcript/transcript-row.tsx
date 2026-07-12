@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { RequestRetryState } from '@/lib/agent/types'
 import type { UnifiedMessage } from '@/lib/api/types'
-import type { MessageListProps, ToolResultsLookup } from './types'
+import type { TranscriptScrollerProps, ToolResultsLookup } from './types'
 import { MessageItem } from '../MessageItem'
 import { MESSAGE_COLUMN_CLASS } from './constants'
 import { cn } from '@/lib/utils'
@@ -49,7 +49,7 @@ export function areRequestRetryStatesEqual(
   )
 }
 
-export interface MessageRowProps {
+export interface TranscriptRowProps {
   message: UnifiedMessage
   taskId?: string | null
   taskAssistantMessageIds?: readonly string[]
@@ -60,7 +60,6 @@ export interface MessageRowProps {
   showContinue: boolean
   disableAnimation: boolean
   toolResults?: ToolResultsLookup
-  anchorMessageId?: string | null
   highlightMessageId?: string | null
   requestRetryState?: RequestRetryState | null
   renderMode?: 'default' | 'transcript' | 'static'
@@ -70,7 +69,7 @@ export interface MessageRowProps {
   onRollbackMessage?: (messageId: string) => void
 }
 
-export function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowProps): boolean {
+export function areTranscriptRowPropsEqual(prev: TranscriptRowProps, next: TranscriptRowProps): boolean {
   return (
     prev.message === next.message &&
     prev.taskId === next.taskId &&
@@ -83,7 +82,6 @@ export function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowP
     prev.disableAnimation === next.disableAnimation &&
     (prev.toolResults === next.toolResults ||
       areToolResultsEqual(prev.toolResults, next.toolResults)) &&
-    prev.anchorMessageId === next.anchorMessageId &&
     prev.highlightMessageId === next.highlightMessageId &&
     prev.renderMode === next.renderMode &&
     areRequestRetryStatesEqual(prev.requestRetryState, next.requestRetryState) &&
@@ -94,7 +92,10 @@ export function areMessageRowPropsEqual(prev: MessageRowProps, next: MessageRowP
   )
 }
 
-export function areMessageListPropsEqual(prev: MessageListProps, next: MessageListProps): boolean {
+export function areTranscriptScrollerPropsEqual(
+  prev: TranscriptScrollerProps,
+  next: TranscriptScrollerProps
+): boolean {
   return (
     prev.taskId === next.taskId &&
     prev.onRetry === next.onRetry &&
@@ -104,7 +105,7 @@ export function areMessageListPropsEqual(prev: MessageListProps, next: MessageLi
   )
 }
 
-export const MessageRow = React.memo(function MessageRow({
+export const TranscriptRow = React.memo(function TranscriptRow({
   message,
   taskId,
   taskAssistantMessageIds,
@@ -115,7 +116,6 @@ export const MessageRow = React.memo(function MessageRow({
   showContinue,
   disableAnimation,
   toolResults,
-  anchorMessageId,
   highlightMessageId,
   requestRetryState,
   renderMode,
@@ -123,15 +123,13 @@ export const MessageRow = React.memo(function MessageRow({
   onContinue,
   onDeleteMessage,
   onRollbackMessage
-}: MessageRowProps): React.JSX.Element {
-  const isAnchor = anchorMessageId === message.id
+}: TranscriptRowProps): React.JSX.Element {
   const isHighlighted = highlightMessageId === message.id
   const isStickyLatestUser = isLastUserMessage && message.role === 'user'
 
   return (
     <div
       data-message-id={message.id}
-      data-anchor={isAnchor ? 'true' : undefined}
       className={cn(
         MESSAGE_COLUMN_CLASS,
         'transition-colors duration-500',
@@ -162,4 +160,4 @@ export const MessageRow = React.memo(function MessageRow({
       />
     </div>
   )
-}, areMessageRowPropsEqual)
+}, areTranscriptRowPropsEqual)

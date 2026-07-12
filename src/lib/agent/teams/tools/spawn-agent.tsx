@@ -145,7 +145,7 @@ async function executeSpawn(
   input: Record<string, unknown>,
   ctx: ToolContext
 ): Promise<ToolResultContent> {
-  const team = useTeamStore.getState().activeTeams[ctx.taskId] ?? null
+  const team = useTeamStore.getState().activeTeams[ctx.taskId!] ?? null
   if (!team) {
     return encodeToolError('No active team. Call TeamCreate first.')
   }
@@ -381,5 +381,4 @@ export const spawnAgentTool: ToolHandler = {
     renderHeader: spawnAgentHeader,
     renderBody: spawnAgentBody
   },
-  formatApprovalSummary: (input) => `${input.description ?? ''}`,
 }

@@ -176,7 +176,6 @@ const taskCreateHandler: ToolHandler = {
   },
   groups: ['task-management'],
   render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
-  formatApprovalSummary: (input) => `Create task: ${input.title ?? input.subject ?? ''}`,
 }
 
 // TaskGet
@@ -231,7 +230,6 @@ const taskGetHandler: ToolHandler = {
   },
   groups: ['task-management'],
   render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
-  formatApprovalSummary: (input) => `Get task: #${input.taskId ?? ''}`,
 }
 
 // TaskUpdate
@@ -285,7 +283,7 @@ const taskUpdateHandler: ToolHandler = {
 
     // --- Team mode ---
     if (hasActiveTeam(ctx.taskId)) {
-      const team = useTeamStore.getState().activeTeams[ctx.taskId]!
+      const team = useTeamStore.getState().activeTeams[ctx.taskId!]!
       const task = team.tasks.find((t) => t.id === taskId)
       if (!task) return encodeStructuredToolResult({ error: `Task "${taskId}" not found` })
 
@@ -392,7 +390,6 @@ const taskUpdateHandler: ToolHandler = {
   },
   groups: ['task-management'],
   render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
-  formatApprovalSummary: (input) => `Update task: #${input.taskId ?? ''}${input.status ? ` → ${input.status}` : ''}`,
 }
 
 // TaskList
@@ -409,7 +406,7 @@ const taskListHandler: ToolHandler = {
   },
   execute: async (_input, ctx) => {
     if (hasActiveTeam(ctx.taskId)) {
-      const team = useTeamStore.getState().activeTeams[ctx.taskId]!
+      const team = useTeamStore.getState().activeTeams[ctx.taskId!]!
       const tasks = team.tasks
       return encodeStructuredToolResult({
         mode: 'team',
@@ -445,7 +442,6 @@ const taskListHandler: ToolHandler = {
   },
   groups: ['task-management'],
   render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
-  formatApprovalSummary: () => 'List all tasks',
 }
 
 // Render functions

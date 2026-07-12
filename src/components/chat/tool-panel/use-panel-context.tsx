@@ -15,7 +15,7 @@ export function usePanelContext(props: ToolPanelProps): ToolPanelContext {
     if (handler?.displayName) {
       return resolveLocalizedString(handler.displayName, i18n.language)
     }
-    return t(`permission.toolLabels.${props.name}`, { defaultValue: props.name })
+    return t(`toolLabels.${props.name}`, { defaultValue: props.name })
   }, [handler, props.name, i18n.language, t])
 
   return React.useMemo<ToolPanelContext>(

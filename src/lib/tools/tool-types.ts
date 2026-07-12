@@ -4,8 +4,7 @@ import type { ToolRenderDescriptor } from './tool-render-types'
 
 // --- Tool Permission ---
 
-export type ToolPermission = 'allow' | 'ask' | 'deny'
-export type ToolPermissionResolver = (input: Record<string, unknown>, ctx: ToolContext) => ToolPermission
+export type ToolPermission = 'allow' | 'deny' | 'ask'
 
 // --- Tool Context ---
 
@@ -51,13 +50,11 @@ export interface TauriCommandClient {
 
 export interface ToolHandler {
   definition: ToolDefinition
-  /** UI display name. Falls back to i18n key `permission.toolLabels.<name>` if unset. */
+  /** UI display name. Falls back to i18n key `toolLabels.<name>` if unset. */
   displayName?: LocalizedString
   execute: (input: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResultContent>
   /** Semantic groups for prompt-section gating (e.g. 'task-management', 'team-management'). */
   groups?: string[]
   /** Render descriptor — how ToolPanel displays this tool. */
   render: ToolRenderDescriptor
-  /** Summarize input for the approval dialog. Returns null to use default JSON display. */
-  formatApprovalSummary?: (input: Record<string, unknown>) => string | null
 }

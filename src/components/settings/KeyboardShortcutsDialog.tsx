@@ -39,8 +39,6 @@ const shortcutGroups = [
       { keys: '↑/↓', descKey: 'inputHistory' },
       { keys: 'Escape', descKey: 'stopStreaming' },
       { keys: 'Ctrl+L', descKey: 'clearMessages' },
-      { keys: 'Ctrl+Shift+E', descKey: 'exportTask' },
-      { keys: 'Ctrl+Shift+C', descKey: 'copyTask' }
     ]
   },
   {

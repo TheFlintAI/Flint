@@ -3,18 +3,16 @@ import type { ChatRenderableMessageMeta } from '@/lib/chat/transcript-utils'
 
 export type ToolResultsLookup = Map<string, { content: ToolResultContent; isError?: boolean }>
 
-export type MessageListRow =
+export type TranscriptRow =
   | { type: 'pending-assistant'; key: string }
   | { type: 'message'; key: string; data: ChatRenderableMessageMeta }
 
-export type AutoScrollMode = 'off' | 'user' | 'stream'
-
-export interface AskUserQuestionPresence {
+export interface PendingAskQuestion {
   assistantMessageId: string
   toolUseId: string
 }
 
-export interface MessageListProps {
+export interface TranscriptScrollerProps {
   taskId?: string | null
   onRetry?: () => void
   onContinue?: () => void

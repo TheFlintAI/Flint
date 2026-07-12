@@ -18,8 +18,6 @@ interface DraftConnection {
   activeDraftKey: string | null
   /** The persisted draft from store (null if not hydrated or no key). */
   persistedDraft: PersistedDraftSnapshot | null
-  /** A ref that tracks when the draft key is considered "ready" after hydration. */
-  draftReadyKeyRef: React.MutableRefObject<string | null>
   /** Saves current composer state to the draft store (debounced). */
   saveDraft: (snapshot: {
     serializedText: string
@@ -52,8 +50,6 @@ export function useComposerDraft({
   const setPersistedDraft = useInputDraftStore((s) => s.setDraft)
   const removePersistedDraft = useInputDraftStore((s) => s.removeDraft)
 
-  const draftReadyKeyRef = React.useRef<string | null>(null)
-
   const saveTimerRef = React.useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const saveDraft = React.useCallback(
@@ -63,7 +59,6 @@ export function useComposerDraft({
     }) => {
       const key = activeDraftKey
       if (!key || !inputDraftHydrated) return
-      if (draftReadyKeyRef.current !== key) return
 
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
@@ -91,7 +86,6 @@ export function useComposerDraft({
   return {
     activeDraftKey,
     persistedDraft: inputDraftHydrated ? (persistedDraft ?? null) : null,
-    draftReadyKeyRef,
     saveDraft
   }
 }

@@ -69,50 +69,45 @@
     "backgroundInboxDescription": "{{title}} is waiting for your choice",
     "backgroundToast": "Background task is waiting for your choice"
   },
-  "permission": {
-    "title": "Permission Required",
-    "showFullInput": "Show full input",
-    "hideFullInput": "Hide full input",
-    "toolLabels": {
-      "Read": "Read File",
-      "Write": "Write File",
-      "Edit": "Edit File",
-      "Bash": "Shell Command",
-      "LS": "List Directory",
-      "Glob": "Find Files",
-      "Grep": "Search in Files",
-      "TaskCreate": "Create Task",
-      "TaskGet": "Get Task",
-      "TaskUpdate": "Update Task",
-      "TaskList": "List Tasks",
-      "Skill": "Skill",
-      "MemoryRead": "Read Memory",
-      "MemorySearch": "Search Memories",
-      "MemoryWrite": "Write Memory",
-      "MemoryDelete": "Delete Memory",
-      "CompleteWork": "Complete Work",
-      "WebSearch": "Web Search",
-      "WebFetch": "Web Fetch"
-    },
-    "toolLogTitle": {
-      "Read": "Read {{detail}}",
-      "Write": "Write {{detail}}",
-      "Edit": "Edit {{detail}}",
-      "LS": "List {{detail}}",
-      "Glob": "Find {{detail}}",
-      "Grep": "Grep {{detail}}",
-      "Bash": "Run {{detail}}",
-      "Skill": "Load skill {{detail}}",
-      "TaskCreate": "Create task {{detail}}",
-      "TaskGet": "Get task {{detail}}",
-      "TaskUpdate": "Update task {{detail}}",
-      "WebSearch": "Search {{detail}}",
-      "WebFetch": "Fetch {{detail}}",
-      "MemoryRead": "Read memory {{detail}}",
-      "MemorySearch": "Search memory {{detail}}",
-      "MemoryWrite": "Write memory {{detail}}",
-      "MemoryDelete": "Delete memory {{detail}}"
-    }
+  "toolLabels": {
+    "Read": "Read File",
+    "Write": "Write File",
+    "Edit": "Edit File",
+    "Bash": "Shell Command",
+    "LS": "List Directory",
+    "Glob": "Find Files",
+    "Grep": "Search in Files",
+    "TaskCreate": "Create Task",
+    "TaskGet": "Get Task",
+    "TaskUpdate": "Update Task",
+    "TaskList": "List Tasks",
+    "Skill": "Skill",
+    "MemoryRead": "Read Memory",
+    "MemorySearch": "Search Memories",
+    "MemoryWrite": "Write Memory",
+    "MemoryDelete": "Delete Memory",
+    "CompleteWork": "Complete Work",
+    "WebSearch": "Web Search",
+    "WebFetch": "Web Fetch"
+  },
+  "toolLogTitle": {
+    "Read": "Read {{detail}}",
+    "Write": "Write {{detail}}",
+    "Edit": "Edit {{detail}}",
+    "LS": "List {{detail}}",
+    "Glob": "Find {{detail}}",
+    "Grep": "Grep {{detail}}",
+    "Bash": "Run {{detail}}",
+    "Skill": "Load skill {{detail}}",
+    "TaskCreate": "Create task {{detail}}",
+    "TaskGet": "Get task {{detail}}",
+    "TaskUpdate": "Update task {{detail}}",
+    "WebSearch": "Search {{detail}}",
+    "WebFetch": "Fetch {{detail}}",
+    "MemoryRead": "Read memory {{detail}}",
+    "MemorySearch": "Search memory {{detail}}",
+    "MemoryWrite": "Write memory {{detail}}",
+    "MemoryDelete": "Delete memory {{detail}}"
   },
   "toolCall": {
     "matchesInFiles": "{{matches}} matches in {{files}} files",
@@ -252,7 +247,12 @@
       "resultCount": "{{count}} results",
       "noResults": "No results",
       "open": "Open in browser"
-    }
+    },
+    "approval": {
+      "allow": "Allow",
+      "deny": "Deny"
+    },
+    "awaitingApproval": "awaiting approval"
   },
   "todo": {
     "tasksDone": "{{completed}} / {{total}} tasks done",
@@ -473,6 +473,16 @@
     "continueExecutionFailed": "Continue execution failed",
     "unknownError": "Unknown error",
     "chatError": "Chat Error"
+  },
+  "notifications": {
+    "taskCompletedTitle": "Task completed",
+    "taskCompletedBody": "{{title}}",
+    "approvalNeededTitle": "Approval needed",
+    "approvalNeededBody": "{{title}}",
+    "inputNeededTitle": "Input needed",
+    "inputNeededBody": "{{title}}",
+    "taskErrorTitle": "Error",
+    "taskErrorBody": "{{title}}"
   },
   "taskPanel": {
     "taskListTitle": "{{total}} tasks",

@@ -69,13 +69,15 @@ export const ThinkingContent = memo(function ThinkingContent({
             {renderPool.text}
           </div>
         ) : (
-          <Markdown
-            remarkPlugins={MARKDOWN_REMARK_PLUGINS}
-            rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
-            components={THINKING_MD_COMPONENTS}
-          >
-            {thinking}
-          </Markdown>
+          <div className="typeset typeset-chat">
+            <Markdown
+              remarkPlugins={MARKDOWN_REMARK_PLUGINS}
+              rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+              components={THINKING_MD_COMPONENTS}
+            >
+              {thinking}
+            </Markdown>
+          </div>
         )}
       </div>
     )

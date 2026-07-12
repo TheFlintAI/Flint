@@ -166,6 +166,5 @@ function createSkillHandler(): ToolHandler {
       }
     },
     render: { kind: 'native-inline', render: (ctx) => <SkillInline ctx={ctx} /> },
-    formatApprovalSummary: (input) => `Load skill: ${input.name ?? ''}`,
   }
 }

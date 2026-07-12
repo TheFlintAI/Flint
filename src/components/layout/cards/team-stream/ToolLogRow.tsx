@@ -26,7 +26,7 @@ export const ToolLogRow = memo(function ToolLogRow({
     if (handler?.displayName) {
       return resolveLocalizedString(handler.displayName, i18n.language)
     }
-    return t(`permission.toolLabels.${toolCall.name}`, { defaultValue: toolCall.name })
+    return t(`toolLabels.${toolCall.name}`, { defaultValue: toolCall.name })
   }, [toolCall.name, toolCall.input, t, i18n.language])
 
   const elapsed =

@@ -69,50 +69,45 @@
     "backgroundInboxDescription": "{{title}} 正在等待你的选择",
     "backgroundToast": "后台任务等待你的选择"
   },
-  "permission": {
-    "title": "需要权限",
-    "showFullInput": "显示完整输入",
-    "hideFullInput": "隐藏完整输入",
-    "toolLabels": {
-      "Read": "读取文件",
-      "Write": "写入文件",
-      "Edit": "编辑文件",
-      "Bash": "Shell 命令",
-      "LS": "列出目录",
-      "Glob": "查找文件",
-      "Grep": "搜索文件内容",
-      "TaskCreate": "创建任务",
-      "TaskGet": "获取任务",
-      "TaskUpdate": "更新任务",
-      "TaskList": "任务列表",
-      "Skill": "技能",
-      "MemoryRead": "读取记忆",
-      "MemorySearch": "搜索记忆",
-      "MemoryWrite": "写入记忆",
-      "MemoryDelete": "删除记忆",
-      "CompleteWork": "完成工作",
-      "WebSearch": "网页搜索",
-      "WebFetch": "网页抓取"
-    },
-    "toolLogTitle": {
-      "Read": "读取 {{detail}}",
-      "Write": "写入 {{detail}}",
-      "Edit": "编辑 {{detail}}",
-      "LS": "列出 {{detail}}",
-      "Glob": "查找 {{detail}}",
-      "Grep": "搜索 {{detail}}",
-      "Bash": "执行 {{detail}}",
-      "Skill": "加载技能 {{detail}}",
-      "TaskCreate": "新建任务 {{detail}}",
-      "TaskGet": "获取任务 {{detail}}",
-      "TaskUpdate": "更新任务 {{detail}}",
-      "WebSearch": "搜索 {{detail}}",
-      "WebFetch": "抓取 {{detail}}",
-      "MemoryRead": "读取记忆 {{detail}}",
-      "MemorySearch": "搜索记忆 {{detail}}",
-      "MemoryWrite": "写入记忆 {{detail}}",
-      "MemoryDelete": "删除记忆 {{detail}}"
-    }
+  "toolLabels": {
+    "Read": "读取文件",
+    "Write": "写入文件",
+    "Edit": "编辑文件",
+    "Bash": "Shell 命令",
+    "LS": "列出目录",
+    "Glob": "查找文件",
+    "Grep": "搜索文件内容",
+    "TaskCreate": "创建任务",
+    "TaskGet": "获取任务",
+    "TaskUpdate": "更新任务",
+    "TaskList": "任务列表",
+    "Skill": "技能",
+    "MemoryRead": "读取记忆",
+    "MemorySearch": "搜索记忆",
+    "MemoryWrite": "写入记忆",
+    "MemoryDelete": "删除记忆",
+    "CompleteWork": "完成工作",
+    "WebSearch": "网页搜索",
+    "WebFetch": "网页抓取"
+  },
+  "toolLogTitle": {
+    "Read": "读取 {{detail}}",
+    "Write": "写入 {{detail}}",
+    "Edit": "编辑 {{detail}}",
+    "LS": "列出 {{detail}}",
+    "Glob": "查找 {{detail}}",
+    "Grep": "搜索 {{detail}}",
+    "Bash": "执行 {{detail}}",
+    "Skill": "加载技能 {{detail}}",
+    "TaskCreate": "新建任务 {{detail}}",
+    "TaskGet": "获取任务 {{detail}}",
+    "TaskUpdate": "更新任务 {{detail}}",
+    "WebSearch": "搜索 {{detail}}",
+    "WebFetch": "抓取 {{detail}}",
+    "MemoryRead": "读取记忆 {{detail}}",
+    "MemorySearch": "搜索记忆 {{detail}}",
+    "MemoryWrite": "写入记忆 {{detail}}",
+    "MemoryDelete": "删除记忆 {{detail}}"
   },
   "toolCall": {
     "matchesInFiles": "{{files}} 个文件中 {{matches}} 个匹配",
@@ -252,7 +247,12 @@
       "resultCount": "{{count}} 条结果",
       "noResults": "暂无结果",
       "open": "在浏览器中打开"
-    }
+    },
+    "approval": {
+      "allow": "允许",
+      "deny": "拒绝"
+    },
+    "awaitingApproval": "等待审批"
   },
   "todo": {
     "tasksDone": "{{completed}} / {{total}} 个任务完成",
@@ -472,7 +472,17 @@
     "missingToolResults": "缺少 {{count}} 个先前工具调用的保存结果{{names}}。请重试该轮次而非重放工具。",
     "continueExecutionFailed": "继续执行失败",
     "unknownError": "未知错误",
-    "chatError": "对话错误"
+    "chatError": "Chat 错误"
+  },
+  "notifications": {
+    "taskCompletedTitle": "任务完成",
+    "taskCompletedBody": "{{title}}",
+    "approvalNeededTitle": "需要审批",
+    "approvalNeededBody": "{{title}}",
+    "inputNeededTitle": "需要输入",
+    "inputNeededBody": "{{title}}",
+    "taskErrorTitle": "出错",
+    "taskErrorBody": "{{title}}"
   },
   "taskPanel": {
     "taskListTitle": "{{total}} 个任务",

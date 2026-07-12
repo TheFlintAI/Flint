@@ -113,7 +113,7 @@ export function ContextCompressionMessage({
           </DetailChip>
         ) : null}
       </div>
-      <div className="mt-3 prose prose-sm max-w-none text-foreground dark:prose-invert [&_p]:my-2 [&_pre]:overflow-x-auto">
+      <div className="mt-3 typeset typeset-sm">
         <Markdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS}>
           {content}
         </Markdown>

@@ -170,81 +170,30 @@ function cloneToolCallArray(toolCalls: ToolCallState[]): ToolCallState[] {
 }
 
 export function applyToolCallToBuckets(
-  pending: ToolCallState[],
   executed: ToolCallState[],
   tc: ToolCallState
 ): void {
   const normalizedTc = normalizeToolCall(tc)
   const execIdx = executed.findIndex((item) => item.id === normalizedTc.id)
   if (execIdx !== -1) {
-    if (normalizedTc.status === 'pending_approval') {
-      const [moved] = executed.splice(execIdx, 1)
-      const updated = { ...moved, ...normalizedTc }
-      pending.push(updated)
-    } else {
-      executed[execIdx] = { ...executed[execIdx], ...normalizedTc }
-    }
+    executed[execIdx] = { ...executed[execIdx], ...normalizedTc }
     trimToolCallArray(executed)
-    trimToolCallArray(pending)
     return
   }
 
-  const pendingIdx = pending.findIndex((item) => item.id === normalizedTc.id)
-  if (pendingIdx !== -1) {
-    if (normalizedTc.status !== 'pending_approval') {
-      const [moved] = pending.splice(pendingIdx, 1)
-      const updated = { ...moved, ...normalizedTc }
-      executed.push(updated)
-    } else {
-      pending[pendingIdx] = { ...pending[pendingIdx], ...normalizedTc }
-    }
-    trimToolCallArray(executed)
-    trimToolCallArray(pending)
-    return
-  }
-
-  if (normalizedTc.status === 'pending_approval') {
-    pending.push(normalizedTc)
-  } else {
-    executed.push(normalizedTc)
-  }
+  executed.push(normalizedTc)
   trimToolCallArray(executed)
-  trimToolCallArray(pending)
 }
 
 export function applyToolCallPatchToBuckets(
-  pending: ToolCallState[],
   executed: ToolCallState[],
   id: string,
   patch: Partial<ToolCallState>
 ): boolean {
-  const pendingToolCall = pending.find((item) => item.id === id)
   const executedToolCall = executed.find((item) => item.id === id)
-  const normalizedPatch = normalizeToolCallPatch(
-    patch,
-    pendingToolCall?.name ?? executedToolCall?.name
-  )
-  if (pendingToolCall) {
-    if (!toolCallPatchHasChanges(pendingToolCall, normalizedPatch)) return false
-    const updated = { ...pendingToolCall, ...normalizedPatch }
-    if (normalizedPatch.status && normalizedPatch.status !== 'pending_approval') {
-      const index = pending.findIndex((item) => item.id === id)
-      if (index !== -1) {
-        pending.splice(index, 1)
-        executed.push(updated)
-      }
-    } else {
-      const index = pending.findIndex((item) => item.id === id)
-      if (index !== -1) {
-        pending[index] = updated
-      }
-    }
-    trimToolCallArray(executed)
-    trimToolCallArray(pending)
-    return true
-  }
 
   if (executedToolCall) {
+    const normalizedPatch = normalizeToolCallPatch(patch, executedToolCall.name)
     if (!toolCallPatchHasChanges(executedToolCall, normalizedPatch)) return false
     const index = executed.findIndex((item) => item.id === id)
     if (index !== -1) {
@@ -265,7 +214,7 @@ function ensureTaskToolCallCache(
 ): TaskToolCallCache {
   const existing = state.taskToolCallsCache[taskId]
   if (existing) return existing
-  const created: TaskToolCallCache = { pending: [], executed: [] }
+  const created: TaskToolCallCache = { executed: [] }
   state.taskToolCallsCache[taskId] = created
   return created
 }
@@ -273,7 +222,6 @@ function ensureTaskToolCallCache(
 function resolveTaskToolCallTarget(
   state: {
     liveTaskId: string | null
-    pendingToolCalls: ToolCallState[]
     executedToolCalls: ToolCallState[]
     taskToolCallsCache: Record<string, TaskToolCallCache>
   },
@@ -281,7 +229,6 @@ function resolveTaskToolCallTarget(
 ): TaskToolCallCache {
   if (!taskId || taskId === state.liveTaskId) {
     return {
-      pending: state.pendingToolCalls,
       executed: state.executedToolCalls
     }
   }
@@ -296,14 +243,12 @@ export function createSwitchToolCallTask(
     set((state) => {
       if (prevTaskId) {
         state.taskToolCallsCache[prevTaskId] = {
-          pending: cloneToolCallArray(state.pendingToolCalls),
           executed: cloneToolCallArray(state.executedToolCalls)
         }
       }
 
       const cached = nextTaskId ? state.taskToolCallsCache[nextTaskId] : undefined
       state.liveTaskId = nextTaskId
-      state.pendingToolCalls = cloneToolCallArray(cached?.pending ?? [])
       state.executedToolCalls = cloneToolCallArray(cached?.executed ?? [])
 
       const cacheKeys = Object.keys(state.taskToolCallsCache)
@@ -326,7 +271,6 @@ export function createResetLiveTaskExecution(
       delete state.taskToolCallsCache[taskId]
 
       if (state.liveTaskId !== taskId) return
-      state.pendingToolCalls = []
       state.executedToolCalls = []
     })
   }
@@ -340,7 +284,7 @@ export function createAddToolCall(
     const resolvedTaskId = taskId ?? tc.taskId ?? get().liveTaskId
     set((state) => {
       const target = resolveTaskToolCallTarget(state, resolvedTaskId)
-      applyToolCallToBuckets(target.pending, target.executed, {
+      applyToolCallToBuckets(target.executed, {
         ...tc,
         ...(resolvedTaskId ? { taskId: resolvedTaskId } : {})
       })
@@ -366,7 +310,7 @@ export function createUpdateToolCall(
       const explicitTaskId = taskId ?? patch.taskId ?? null
       if (explicitTaskId) {
         const target = resolveTaskToolCallTarget(state, explicitTaskId)
-        if (applyToolCallPatchToBuckets(target.pending, target.executed, id, patch)) {
+        if (applyToolCallPatchToBuckets(target.executed, id, patch)) {
           changed = true
           resolvedTaskId = explicitTaskId
           return
@@ -374,7 +318,7 @@ export function createUpdateToolCall(
       }
 
       if (
-        applyToolCallPatchToBuckets(state.pendingToolCalls, state.executedToolCalls, id, patch)
+        applyToolCallPatchToBuckets(state.executedToolCalls, id, patch)
       ) {
         changed = true
         resolvedTaskId = state.liveTaskId
@@ -382,7 +326,7 @@ export function createUpdateToolCall(
       }
 
       for (const [cacheTaskId, cache] of Object.entries(state.taskToolCallsCache)) {
-        if (applyToolCallPatchToBuckets(cache.pending, cache.executed, id, patch)) {
+        if (applyToolCallPatchToBuckets(cache.executed, id, patch)) {
           changed = true
           resolvedTaskId = cacheTaskId
           return
@@ -407,9 +351,7 @@ export function createClearToolCalls(
   return () => {
     set((state) => {
       state.liveTaskId = null
-      state.pendingToolCalls = []
       state.executedToolCalls = []
-      state.approvedToolNames = []
       state.foregroundShellExecByToolUseId = {}
       state.taskToolCallsCache = {}
       state.taskBackgroundProcessSummaries = {}

@@ -132,7 +132,6 @@ type GroupedUnit = RenderUnit | {
 const GROUP_ACTIVE_STATUSES: ReadonlySet<ToolCallStatus | 'completed'> = new Set([
   'streaming',
   'running',
-  'pending_approval',
 ])
 
 function isProcessUnit(

@@ -32,7 +32,7 @@ function ToolPanelInner(props: ToolPanelProps): React.JSX.Element | null {
   }
 
   if (render.kind === 'native-panel') {
-    return <NativePanelShell ctx={ctx} render={render} />
+    return <NativePanelShell ctx={ctx} render={render} status={props.status} />
   }
 
   if (render.kind === 'native-card') {
@@ -41,19 +41,21 @@ function ToolPanelInner(props: ToolPanelProps): React.JSX.Element | null {
   }
 
   // render.kind === 'remote'
-  return <RemotePanelShell ctx={ctx} render={render} />
+  return <RemotePanelShell ctx={ctx} render={render} status={props.status} />
 }
 
 function NativePanelShell({
   ctx,
   render,
+  status,
 }: {
   ctx: ToolPanelContext
   render: NativePanelRender
+  status: ToolPanelProps['status']
 }): React.JSX.Element {
-  const { status, output } = ctx
+  const { output } = ctx
   const isProcessing = status === 'streaming' || status === 'running'
-  const isActive = isProcessing || status === 'pending_approval'
+  const isActive = isProcessing
 
   return (
     <ToolShell
@@ -81,14 +83,16 @@ function NativePanelShell({
 function RemotePanelShell({
   ctx,
   render,
+  status,
 }: {
   ctx: ToolPanelContext
   render: RemoteToolRender
+  status: ToolPanelProps['status']
 }): React.JSX.Element {
   const [bodyVNode, setBodyVNode] = React.useState<VNode | null>(null)
   const { i18n } = useTranslation()
-  const isProcessing = ctx.status === 'streaming' || ctx.status === 'running'
-  const isActive = isProcessing || ctx.status === 'pending_approval'
+  const isProcessing = status === 'streaming' || status === 'running'
+  const isActive = isProcessing
 
   // Fetch body VNode from plugin Worker when output/status changes
   React.useEffect(() => {

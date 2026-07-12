@@ -32,7 +32,6 @@ export type ProcessStep =
 const ACTIVE_STATUSES: ReadonlySet<ToolCallStatus | 'completed'> = new Set([
   'streaming',
   'running',
-  'pending_approval',
 ])
 
 function isToolActive(status: ToolCallStatus | 'completed'): boolean {
@@ -147,7 +146,7 @@ function PanelToolStep({
   render: NativePanelRender
 }): React.JSX.Element {
   const isProcessing = ctx.status === 'streaming' || ctx.status === 'running'
-  const isActive = isProcessing || ctx.status === 'pending_approval'
+  const isActive = isProcessing
 
   return (
     <ToolShell

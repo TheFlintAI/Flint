@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStoreWithEqualityFn } from 'zustand/traditional'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -42,9 +42,7 @@ import { useTeamStore } from '@/stores/team-store'
 import { useInboxStore } from '@/stores/inbox-store'
 import {
   abortTask,
-  clearPendingTaskMessages,
-  getPendingTaskMessageCountForTask,
-  subscribePendingTaskMessages
+  clearPendingTaskMessages
 } from '@/hooks/use-chat-actions'
 import { cn } from '@/lib/utils'
 import { clampLeftSidebarWidth, LEFT_SIDEBAR_DEFAULT_WIDTH, LEFT_SIDEBAR_COLLAPSED_WIDTH } from './panel-constants'
@@ -62,6 +60,8 @@ const SIDEBAR_TREE_LABEL_CLASS = 'text-[13px] leading-5'
 const SIDEBAR_TREE_META_CLASS = 'text-[10px]'
 
 type TaskListItem = ReturnType<typeof mapTask>
+
+type TaskStatusKind = 'blocked' | 'running' | 'completed'
 
 function mapTask(taskItem: ReturnType<typeof useChatStore.getState>['tasks'][number]): {
   id: string
@@ -162,7 +162,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
       .join(',')
   )
   const activeTeams = useTeamStore((state) => state.activeTeams)
-  const unreadCountsByTask = useInboxStore((state) => state.unreadCountsByTask)
   const blockedCountsByTask = useInboxStore((state) => state.blockedCountsByTask)
   const language = useSettingsStore((state) => state.language)
   const [searchQuery, setSearchQuery] = useState('')
@@ -202,14 +201,6 @@ export function WorkspaceSidebar(): React.JSX.Element {
     () => new Set(streamingTaskIdsSig ? streamingTaskIdsSig.split(',') : []),
     [streamingTaskIdsSig]
   )
-  const pendingQueueSignature = useSyncExternalStore(
-    subscribePendingTaskMessages,
-    () =>
-      tasks
-        .map((taskItem) => `${taskItem.id}:${getPendingTaskMessageCountForTask(taskItem.id)}`)
-        .join('|'),
-    () => ''
-  )
   const chatSurfaceActive = !settingsPageOpen
 
   const sortedTasks = useMemo(() => tasks.slice().sort(sortTasks), [tasks])
@@ -238,16 +229,24 @@ export function WorkspaceSidebar(): React.JSX.Element {
     useUIStore.getState().openSettingsPage('general')
   }, [])
 
-  const _isTaskRunning = useCallback(
-    (taskId: string): boolean =>
-      runningTasks[taskId] === 'running' ||
-      runningTasks[taskId] === 'retrying' ||
-      runningAgentTaskIds.has(taskId) ||
-      runningBackgroundTaskIds.has(taskId) ||
-      streamingTaskIds.has(taskId) ||
-      activeTeams[taskId] !== undefined,
+  const getTaskStatusKind = useCallback(
+    (taskId: string): TaskStatusKind | null => {
+      if ((blockedCountsByTask[taskId] ?? 0) > 0) return 'blocked'
+      if (
+        runningTasks[taskId] === 'running' ||
+        runningTasks[taskId] === 'retrying' ||
+        runningAgentTaskIds.has(taskId) ||
+        runningBackgroundTaskIds.has(taskId) ||
+        streamingTaskIds.has(taskId) ||
+        activeTeams[taskId] !== undefined
+      )
+        return 'running'
+      if (runningTasks[taskId] === 'completed') return 'completed'
+      return null
+    },
     [
       activeTeams,
+      blockedCountsByTask,
       runningBackgroundTaskIds,
       runningTasks,
       runningAgentTaskIds,
@@ -418,10 +417,7 @@ export function WorkspaceSidebar(): React.JSX.Element {
     locale: string,
     active: boolean
   ): React.JSX.Element => {
-    void pendingQueueSignature
-    const unreadCount = unreadCountsByTask[taskItem.id] ?? 0
-    const blockedCount = blockedCountsByTask[taskItem.id] ?? 0
-    const pendingCount = getPendingTaskMessageCountForTask(taskItem.id)
+    const statusKind = getTaskStatusKind(taskItem.id)
     const isSelected = selectedIds.has(taskItem.id)
     const isMultiSelectMode = selectedIds.size > 0
     const showBatchMenu = isMultiSelectMode && isSelected
@@ -511,20 +507,22 @@ export function WorkspaceSidebar(): React.JSX.Element {
               {taskItem.title || t('sidebar.defaultTaskTitle')}
             </span>
             <span className="ml-auto flex shrink-0 items-center gap-1">
-              {blockedCount > 0 && (
-                <span className="rounded-full bg-amber-500/12 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                  {blockedCount > 99 ? '99+' : blockedCount}
-                </span>
-              )}
-              {unreadCount > 0 && (
-                <span className="rounded-full bg-sky-500/12 px-1.5 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-              {pendingCount > 0 && (
-                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-accent-foreground">
-                  {pendingCount > 99 ? '99+' : pendingCount}
-                </span>
+              {!active && statusKind && (
+                <span
+                  className={cn(
+                    'size-2 shrink-0 rounded-full',
+                    statusKind === 'blocked' && 'bg-amber-500',
+                    statusKind === 'running' && 'bg-emerald-500 animate-pulse',
+                    statusKind === 'completed' && 'bg-emerald-500'
+                  )}
+                  aria-label={
+                    statusKind === 'blocked'
+                      ? t('sidebar.statusBlocked')
+                      : statusKind === 'running'
+                        ? t('sidebar.statusRunning')
+                        : t('sidebar.statusCompleted')
+                  }
+                />
               )}
               <span className={cn('text-muted-foreground/80', SIDEBAR_TREE_META_CLASS)}>
                 {formatRelativeTime(taskItem.updatedAt, locale)}
