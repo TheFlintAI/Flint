@@ -18,13 +18,6 @@ import {
   type EditableUserMessageDraft,
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
-import {
-  selectFileTextToPlainText
-} from '@/lib/chat/select-file-tags'
-import {
-  parseSelectFileText
-} from '@/lib/chat/select-file-tags'
-import type { SelectedFileItem } from '@/lib/chat/select-file-editor'
 import { ComposerActionsMenu } from './ComposerActionsMenu'
 import { WorkspaceFilePopover } from './WorkspaceFilePopover'
 import { TextEditor, type TextEditorHandle } from './input/TextEditor'
@@ -58,8 +51,6 @@ import {
   isImageAttachment,
   isFileAttachment,
   composerImageToImageAttachment,
-  composerFileToSelectedFile,
-  selectedFileToComposer,
   type ComposerAttachment,
   type ComposerFileAttachment
 } from '@/lib/chat/composer-attachment'
@@ -355,11 +346,11 @@ export function InputArea({
     if (!inputDraftHydrated) return
 
     const persistedText = persistedDraft?.text ?? ''
-    const persistedSelectedFiles: SelectedFileItem[] = persistedDraft?.selectedFiles ?? []
+    const persistedFileAttachments: ComposerFileAttachment[] = persistedDraft?.fileAttachments ?? []
 
     draftReadyKeyRef.current = null
     setText(persistedText)
-    setAttachments(persistedSelectedFiles.map(selectedFileToComposer))
+    setAttachments(persistedFileAttachments)
     setQueuePreviewImage(null)
 
     const rafId = window.requestAnimationFrame(() => {
@@ -401,10 +392,9 @@ export function InputArea({
 
   // ---- Draft persistence ----
   React.useEffect(() => {
-    const selectedFiles = fileAttachments.map(composerFileToSelectedFile)
     saveDraft({
       serializedText: text,
-      selectedFiles
+      fileAttachments
     })
   }, [saveDraft, text, fileAttachments])
 
@@ -437,44 +427,32 @@ export function InputArea({
   React.useEffect(() => {
     if (!pendingInsert) return
 
-    // Parse <select-file> tags to extract file paths for attachment
-    const segments = parseSelectFileText(pendingInsert)
-    const filePaths = segments
-      .filter((s) => s.type === 'file')
-      .map((s) => s.text)
-      .filter(Boolean)
-
-    if (filePaths.length > 0) {
-      addFiles(filePaths)
-    } else {
-      // Plain text insert at cursor
-      const sel = textEditorRef.current?.getSelection() ?? {
-        start: textRef.current.length,
-        end: textRef.current.length
-      }
-      const pendingPlainText = selectFileTextToPlainText(pendingInsert)
-      const needsPrefix =
-        sel.start === sel.end &&
-        sel.start > 0 &&
-        !/\s$/.test(textRef.current.slice(0, sel.start)) &&
-        pendingPlainText.length > 0 &&
-        !/^\s/.test(pendingPlainText)
-
-      const prefix = needsPrefix ? ' ' : ''
-      const newText =
-        textRef.current.slice(0, sel.start) +
-        prefix +
-        pendingInsert +
-        textRef.current.slice(sel.end)
-      setText(newText)
-      const cursorPos = sel.start + prefix.length + pendingInsert.length
-      requestAnimationFrame(() => {
-        textEditorRef.current?.setSelection(cursorPos, cursorPos)
-      })
+    // Plain text insert at cursor
+    const sel = textEditorRef.current?.getSelection() ?? {
+      start: textRef.current.length,
+      end: textRef.current.length
     }
+    const needsPrefix =
+      sel.start === sel.end &&
+      sel.start > 0 &&
+      !/\s$/.test(textRef.current.slice(0, sel.start)) &&
+      pendingInsert.length > 0 &&
+      !/^\s/.test(pendingInsert)
+
+    const prefix = needsPrefix ? ' ' : ''
+    const newText =
+      textRef.current.slice(0, sel.start) +
+      prefix +
+      pendingInsert +
+      textRef.current.slice(sel.end)
+    setText(newText)
+    const cursorPos = sel.start + prefix.length + pendingInsert.length
+    requestAnimationFrame(() => {
+      textEditorRef.current?.setSelection(cursorPos, cursorPos)
+    })
 
     useUIStore.getState().setPendingInsertText(null)
-  }, [pendingInsert, addFiles])
+  }, [pendingInsert])
 
   // ---- Attach media handler ----
   const handleAttachMedia = React.useCallback(async (): Promise<void> => {
@@ -631,14 +609,7 @@ export function InputArea({
 
     // Strip <select-file> editor tags from the text — file references are
     // carried as structured data in filePaths, not embedded in the message.
-    const cleanText = (() => {
-      if (!trimmed) return ''
-      const segments = parseSelectFileText(trimmed)
-      return segments
-        .filter((s) => s.type === 'text')
-        .map((s) => s.text)
-        .join('')
-    })()
+    const cleanText = trimmed
 
     // Only send images to the model when vision is supported
     const imagesToSend =
@@ -794,6 +765,7 @@ export function InputArea({
           workingFolder={workingFolder}
           workspaceDisplayName={workspaceDisplayName}
           activeTaskId={activeTaskId ?? null}
+          onInsertFile={(filePath, isDirectory) => addFiles([filePath], isDirectory)}
         />
       )}
     </div>

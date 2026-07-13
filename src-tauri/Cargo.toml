@@ -39,7 +39,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 fastembed = "5"
 rusqlite = { version = "0.31", features = ["bundled"] }
-pdf-extract = "0.12"
+unpdf = "0.4"
+chardetng = "0.1"
+encoding_rs = "0.8"
 office_oxide = "0.1"
 
 [dev-dependencies]

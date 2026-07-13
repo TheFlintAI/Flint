@@ -3,6 +3,8 @@ use std::path::Path;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 
+// ── Format detection ──────────────────────────────────────────────
+
 pub(crate) enum DocumentFormat {
     Pdf,
     Office,
@@ -19,7 +21,7 @@ impl DocumentFormat {
     }
 }
 
-/// Detect supported document format by file extension.
+/// Detect supported binary document format by file extension.
 pub(crate) fn detect_document_format(path: &str) -> Option<DocumentFormat> {
     match Path::new(path)
         .extension()?
@@ -34,15 +36,76 @@ pub(crate) fn detect_document_format(path: &str) -> Option<DocumentFormat> {
     }
 }
 
-/// Read a document file and return extracted text in the same JSON shape as `read_file_text`.
-pub(crate) fn read_document(path: &str, pages: Option<&str>) -> Result<Value, String> {
+// ── Public entry points ───────────────────────────────────────────
+
+/// Read any text or document file. Binary document formats (PDF, DOCX, XLSX,
+/// PPTX) are routed to the document extractor; plain text files are decoded
+/// with automatic encoding detection.
+pub(crate) fn read_file(
+    path: &str,
+    offset: Option<usize>,
+    limit: Option<usize>,
+    pages: Option<&str>,
+) -> Result<Value, String> {
+    // Binary document formats — dispatch to document reader
+    if detect_document_format(path).is_some() {
+        return read_document(path, pages);
+    }
+
+    let bytes = std::fs::read(path).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => format!("File not found: {path}"),
+        _ => error.to_string(),
+    })?;
+
+    let content = decode_text(&bytes, path)?;
+
+    if offset.is_none() && limit.is_none() {
+        return Ok(json!({ "content": content, "path": path }));
+    }
+
+    let lines: Vec<&str> = content.split_inclusive('\n').collect();
+    let total = lines.len();
+    let start = offset.unwrap_or(1).saturating_sub(1).min(total);
+    let end = match limit {
+        Some(limit) => start.saturating_add(limit).min(total),
+        None => total,
+    };
+    let sliced: String = lines[start..end].concat();
+    let truncated = end < total;
+    Ok(json!({ "content": sliced, "path": path, "truncated": truncated, "totalLines": total }))
+}
+
+// ── Text decoding ─────────────────────────────────────────────────
+
+/// Decode raw bytes into a Rust string, trying UTF-8 first then falling back
+/// to chardetng auto-detection for CJK and other legacy encodings.
+fn decode_text(bytes: &[u8], path: &str) -> Result<String, String> {
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return Ok(s.to_string());
+    }
+
+    let mut detector = chardetng::EncodingDetector::new();
+    detector.feed(bytes, true);
+    let encoding = detector.guess(None, true);
+    let (decoded, _used, had_errors) = encoding.decode(bytes);
+    if had_errors {
+        return Err(format!(
+            "Cannot decode file as text: {path}. If this is a binary file, \
+             supported formats are PDF, DOCX, XLSX, PPTX"
+        ));
+    }
+    Ok(decoded.into_owned())
+}
+
+// ── Document reader ───────────────────────────────────────────────
+
+fn read_document(path: &str, pages: Option<&str>) -> Result<Value, String> {
     if !Path::new(path).exists() {
         return Ok(json!({ "notFound": true, "path": path }));
     }
 
-    let format = detect_document_format(path).ok_or_else(|| {
-        format!("Unsupported file format: {}", path)
-    })?;
+    let format = detect_document_format(path)
+        .ok_or_else(|| format!("Unsupported file format: {path}"))?;
 
     let label = format.label();
     let (content, total_pages) = match format {
@@ -71,22 +134,21 @@ pub(crate) fn read_document(path: &str, pages: Option<&str>) -> Result<Value, St
 // ── PDF extraction ────────────────────────────────────────────────
 
 fn extract_pdf(path: &str, pages: Option<&str>) -> Result<(String, Option<usize>), String> {
-    let all_pages = pdf_extract::extract_text_by_pages(path)
-        .map_err(|e| format!("Failed to read PDF: {e}"))?;
-    let total = all_pages.len();
+    let doc = unpdf::parse_file(path).map_err(|e| format!("Failed to read PDF: {e}"))?;
+    let total = doc.page_count() as usize;
 
-    let selected = match pages {
+    let text = match pages {
         Some(spec) => {
             let indices = parse_page_spec(spec, total)?;
             indices
                 .into_iter()
-                .filter_map(|i| all_pages.get(i).cloned())
+                .filter_map(|i| doc.get_page(i as u32 + 1).map(|p| p.plain_text()))
                 .collect::<Vec<_>>()
+                .join("\n\n")
         }
-        None => all_pages,
+        None => doc.plain_text(),
     };
 
-    let text = selected.join("\n\n");
     Ok((text, Some(total)))
 }
 

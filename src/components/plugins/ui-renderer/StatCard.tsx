@@ -11,6 +11,7 @@ interface StatCardProps {
   variant: StatCardVariant
   description?: string
   trend?: number[]
+  trendColorConvention?: 'cn' | 'us'
 }
 
 const VARIANT_STYLES: Record<StatCardVariant, { border: string; icon: string; bg: string }> = {
@@ -21,7 +22,7 @@ const VARIANT_STYLES: Record<StatCardVariant, { border: string; icon: string; bg
   info:        { border: 'border-l-2 border-l-blue-500',    icon: 'text-blue-500',          bg: 'bg-blue-50 dark:bg-blue-950/20' },
 }
 
-export function StatCard({ label, value, icon, variant, description, trend }: StatCardProps): React.JSX.Element {
+export function StatCard({ label, value, icon, variant, description, trend, trendColorConvention }: StatCardProps): React.JSX.Element {
   const Icon = resolveLucideIcon(icon)
   const styles = VARIANT_STYLES[variant]
 
@@ -42,7 +43,7 @@ export function StatCard({ label, value, icon, variant, description, trend }: St
       )}
       {trend && trend.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border/50">
-          <Sparkline data={trend} />
+          <Sparkline data={trend} colorConvention={trendColorConvention} />
         </div>
       )}
     </div>

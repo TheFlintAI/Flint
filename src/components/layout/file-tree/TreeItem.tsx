@@ -6,7 +6,6 @@ import {
   File,
   ChevronRight,
   ChevronDown,
-  Copy,
   Plus,
   Pencil,
   Trash2,
@@ -31,14 +30,14 @@ export function TreeItem({
   node,
   depth,
   onToggle,
-  onCopyPath,
+  onAddToAttachments,
   editState,
   actions
 }: {
   node: TreeNode
   depth: number
   onToggle: (path: string) => void
-  onCopyPath: (path: string) => void
+  onAddToAttachments: (path: string, isDirectory: boolean) => void
   editState: TreeEditState
   actions: TreeActions
 }): React.JSX.Element {
@@ -52,8 +51,8 @@ export function TreeItem({
   const isRenaming = safeEditState.renamingPath === node.path
 
   const handleAdd = useCallback(() => {
-    onCopyPath(node.path)
-  }, [node.path, onCopyPath])
+    onAddToAttachments(node.path, isDir)
+  }, [node.path, isDir, onAddToAttachments])
 
   const rowContent = (
     <div
@@ -129,7 +128,7 @@ export function TreeItem({
         </div>
       )}
 
-      {!isDir && !isRenaming && (
+      {!isRenaming && (
         <button
           className="workspace-filetree-action shrink-0 rounded-md p-1 opacity-0 transition-all group-hover:opacity-100"
           onClick={(e) => {
@@ -173,9 +172,6 @@ export function TreeItem({
             onSelect={() => actions.onRenameStart(node.path, node.name)}
           >
             <Pencil className="size-3.5" /> {t('action.rename', { ns: 'common' })}
-          </ContextMenuItem>
-          <ContextMenuItem className="gap-2 text-xs" onSelect={handleAdd}>
-            <Copy className="size-3.5" /> {t('action.copyPath', { ns: 'common' })}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
@@ -221,7 +217,7 @@ export function TreeItem({
                   node={child}
                   depth={depth + 1}
                   onToggle={onToggle}
-                  onCopyPath={onCopyPath}
+                  onAddToAttachments={onAddToAttachments}
                   editState={editState}
                   actions={actions}
                 />

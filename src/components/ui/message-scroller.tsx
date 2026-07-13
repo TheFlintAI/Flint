@@ -66,20 +66,14 @@ function Content({
 
 function Item({
   className,
-  scrollAnchor = false,
-  sticky = false,
   ...props
-}: React.ComponentProps<typeof MessageScrollerPrimitive.Item> & { sticky?: boolean }) {
+}: React.ComponentProps<typeof MessageScrollerPrimitive.Item>) {
   return (
     <MessageScrollerPrimitive.Item
       data-slot="message-scroller-item"
-      scrollAnchor={scrollAnchor}
       className={cn(
         "min-w-0 shrink-0",
-        // content-visibility:auto breaks position:sticky (applies contain:layout),
-        // so skip it for sticky items.
-        !sticky && "[contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
-        sticky && "sticky top-0 z-10 bg-background",
+        "[contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
         className
       )}
       {...props}

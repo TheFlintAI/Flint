@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { selectFileTextToPlainText } from '@/lib/chat/select-file-tags'
 import { type ImageAttachment } from '@/lib/chat/image-attachments'
 import { type PendingTaskMessageItem } from '@/hooks/use-chat-actions'
 
@@ -54,7 +53,7 @@ export function areQueuedMessagesEqual(
 }
 
 export function summarizeQueuedMessage(text: string): string {
-  const normalized = selectFileTextToPlainText(text).replace(/\s+/g, ' ').trim()
+  const normalized = text.replace(/\s+/g, ' ').trim()
   if (!normalized) return ''
   return normalized.length > 72 ? `${normalized.slice(0, 72)}…` : normalized
 }

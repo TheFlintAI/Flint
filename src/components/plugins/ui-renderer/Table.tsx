@@ -23,16 +23,19 @@ const ROW_VARIANT_STYLES: Record<string, string> = {
   info:        'border-l-2 border-l-blue-500',
 }
 
-function renderCell(value: unknown, renderer?: CellRenderer): React.ReactNode {
+function renderCell(value: unknown, renderer?: CellRenderer, row?: Record<string, unknown>): React.ReactNode {
   const str = String(value ?? '')
   if (renderer === 'change') {
+    const conv = (row?._colorConv as string) ?? 'us'
     const isPositive = str.startsWith('+') || (!isNaN(+str) && +str > 0)
     const isNegative = str.startsWith('-') || (!isNaN(+str) && +str < 0)
+    const up = conv === 'cn' ? 'text-red-500' : 'text-green-500'
+    const dn = conv === 'cn' ? 'text-green-500' : 'text-red-500'
     return (
       <span className={cn(
         'tabular-nums',
-        isPositive && 'text-green-500',
-        isNegative && 'text-red-500',
+        isPositive && up,
+        isNegative && dn,
       )}>
         {str}
       </span>
@@ -48,7 +51,8 @@ function renderCell(value: unknown, renderer?: CellRenderer): React.ReactNode {
   }
   if (renderer === 'sparkline') {
     const data = Array.isArray(value) ? (value as number[]) : []
-    return data.length > 0 ? <Sparkline data={data} /> : <span className="text-muted-foreground">—</span>
+    const conv = (row?._colorConv as 'cn' | 'us') ?? 'us'
+    return data.length > 0 ? <Sparkline data={data} colorConvention={conv} /> : <span className="text-muted-foreground">—</span>
   }
   return str
 }
@@ -93,7 +97,7 @@ export function Table({ columns, rows }: TableProps): React.JSX.Element {
               >
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-2.5 whitespace-nowrap">
-                    {renderCell(row[col.key], col.renderer)}
+                    {renderCell(row[col.key], col.renderer, row)}
                   </td>
                 ))}
               </tr>

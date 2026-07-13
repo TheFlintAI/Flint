@@ -11,13 +11,14 @@ type IdleWindow = Window & {
 }
 
 const TOOL_LOADERS: Record<string, () => Promise<ToolModule>> = {
-  todo:      () => import('./todo-tool').then(m => m.todoToolModule),
-  fs:        () => import('./fs-tool').then(m => m.fsToolModule),
-  search:    () => import('./search-tool').then(m => m.searchToolModule),
-  bash:      () => import('./bash-tool').then(m => m.bashToolModule),
-  webSearch: () => import('./web-search').then(m => m.webSearchToolModule),
-  askUser:   () => import('./ask-user-tool').then(m => m.askUserToolModule),
-  memory:    () => import('./memory-tool').then(m => m.memoryToolModule),
+  todo:         () => import('./todo-tool').then(m => m.todoToolModule),
+  fs:           () => import('./fs-tool').then(m => m.fsToolModule),
+  search:       () => import('./search-tool').then(m => m.searchToolModule),
+  bash:         () => import('./bash-tool').then(m => m.bashToolModule),
+  webSearch:    () => import('./web-search').then(m => m.webSearchToolModule),
+  askUser:      () => import('./ask-user-tool').then(m => m.askUserToolModule),
+  memory:       () => import('./memory-tool').then(m => m.memoryToolModule),
+  installSkill: () => import('./install-skill-tool').then(m => m.installSkillToolModule),
 }
 
 const TEAM_TOOL_LOADER = (): Promise<ToolModule> =>

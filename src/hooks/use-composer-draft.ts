@@ -1,10 +1,10 @@
 import * as React from 'react'
 import { useInputDraftStore, getTaskInputDraftKey, hasInputDraftContent } from '@/stores/input-draft-store'
-import type { SelectedFileItem } from '@/lib/chat/select-file-editor'
+import type { ComposerFileAttachment } from '@/lib/chat/composer-attachment'
 
 interface PersistedDraftSnapshot {
   text: string
-  selectedFiles: SelectedFileItem[]
+  fileAttachments: ComposerFileAttachment[]
 }
 
 interface UseComposerDraftOptions {
@@ -21,7 +21,7 @@ interface DraftConnection {
   /** Saves current composer state to the draft store (debounced). */
   saveDraft: (snapshot: {
     serializedText: string
-    selectedFiles: SelectedFileItem[]
+    fileAttachments: ComposerFileAttachment[]
   }) => void
 }
 
@@ -55,7 +55,7 @@ export function useComposerDraft({
   const saveDraft = React.useCallback(
     (snapshot: {
       serializedText: string
-      selectedFiles: SelectedFileItem[]
+      fileAttachments: ComposerFileAttachment[]
     }) => {
       const key = activeDraftKey
       if (!key || !inputDraftHydrated) return
@@ -64,7 +64,7 @@ export function useComposerDraft({
       saveTimerRef.current = setTimeout(() => {
         const nextDraft = {
           text: snapshot.serializedText,
-          selectedFiles: snapshot.selectedFiles.map((file) => ({ ...file }))
+          fileAttachments: snapshot.fileAttachments.map((file) => ({ ...file }))
         }
 
         if (hasInputDraftContent(nextDraft)) {

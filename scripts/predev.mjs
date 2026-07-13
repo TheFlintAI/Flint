@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
@@ -181,6 +182,8 @@ async function freeDevPort(port) {
 }
 
 async function main() {
+  // Sync version from package.json before every dev run
+  await Bun.$`bun run ${join(PROJECT_ROOT, 'scripts', 'sync-version.mjs')}`.quiet()
   await clearViteCache()
   await freeDevPort(DEV_PORT)
 }

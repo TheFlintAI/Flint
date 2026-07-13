@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { FileText, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Attachment,
@@ -19,7 +19,8 @@ import { useTranslation } from 'react-i18next'
 import {
   type ComposerAttachment,
   isImageAttachment,
-  getAttachmentLabel
+  getAttachmentLabel,
+  attachmentFileIcon
 } from '@/lib/chat/composer-attachment'
 
 export interface ComposerAttachmentStripProps {
@@ -76,7 +77,7 @@ export function ComposerAttachmentStrip({
                     className="size-full object-cover"
                   />
                 ) : (
-                  <FileText />
+                  attachmentFileIcon(att)
                 )}
               </AttachmentMedia>
               <AttachmentContent className="text-center">

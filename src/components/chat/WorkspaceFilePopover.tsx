@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   FolderOpen,
@@ -14,15 +14,13 @@ import { useChatStore } from '@/stores/chat-store'
 import { useUIStore } from '@/stores/ui-store'
 import { tauriCommands } from '@/services/tauri-api/command-client'
 import { TAURI_COMMANDS } from '@/services/tauri-api/command-channels'
-import { createSelectFileTag } from '@/lib/chat/select-file-tags'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logger'
+import { WORKSPACE_FILE_POPOVER_DEFAULT_WIDTH } from '@/components/layout/panel-constants'
 import { TreeItem } from '@/components/layout/file-tree/TreeItem'
 import {
   sortEntries,
-  countTreeStats,
-  fileIcon,
-  toRelativePath
+  fileIcon
 } from '@/components/layout/file-tree/tree-utils'
 import type {
   TreeNode,
@@ -38,12 +36,15 @@ interface WorkspaceFilePopoverProps {
   workingFolder: string
   workspaceDisplayName: string
   activeTaskId: string | null
+  /** Called when a file is selected for insertion — the caller adds it as an attachment. */
+  onInsertFile?: (filePath: string, isDirectory: boolean) => void
 }
 
 export function WorkspaceFilePopover({
   workingFolder,
   workspaceDisplayName,
-  activeTaskId
+  activeTaskId,
+  onInsertFile
 }: WorkspaceFilePopoverProps): React.JSX.Element {
   const { t } = useTranslation(['layout', 'chat'])
   const [open, setOpen] = useState(false)
@@ -184,22 +185,11 @@ export function WorkspaceFilePopover({
 
   // ---- Insert file reference into composer ----
   const handleInsertFile = useCallback(
-    (filePath: string) => {
-      const rel = toRelativePath(filePath, workingFolder)
-      useUIStore.getState().setPendingInsertText(createSelectFileTag(rel))
+    (filePath: string, isDirectory: boolean) => {
+      onInsertFile?.(filePath, isDirectory)
       setOpen(false)
     },
-    [workingFolder]
-  )
-
-  // ---- Copy path (also inserts) ----
-  const handleCopyPath = useCallback(
-    (filePath: string) => {
-      const rel = toRelativePath(filePath, workingFolder)
-      useUIStore.getState().setPendingInsertText(createSelectFileTag(rel))
-      setOpen(false)
-    },
-    [workingFolder]
+    [onInsertFile]
   )
 
   // ---- Clear workspace ----
@@ -213,11 +203,10 @@ export function WorkspaceFilePopover({
     [activeTaskId]
   )
 
-  // ---- Open full file tree panel ----
-  const handleOpenPanel = useCallback(() => {
-    setOpen(false)
-    useUIStore.getState().setWorkingFolderSheetOpen(true)
-  }, [])
+  // ---- Open working folder in OS file explorer ----
+  const handleOpenInExplorer = useCallback(() => {
+    tauriCommands.invoke(TAURI_COMMANDS.SHELL_OPEN_PATH, workingFolder)
+  }, [workingFolder])
 
   // Read-only mode: no CRUD actions in popover
   const emptyEditState: TreeEditState = useMemo(
@@ -238,7 +227,48 @@ export function WorkspaceFilePopover({
     []
   )
 
-  const treeStats = useMemo(() => countTreeStats(tree), [tree])
+  // ---- Resize ----
+  const popoverWidth = useUIStore((s) => s.workspaceFilePopoverWidth)
+  const setPopoverWidth = useUIStore((s) => s.setWorkspaceFilePopoverWidth)
+  const MIN_POPOVER_WIDTH = 280
+  const MAX_POPOVER_WIDTH = 560
+  const draggingRef = useRef(false)
+  const startXRef = useRef(0)
+  const startWidthRef = useRef(WORKSPACE_FILE_POPOVER_DEFAULT_WIDTH)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (event: MouseEvent): void => {
+      if (!draggingRef.current) return
+      const delta = event.clientX - startXRef.current
+      const next = Math.min(MAX_POPOVER_WIDTH, Math.max(MIN_POPOVER_WIDTH, startWidthRef.current + delta))
+      setPopoverWidth(next)
+    }
+
+    const handleMouseUp = (): void => {
+      draggingRef.current = false
+      setIsDragging(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
+
+  const startResize = useCallback((event: React.MouseEvent): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    draggingRef.current = true
+    startXRef.current = event.clientX
+    startWidthRef.current = popoverWidth
+    setIsDragging(true)
+  }, [popoverWidth])
+
   const isSearching = searchQuery.trim().length > 0
 
   return (
@@ -264,7 +294,8 @@ export function WorkspaceFilePopover({
         side="top"
         align="start"
         sideOffset={8}
-        className="w-[340px] p-0 rounded-xl"
+        className="relative p-0 rounded-xl"
+        style={{ width: popoverWidth }}
       >
         <div className="flex flex-col max-h-[420px]">
           {/* Header */}
@@ -290,9 +321,9 @@ export function WorkspaceFilePopover({
               <button
                 type="button"
                 className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-                onClick={handleOpenPanel}
-                title={t('fileTree.openInPanel', {
-                  defaultValue: 'Open in full panel'
+                onClick={handleOpenInExplorer}
+                title={t('fileTree.openInExplorer', {
+                  defaultValue: 'Open in file explorer'
                 })}
               >
                 <ExternalLink className="size-3.5" />
@@ -360,7 +391,7 @@ export function WorkspaceFilePopover({
                       className={cn(
                         'workspace-filetree-row workspace-filetree-row--interactive group flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left'
                       )}
-                      onClick={() => handleInsertFile(file.path)}
+                      onClick={() => handleInsertFile(file.path, false)}
                       title={file.path}
                     >
                       {fileIcon(file.name)}
@@ -396,7 +427,7 @@ export function WorkspaceFilePopover({
                     node={node}
                     depth={0}
                     onToggle={handleToggle}
-                    onCopyPath={handleCopyPath}
+                    onAddToAttachments={handleInsertFile}
                     editState={emptyEditState}
                     actions={noopActions}
                   />
@@ -404,26 +435,15 @@ export function WorkspaceFilePopover({
               </div>
             )}
           </div>
-
-          {/* Footer */}
-          {!isSearching && !loading && tree.length > 0 && (
-            <div className="shrink-0 border-t border-border/40 px-3 py-2 text-[10px] text-muted-foreground/70">
-              {treeStats.folders > 0 && (
-                <span>
-                  {treeStats.folders}{' '}
-                  {t('unit.folders', { ns: 'common', defaultValue: 'folders' })}
-                </span>
-              )}
-              {treeStats.folders > 0 && treeStats.files > 0 && <span> · </span>}
-              {treeStats.files > 0 && (
-                <span>
-                  {treeStats.files}{' '}
-                  {t('unit.files', { ns: 'common', defaultValue: 'files' })}
-                </span>
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Resize handle */}
+        <div
+          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize transition-colors hover:bg-primary/20 z-10"
+          onMouseDown={startResize}
+        />
+
+        {isDragging && <div className="fixed inset-0 z-[100] cursor-col-resize" />}
       </PopoverContent>
     </Popover>
   )

@@ -77,19 +77,17 @@ function ThinkingStepRow({
 }): React.JSX.Element {
   const { t } = useTranslation('chat')
   const isThinking = step.isStreaming && !step.completedAt
-  const [open, setOpen] = useState(isThinking)
+  const [open, setOpen] = useState(false)
   const prevRef = useRef(isThinking)
 
   useEffect(() => {
-    if (isThinking) {
-      setOpen(true)
-    } else if (prevRef.current && !isThinking) {
+    if (prevRef.current && !isThinking && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevRef.current = isThinking
       return () => clearTimeout(timer)
     }
     prevRef.current = isThinking
-  }, [isThinking])
+  }, [isThinking, open])
 
   const durationLabel = isThinking
     ? t('thinking.thinkingEllipsis')
@@ -98,13 +96,9 @@ function ThinkingStepRow({
   return (
     <Collapsible
       open={open}
-      onOpenChange={(next) => {
-        if (isThinking) return
-        setOpen(next)
-      }}
+      onOpenChange={setOpen}
     >
       <CollapsibleTrigger
-        disabled={isThinking}
         className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/50"
       >
         <Brain className="size-3.5 shrink-0 text-muted-foreground/70" />
@@ -260,19 +254,17 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
   title,
 }: ProcessGroupPanelProps): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const [open, setOpen] = useState(isActive)
+  const [open, setOpen] = useState(false)
   const prevActiveRef = useRef(isActive)
 
   useEffect(() => {
-    if (isActive) {
-      setOpen(true)
-    } else if (prevActiveRef.current && !isActive) {
+    if (prevActiveRef.current && !isActive && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevActiveRef.current = isActive
       return () => clearTimeout(timer)
     }
     prevActiveRef.current = isActive
-  }, [isActive])
+  }, [isActive, open])
 
   const earliestStart = useMemo(() => {
     let min: number | undefined
@@ -336,14 +328,10 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
   return (
     <Collapsible
       open={open}
-      onOpenChange={(next) => {
-        if (isActive) return
-        setOpen(next)
-      }}
+      onOpenChange={setOpen}
       className='rounded-lg border border-border/40 bg-transparent overflow-hidden'
     >
       <CollapsibleTrigger
-        disabled={isActive}
         className="group flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/50"
       >
         <span className="flex min-w-0 items-center gap-1.5">

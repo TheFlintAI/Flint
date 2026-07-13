@@ -14,6 +14,7 @@ import type { ToolCallState, ToolCallStatus } from '@/lib/agent/types'
 import { StreamingMarkdownContent } from './MarkdownRenderer'
 import { parseThinkTags, stripThinkTags } from '@/lib/chat/think-tag-parser'
 import { parseStageTags } from '@/lib/chat/stage-tag-parser'
+import { Spinner } from '@/components/ui/spinner'
 
 const MARKDOWN_WRAPPER_CLASS = 'break-words'
 
@@ -400,7 +401,7 @@ export function renderAssistantContent(props: AssistantContentRendererProps): Re
   if (isStreaming && hasEmptyContent) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="text-xs text-muted-foreground/60">{t('thinking.thinkingEllipsis')}</span>
+        <Spinner className="size-3" />
       </div>
     )
   }

@@ -280,24 +280,14 @@
     "moreChanges": "+{{count}} 个变更"
   },
   "fileTree": {
-    "selectFolder": "暂无可用文件",
     "searchPlaceholder": "搜索文件名或路径",
     "addToAttachments": "添加到附件",
-    "openInPanel": "在完整面板中打开",
+    "openInExplorer": "在文件资源管理器中打开",
     "searching": "搜索文件中...",
     "noSearchResults": "没有匹配的文件",
     "newFile": "新建文件",
     "newFolder": "新建文件夹",
-    "deleteConfirm": "删除{{type}}「{{name}}」？",
-    "folder": "文件夹",
-    "file": "文件",
-    "copyPath": "复制路径",
     "insertPath": "插入路径到输入框",
-    "closePreview": "关闭预览",
-    "dragToReference": "拖到输入框可引用",
-    "unableToRead": "（无法读取文件）",
-    "empty": "空文件夹",
-    "searchHint": "点击可预览，拖到输入框可插入文件引用",
-    "stats": "{{folders}} 个文件夹 · {{files}} 个文件"
+    "empty": "空文件夹"
   }
 }

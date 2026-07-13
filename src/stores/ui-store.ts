@@ -3,10 +3,10 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import {
   LEFT_SIDEBAR_DEFAULT_WIDTH,
   RIGHT_PANEL_DEFAULT_WIDTH,
-  WORKING_FOLDER_PANEL_DEFAULT_WIDTH,
+  WORKSPACE_FILE_POPOVER_DEFAULT_WIDTH,
   clampLeftSidebarWidth,
   clampRightPanelWidth,
-  clampWorkingFolderPanelWidth
+  clampWorkspaceFilePopoverWidth
 } from '@/components/layout/panel-constants'
 import { commandStorage } from '@/services/tauri-api/command-storage'
 import { parseChatRoute, replaceChatRoute } from '@/lib/chat-route'
@@ -93,11 +93,8 @@ interface UIStore {
   toggleRightPanel: () => void
   setRightPanelOpen: (open: boolean) => void
   openRightPanel: (taskId?: string | null) => void
-  workingFolderSheetOpen: boolean
-  toggleWorkingFolderSheet: () => void
-  setWorkingFolderSheetOpen: (open: boolean) => void
-  workingFolderPanelWidth: number
-  setWorkingFolderPanelWidth: (width: number) => void
+  workspaceFilePopoverWidth: number
+  setWorkspaceFilePopoverWidth: (width: number) => void
   // Dashboard card state
   rightPanelStateByTask: Record<string, RightPanelPerTaskState | undefined>
   rightPanelWidth: number
@@ -117,10 +114,6 @@ interface UIStore {
   setMessageListViewState: (taskId: string, state: MessageListViewState | null) => void
   getMessageListViewState: (taskId?: string | null) => MessageListViewState | null
   releaseDormantTaskUiState: (taskId?: string | null) => void
-  selectedFiles: string[]
-  setSelectedFiles: (files: string[]) => void
-  toggleFileSelection: (filePath: string) => void
-  clearSelectedFiles: () => void
   chatView: ChatView
   navigateToHome: () => void
   navigateToTask: (taskId?: string | null) => void
@@ -166,13 +159,9 @@ export const useUIStore = create<UIStore>()(
           })
         }
       },
-      workingFolderSheetOpen: false,
-      toggleWorkingFolderSheet: () =>
-        set((state) => ({ workingFolderSheetOpen: !state.workingFolderSheetOpen })),
-      setWorkingFolderSheetOpen: (open) => set({ workingFolderSheetOpen: open }),
-      workingFolderPanelWidth: WORKING_FOLDER_PANEL_DEFAULT_WIDTH,
-      setWorkingFolderPanelWidth: (width) =>
-        set({ workingFolderPanelWidth: clampWorkingFolderPanelWidth(width) }),
+      workspaceFilePopoverWidth: WORKSPACE_FILE_POPOVER_DEFAULT_WIDTH,
+      setWorkspaceFilePopoverWidth: (width) =>
+        set({ workspaceFilePopoverWidth: clampWorkspaceFilePopoverWidth(width) }),
       rightPanelStateByTask: {},
       rightPanelWidth: RIGHT_PANEL_DEFAULT_WIDTH,
       setRightPanelWidth: (width) => set({ rightPanelWidth: clampRightPanelWidth(width) }),
@@ -249,15 +238,6 @@ export const useUIStore = create<UIStore>()(
             ),
           }
         }),
-      selectedFiles: [],
-      setSelectedFiles: (files) => set({ selectedFiles: files }),
-      toggleFileSelection: (filePath) =>
-        set((state) => ({
-          selectedFiles: state.selectedFiles.includes(filePath)
-            ? state.selectedFiles.filter((file) => file !== filePath)
-            : [...state.selectedFiles, filePath]
-        })),
-      clearSelectedFiles: () => set({ selectedFiles: [] }),
       chatView: 'task',
       navigateToHome: () => {
         const chatStore = useChatStore.getState()
@@ -304,8 +284,7 @@ export const useUIStore = create<UIStore>()(
         leftSidebarOpen: state.leftSidebarOpen,
         leftSidebarWidth: clampLeftSidebarWidth(state.leftSidebarWidth),
         rightPanelWidth: clampRightPanelWidth(state.rightPanelWidth),
-        workingFolderSheetOpen: state.workingFolderSheetOpen,
-        workingFolderPanelWidth: clampWorkingFolderPanelWidth(state.workingFolderPanelWidth)
+        workspaceFilePopoverWidth: clampWorkspaceFilePopoverWidth(state.workspaceFilePopoverWidth)
       })
     }
   )

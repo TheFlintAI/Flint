@@ -15,7 +15,11 @@ const root = join(__dirname, '..')
 
 const args = process.argv.slice(2)
 
-// Step 1: typecheck
+// Step 1: sync version from package.json
+console.log('[build] sync-version...')
+execFileSync('bun', ['run', join(root, 'scripts', 'sync-version.mjs')], { cwd: root, stdio: 'inherit' })
+
+// Step 2: typecheck
 console.log('[build] typecheck...')
 execFileSync('bun', ['run', 'typecheck'], { cwd: root, stdio: 'inherit' })
 

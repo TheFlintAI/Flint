@@ -5,6 +5,7 @@ import {
   BookOpen,
   CheckCircle2,
   Database,
+  Download,
   FileCode,
   FileText,
   FolderTree,
@@ -48,6 +49,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   MemoryWrite: Database,
   MemoryDelete: Database,
   Skill: Zap,
+  InstallSkill: Download,
   WebSearch: Globe,
   WebFetch: FileText,
 }

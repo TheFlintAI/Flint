@@ -1,14 +1,14 @@
 ﻿import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { commandStorage } from '@/services/tauri-api/command-storage'
-import type { SelectedFileItem } from '@/lib/chat/select-file-editor'
+import type { ComposerFileAttachment } from '@/lib/chat/composer-attachment'
 
 const MAX_INPUT_DRAFTS = 20
 const TASK_DRAFT_PREFIX = 'task:'
 
 export interface InputDraftValue {
   text: string
-  selectedFiles: SelectedFileItem[]
+  fileAttachments: ComposerFileAttachment[]
 }
 
 interface PersistedInputDraft extends InputDraftValue {
@@ -31,26 +31,26 @@ export function getTaskInputDraftKey(taskId: string): string {
 }
 
 export function hasInputDraftContent(
-  draft: Pick<InputDraftValue, 'text' | 'selectedFiles'>
+  draft: Pick<InputDraftValue, 'text' | 'fileAttachments'>
 ): boolean {
-  return draft.text.length > 0 || draft.selectedFiles.length > 0
+  return draft.text.length > 0 || draft.fileAttachments.length > 0
 }
 
-function cloneSelectedFiles(files: SelectedFileItem[]): SelectedFileItem[] {
+function cloneFileAttachments(files: ComposerFileAttachment[]): ComposerFileAttachment[] {
   return files.map((file) => ({ ...file }))
 }
 
 function toInputDraftValue(draft: PersistedInputDraft): InputDraftValue {
   return {
     text: draft.text,
-    selectedFiles: cloneSelectedFiles(draft.selectedFiles)
+    fileAttachments: cloneFileAttachments(draft.fileAttachments)
   }
 }
 
 function createPersistedDraft(draft: InputDraftValue, updatedAt = Date.now()): PersistedInputDraft {
   return {
     text: draft.text,
-    selectedFiles: cloneSelectedFiles(draft.selectedFiles),
+    fileAttachments: cloneFileAttachments(draft.fileAttachments),
     updatedAt
   }
 }

@@ -17,10 +17,10 @@ function t(text: LocalizedString, language: string): string {
 
 registerAdapter('card', {
   render(node: VNode, ctx: AdapterContext) {
-    const { label, value, icon, variant, description, trend } = node.props as {
+    const { label, value, icon, variant, description, trend, trendColorConvention } = node.props as {
       label: LocalizedString; value: string; icon?: string
       variant: 'neutral' | 'success' | 'destructive' | 'warning' | 'info'
-      description?: LocalizedString; trend?: number[]
+      description?: LocalizedString; trend?: number[]; trendColorConvention?: 'cn' | 'us'
     }
     return (
       <StatCard
@@ -30,6 +30,7 @@ registerAdapter('card', {
         variant={variant}
         description={description ? t(description, ctx.language) : undefined}
         trend={trend}
+        trendColorConvention={trendColorConvention}
       />
     )
   },

@@ -59,6 +59,7 @@ export interface StatCardProps {
   variant: StatCardVariant
   description?: LocalizedString
   trend?: number[]
+  trendColorConvention?: 'cn' | 'us'
 }
 
 export interface SparklineProps {

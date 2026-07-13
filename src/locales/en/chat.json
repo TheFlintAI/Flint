@@ -151,6 +151,8 @@
     "appliedSuccessfully": "Applied successfully",
     "skillUsed": "Used Skill",
     "skillLoading": "Loading Skill",
+    "skillInstalled": "Skill {{name}} installed",
+    "installingSkill": "Installing skill {{name}}",
     "receivingArgs": "receiving args...",
     "executing": "executing...",
     "streamingLabels": {
@@ -178,7 +180,8 @@
       "TeamStatus": "fetching...",
       "TeamDelete": "deleting...",
       "Wait": "waiting...",
-      "SpawnAgent": "spawning..."
+      "SpawnAgent": "spawning...",
+      "InstallSkill": "installing..."
     },
     "runningLabels": {
       "Edit": "applying edit...",

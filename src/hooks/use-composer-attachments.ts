@@ -5,13 +5,10 @@ import {
   type ImageAttachment
 } from '@/lib/chat/image-attachments'
 import {
-  createSelectedFileItem,
-  type SelectedFileItem
-} from '@/lib/chat/select-file-editor'
-import {
   imageAttachmentToComposer,
-  selectedFileToComposer,
+  createComposerFileAttachment,
   type ComposerAttachment,
+  type ComposerFileAttachment,
   type ComposerImageAttachment
 } from '@/lib/chat/composer-attachment'
 import { tauriCommands } from '@/services/tauri-api/command-client'
@@ -51,7 +48,7 @@ export interface UseComposerAttachmentsResult {
   attachments: ComposerAttachment[]
   pendingImageReads: number
   addImages: (files: File[]) => Promise<void>
-  addFiles: (filePaths: string[]) => void
+  addFiles: (filePaths: string[], isDirectory?: boolean) => void
   removeAttachment: (id: string) => void
   readImagePathAsAttachment: (filePath: string) => Promise<ImageAttachment | null>
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
@@ -93,10 +90,10 @@ export function useComposerAttachments({
   }, [])
 
   const addFiles = React.useCallback(
-    (filePaths: string[]) => {
-      const newFiles: SelectedFileItem[] = []
+    (filePaths: string[], isDirectory?: boolean) => {
+      const newFiles: ComposerFileAttachment[] = []
       for (const filePath of filePaths) {
-        const created = createSelectedFileItem(filePath, workingFolder)
+        const created = createComposerFileAttachment(filePath, workingFolder, isDirectory)
         if (created) {
           newFiles.push(created)
         }
@@ -106,14 +103,14 @@ export function useComposerAttachments({
       setAttachments((prev) => {
         const existingSendPaths = new Set(
           prev
-            .filter((a): a is ComposerAttachment & { type: 'file' } => a.type === 'file')
+            .filter((a): a is ComposerFileAttachment => a.type === 'file')
             .map((a) => normalizePathKey(a.sendPath))
         )
         const unique = newFiles.filter(
           (f) => !existingSendPaths.has(normalizePathKey(f.sendPath))
         )
         if (unique.length === 0) return prev
-        return [...prev, ...unique.map(selectedFileToComposer)]
+        return [...prev, ...unique]
       })
     },
     [workingFolder]

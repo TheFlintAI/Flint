@@ -4,16 +4,23 @@ import { Area, AreaChart } from 'recharts'
 const SPARKLINE_WIDTH = 72
 const SPARKLINE_HEIGHT = 32
 
+type ColorConvention = 'cn' | 'us'
+
 interface SparklineProps {
   data: number[]
   color?: string
+  colorConvention?: ColorConvention
 }
 
-function trendColor(data: number[]): string {
-  if (data.length < 2) return 'hsl(220 15% 55%)'
-  return data[data.length - 1] >= data[0]
-    ? 'hsl(142 71% 40%)'
-    : 'hsl(0 72% 51%)'
+const RED = 'hsl(0 72% 51%)'
+const GREEN = 'hsl(142 71% 40%)'
+const GRAY = 'hsl(220 15% 55%)'
+
+function trendColor(data: number[], conv: ColorConvention = 'us'): string {
+  if (data.length < 2) return GRAY
+  const up = data[data.length - 1] >= data[0]
+  if (conv === 'cn') return up ? RED : GREEN
+  return up ? GREEN : RED
 }
 
 /**
@@ -22,14 +29,14 @@ function trendColor(data: number[]): string {
  * avoids the Recharts ResponsiveContainer measurement dance inside auto-layout
  * table cells where clientWidth may be 0 during the first layout pass.
  */
-export function Sparkline({ data, color }: SparklineProps): React.JSX.Element {
+export function Sparkline({ data, color, colorConvention }: SparklineProps): React.JSX.Element {
   const uid = React.useId()
 
   if (!data || data.length === 0) {
     return <span className="text-[11px] text-muted-foreground">—</span>
   }
 
-  const stroke = color ?? trendColor(data)
+  const stroke = color ?? trendColor(data, colorConvention)
   const gradientId = `sparkline-${uid}`
   const chartData = data.map((v, i) => ({ i, v }))
 

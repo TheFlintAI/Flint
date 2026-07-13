@@ -1192,10 +1192,7 @@ export function useChatActions(): {
             const shouldInjectContext = true
 
             if (source !== 'continue' && shouldInjectContext && messagesToSend.length > 0) {
-              const runtimeReminder = await buildRuntimeReminder({
-                taskId,
-                modelConfig: resolvedModelConfig
-              })
+              const runtimeReminder = await buildRuntimeReminder({ taskId })
 
               if (runtimeReminder) {
                 // Find the last user message and prepend the runtime reminder to its content
@@ -2443,7 +2440,7 @@ export function useChatActions(): {
         const draftKey = getTaskInputDraftKey(taskId)
         useInputDraftStore.getState().setDraft(draftKey, {
           text: rollbackText,
-          selectedFiles: []
+          fileAttachments: []
         })
       }
     },

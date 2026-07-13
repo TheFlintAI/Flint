@@ -16,20 +16,18 @@ export const ThinkBlock = memo(function ThinkBlock({
 }): React.JSX.Element | null {
   const { t } = useTranslation('chat')
   const hasContent = text.trim().length > 0
-  const [open, setOpen] = useState(streaming)
+  const [open, setOpen] = useState(false)
   const prevStreamingRef = useRef(streaming)
 
-  // Auto-expand while actively thinking; collapse shortly after it settles.
+  // Auto-collapse shortly after thinking settles (if still open).
   useEffect(() => {
-    if (streaming) {
-      setOpen(true)
-    } else if (prevStreamingRef.current && !streaming && hasContent) {
+    if (prevStreamingRef.current && !streaming && hasContent && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevStreamingRef.current = streaming
       return () => clearTimeout(timer)
     }
     prevStreamingRef.current = streaming
-  }, [streaming, hasContent])
+  }, [streaming, hasContent, open])
 
   if (!streaming && !hasContent) return null
 
@@ -38,7 +36,6 @@ export const ThinkBlock = memo(function ThinkBlock({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <CollapsibleTrigger
-        disabled={streaming}
         className={cn(
           'group flex w-full items-center gap-1.5 text-left text-[10px] text-muted-foreground/70',
           'transition-colors hover:text-muted-foreground',

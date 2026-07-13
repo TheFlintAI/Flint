@@ -228,6 +228,12 @@ async function refresh(): Promise<void> {
 // UI — Market tab
 // ═══════════════════════════════════════════════════════════════════════════
 
+function cardVariant(q: Quote): 'success' | 'destructive' {
+  // CN: red=up, green=down; US: green=up, red=down
+  const up = q.change >= 0
+  return q.market === 'cn' ? (up ? 'destructive' : 'success') : (up ? 'success' : 'destructive')
+}
+
 function renderMarket(): VNode {
   const v = visible()
   if (v === 'none') {
@@ -247,9 +253,9 @@ function renderMarket(): VNode {
   const el: VNode[] = []
 
   if (ix.length) el.push($plugin.ui.grid({ cols: Math.min(ix.length, 4) }, ix.map(q => $plugin.ui.card({
-    label: q.name, icon: q.change >= 0 ? 'TrendingUp' : 'TrendingDown', variant: q.change >= 0 ? 'success' : 'destructive',
+    label: q.name, icon: q.change >= 0 ? 'TrendingUp' : 'TrendingDown', variant: cardVariant(q),
     value: `${$plugin.fmt.number(q.price)} ${arrow(q.change)} ${$plugin.fmt.percent(q.changePercent)}`,
-    description: $plugin.fmt.change(q.change), trend: q.trend,
+    description: $plugin.fmt.change(q.change), trend: q.trend, trendColorConvention: q.market,
   }))))
 
   if (wl.length) el.push($plugin.ui.table({
@@ -258,7 +264,7 @@ function renderMarket(): VNode {
       { key: 'price', label: { en: 'Price', zh: '价格' } }, { key: 'chg', label: { en: 'Chg', zh: '涨跌' }, renderer: 'change' },
       { key: 'pct', label: { en: '%', zh: '涨幅' }, renderer: 'change' }, { key: 'trend', label: { en: 'Trend', zh: '趋势' }, renderer: 'sparkline' },
     ],
-    rows: wl.map(q => ({ sym: q.symbol, name: q.name, price: $plugin.fmt.number(q.price), chg: $plugin.fmt.change(q.change), pct: $plugin.fmt.percent(q.changePercent), trend: q.trend ?? [], _variant: q.change >= 0 ? 'success' : 'destructive' })),
+    rows: wl.map(q => ({ sym: q.symbol, name: q.name, price: $plugin.fmt.number(q.price), chg: $plugin.fmt.change(q.change), pct: $plugin.fmt.percent(q.changePercent), trend: q.trend ?? [], _variant: cardVariant(q), _colorConv: q.market })),
   }))
 
   if (!el.length) el.push($plugin.ui.text({ en: 'No data.', zh: '暂无数据' }))

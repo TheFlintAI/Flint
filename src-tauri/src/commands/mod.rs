@@ -1,8 +1,8 @@
 mod desktop;
-mod document;
 mod fs;
 mod image;
 mod process;
+mod reader;
 mod terminal;
 pub(crate) mod types;
 pub(crate) mod utils;
@@ -86,7 +86,7 @@ async fn invoke_app_command(
         })),
         "fs:read-file" | "fs:read-document" => {
             let input = parse_first_arg::<ReadFileArgs>(&args)?;
-            read_file_text(&input)
+            reader::read_file(&input.path, input.offset, input.limit, input.pages.as_deref())
         }
         "fs:read-file-binary" => {
             let path = path_from_args(&args)?;
@@ -324,48 +324,6 @@ async fn emit_app_command(
         args.first().cloned().unwrap_or(Value::Null),
     )
     .map_err(|error| error.to_string())
-}
-
-/// Read a text file, optionally restricted to a 1-indexed line range.
-/// Returns `{ content, path }`, with `truncated`/`totalLines` when a range is applied.
-/// Binary document formats (PDF, DOCX, XLSX, PPTX) are auto-detected and routed
-/// to the document reader.
-fn read_file_text(input: &ReadFileArgs) -> Result<Value, String> {
-    let path = &input.path;
-
-    // Binary document formats — dispatch to document reader
-    if document::detect_document_format(path).is_some() {
-        return document::read_document(path, input.pages.as_deref());
-    }
-
-    let content = match std::fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(json!({ "notFound": true, "path": path }));
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
-            return Err(
-                "Cannot read binary file. Supported binary formats: PDF, DOCX, XLSX, PPTX"
-                    .to_string(),
-            );
-        }
-        Err(error) => return Err(error.to_string()),
-    };
-
-    if input.offset.is_none() && input.limit.is_none() {
-        return Ok(json!({ "content": content, "path": path }));
-    }
-
-    let lines: Vec<&str> = content.split_inclusive('\n').collect();
-    let total = lines.len();
-    let start = input.offset.unwrap_or(1).saturating_sub(1).min(total);
-    let end = match input.limit {
-        Some(limit) => start.saturating_add(limit).min(total),
-        None => total,
-    };
-    let sliced: String = lines[start..end].concat();
-    let truncated = end < total;
-    Ok(json!({ "content": sliced, "path": path, "truncated": truncated, "totalLines": total }))
 }
 
 // ── Misc channel handler (native-only commands) ────────────────────

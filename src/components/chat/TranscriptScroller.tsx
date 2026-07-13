@@ -376,14 +376,11 @@ function TranscriptScrollerView({
 
               const isStreaming = streamingMessageId === messageId
               const rowRenderMode = !isStreaming && rowIndex < liveCutoffIndex ? 'static' : undefined
-              const isScrollAnchor = message.role === 'user'
 
               return (
                 <MessageScrollerItem
                   key={row.key}
                   messageId={messageId}
-                  scrollAnchor={isScrollAnchor}
-                  sticky={isScrollAnchor}
                 >
                   <TranscriptRow
                     message={message}

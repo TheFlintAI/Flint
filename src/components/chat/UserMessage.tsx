@@ -76,7 +76,7 @@ function ActionIconButton({
 }
 
 const USER_MESSAGE_BUBBLE_CLASS =
-  'rounded-lg border border-border/60 bg-transparent px-4 py-3 text-base text-foreground'
+  'rounded-lg border border-border/50 bg-muted/15 px-4 py-3 text-base text-foreground'
 function MessageContextBadges({ snapshot }: { snapshot: MessageContextSnapshot }): React.JSX.Element | null {
   if (!snapshot.workspace) return null
 

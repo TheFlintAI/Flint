@@ -277,24 +277,14 @@
     "moreChanges": "+{{count}} more changes"
   },
   "fileTree": {
-    "selectFolder": "No files available",
     "searchPlaceholder": "Search file names or paths",
     "addToAttachments": "Add to attachments",
-    "openInPanel": "Open in full panel",
+    "openInExplorer": "Open in file explorer",
     "searching": "Searching files...",
-    "searchHint": "Click to preview, or drag files into the composer to insert references",
     "noSearchResults": "No matching files",
     "newFile": "New File",
     "newFolder": "New Folder",
-    "deleteConfirm": "Delete {{type}} \"{{name}}\"?",
-    "folder": "folder",
-    "file": "file",
-    "copyPath": "Copy path",
     "insertPath": "Insert path into chat",
-    "closePreview": "Close preview",
-    "dragToReference": "Drag to input to reference",
-    "unableToRead": "(Unable to read file)",
-    "empty": "Empty folder",
-    "stats": "{{folders}} folders · {{files}} files"
+    "empty": "Empty folder"
   }
 }

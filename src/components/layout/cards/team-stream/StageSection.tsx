@@ -13,10 +13,10 @@ import { ToolLogRow } from './ToolLogRow'
 // a container for the items that arrived while it was the current step, not a
 // detached label.
 // `active` marks the stage the teammate is currently working in (the last
-// stage while the member is still running). It auto-expands while active and
-// auto-collapses ~800ms after it settles — the same pattern as ThinkBlock — so
+// stage while the member is still running). It starts collapsed; the user can
+// manually expand it. It auto-collapses ~800ms after it settles if still open — so
 // a long run leaves a compact trail of stage labels instead of an ever-growing
-// wall of expanded sections. The user can still toggle any stage manually.
+// wall of expanded sections.
 export const StageSection = memo(function StageSection({
   title,
   live,
@@ -29,19 +29,17 @@ export const StageSection = memo(function StageSection({
   items: TimelineItem[]
 }): React.JSX.Element {
   const hasItems = items.length > 0
-  const [open, setOpen] = useState(active)
+  const [open, setOpen] = useState(false)
   const prevActiveRef = useRef(active)
 
   useEffect(() => {
-    if (active) {
-      setOpen(true)
-    } else if (prevActiveRef.current && !active) {
+    if (prevActiveRef.current && !active && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevActiveRef.current = active
       return () => clearTimeout(timer)
     }
     prevActiveRef.current = active
-  }, [active])
+  }, [active, open])
 
   if (!title) return <></>
 

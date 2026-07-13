@@ -25,21 +25,19 @@ export const ThinkingChip = memo(function ThinkingChip({
   const { t } = useTranslation('chat')
   const isThinking = isStreaming && !completedAt
   const hasThinkingContent = thinking.trim().length > 0
-  const [open, setOpen] = useState(isThinking)
+  const [open, setOpen] = useState(false)
   const prevIsThinkingRef = useRef(isThinking)
 
-  // Auto-expand during streaming, collapse when done
+  // Auto-collapse when thinking ends (if user hasn't manually collapsed)
   useEffect(() => {
-    if (isThinking) {
-      setOpen(true)
-    } else if (prevIsThinkingRef.current && !isThinking && hasThinkingContent) {
+    if (prevIsThinkingRef.current && !isThinking && hasThinkingContent && open) {
       // Just finished streaming — keep open briefly then collapse
       const timer = setTimeout(() => setOpen(false), 800)
       prevIsThinkingRef.current = isThinking
       return () => clearTimeout(timer)
     }
     prevIsThinkingRef.current = isThinking
-  }, [isThinking, hasThinkingContent])
+  }, [isThinking, hasThinkingContent, open])
 
   if (!isThinking && !hasThinkingContent) return null
 
@@ -50,14 +48,10 @@ export const ThinkingChip = memo(function ThinkingChip({
   return (
     <Collapsible
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (isThinking) return
-        setOpen(nextOpen)
-      }}
+      onOpenChange={setOpen}
       className="overflow-hidden bg-transparent rounded-lg border border-border/40"
     >
       <CollapsibleTrigger
-        disabled={isThinking}
         className={cn(
           'group flex w-full items-center gap-2 rounded-t-lg px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/50',
         )}
