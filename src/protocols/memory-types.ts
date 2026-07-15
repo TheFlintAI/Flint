@@ -18,8 +18,8 @@ export type MemoryEntryType =
 export interface MemoryEntry {
   id: string
   type: MemoryEntryType
+  title: string // Agent-provided human-readable title
   body: string // Markdown body
-  summary: string // One-line summary
   created_at: string // ISO 8601
   updated_at: string // ISO 8601
 }
@@ -29,7 +29,7 @@ export interface MemoryEntry {
 export interface MemoryIndexEntry {
   id: string
   type: MemoryEntryType
-  summary: string
+  title: string
   updated_at: string // ISO 8601
 }
 

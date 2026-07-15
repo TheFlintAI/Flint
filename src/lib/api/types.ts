@@ -174,22 +174,11 @@ export interface RequestDebugInfo {
   previousResponseId?: string
 }
 
-export interface CompactBoundarySegment {
-  headId: string
-  anchorId: string
-  tailId: string
-}
 
-export interface CompactBoundaryMeta {
+export interface CompressionMeta {
   trigger: 'auto' | 'manual'
-  preTokens: number
-  messagesSummarized: number
-  preservedSegment?: CompactBoundarySegment
-}
-
-export interface CompactSummaryMeta {
-  messagesSummarized: number
-  recentMessagesPreserved: boolean
+  messagesCompressed: number
+  preTokens?: number
 }
 
 export interface MessageContextSnapshot {
@@ -204,8 +193,7 @@ export interface MessageContextSnapshot {
 }
 
 export interface MessageMeta {
-  compactBoundary?: CompactBoundaryMeta
-  compactSummary?: CompactSummaryMeta
+  compression?: CompressionMeta
   contextSnapshot?: MessageContextSnapshot
 }
 

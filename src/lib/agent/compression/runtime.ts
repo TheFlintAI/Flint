@@ -1,13 +1,13 @@
-import type { AIModelConfig, ProviderConfig, UnifiedMessage } from '../api/types'
+import type { AIModelConfig, ProviderConfig, UnifiedMessage } from '../../api/types'
 import { useProviderStore } from '@/stores/provider-store'
+import { compressMessages } from './compress'
 import {
-  compressMessages,
   resolveCompressionContextLength,
-  resolveCompressionReservedOutputBudget,
+  resolveCompressionReservedOutput,
   resolveCompressionThreshold,
-  type CompressionConfig
-} from './context-compression'
-import type { AgentLoopConfig } from './types'
+  type CompressionConfig,
+} from './threshold'
+import type { AgentLoopConfig } from '../types'
 
 function findModelConfig(providerConfig: ProviderConfig): AIModelConfig | null {
   const { providers } = useProviderStore.getState()
@@ -27,7 +27,7 @@ function findModelConfig(providerConfig: ProviderConfig): AIModelConfig | null {
 }
 
 export function buildRuntimeCompressionConfig(
-  providerConfig: ProviderConfig
+  providerConfig: ProviderConfig,
 ): CompressionConfig | null {
   const modelConfig = findModelConfig(providerConfig)
   if (!modelConfig?.contextLength) return null
@@ -40,13 +40,13 @@ export function buildRuntimeCompressionConfig(
     contextLength,
     threshold: resolveCompressionThreshold(modelConfig),
     preCompressThreshold: 0.65,
-    reservedOutputBudget: resolveCompressionReservedOutputBudget(modelConfig)
+    reservedOutputBudget: resolveCompressionReservedOutput(modelConfig),
   }
 }
 
 export function buildRuntimeCompression(
   providerConfig: ProviderConfig,
-  signal: AbortSignal
+  signal: AbortSignal,
 ): AgentLoopConfig['contextCompression'] | undefined {
   const config = buildRuntimeCompressionConfig(providerConfig)
   if (!config) return undefined
@@ -56,6 +56,6 @@ export function buildRuntimeCompression(
     compressFn: async (messages: UnifiedMessage[]) => {
       const { messages: compressed } = await compressMessages(messages, providerConfig, signal)
       return compressed
-    }
+    },
   }
 }

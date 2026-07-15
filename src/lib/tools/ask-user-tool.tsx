@@ -1,6 +1,7 @@
 import { toast } from 'sonner'
 import i18n from '@/locales'
 import * as React from 'react'
+import { AlertTriangle, Ban, Check, MessageCircleQuestion } from 'lucide-react'
 import { toolRegistry } from '../agent/tool-registry'
 import type { ToolDefinition } from '../api/types'
 import { useChatStore } from '@/stores/chat-store'
@@ -9,13 +10,12 @@ import { isTaskForeground } from '@/lib/agent/task-runtime-router'
 import { encodeStructuredToolResult, encodeToolError } from './tool-result-format'
 import type { ToolHandler } from './tool-types'
 import type { ToolPanelContext } from './tool-render-types'
-import { AskUserQuestionCard } from '@/components/chat/AskUserQuestionCard'
+import { AskUserQuestionBody } from '@/components/chat/AskUserQuestionCard'
 import { notifyUserInputNeeded } from '@/services/notifications'
 
 export interface AskUserOption {
   label: string
   description?: string
-  preview?: string
 }
 
 export interface AskUserQuestionItem {
@@ -30,7 +30,6 @@ export interface AskUserAnswers {
 }
 
 export interface AskUserAnnotation {
-  preview?: string
   notes?: string
 }
 
@@ -40,6 +39,7 @@ export interface AskUserResolvedPayload {
 }
 
 export interface AskUserStructuredResult {
+  [key: string]: unknown
   questions: AskUserQuestionItem[]
   answers: Record<string, string>
   annotations?: Record<string, AskUserAnnotation>
@@ -201,19 +201,9 @@ function normalizeQuestions(questions: AskUserQuestionItem[]): AskUserQuestionIt
     multiSelect: question.multiSelect === true,
     options: question.options?.map((option) => ({
       label: option.label.trim(),
-      ...(option.description?.trim() ? { description: option.description.trim() } : {}),
-      ...(option.preview?.trim() ? { preview: option.preview.trim() } : {})
+      ...(option.description?.trim() ? { description: option.description.trim() } : {})
     }))
   }))
-}
-
-function looksLikeHtmlFragment(preview: string): boolean {
-  return /<\s*[a-z!][^>]*>/i.test(preview)
-}
-
-function validatePreview(preview: string | undefined): string | null {
-  if (!preview || !looksLikeHtmlFragment(preview)) return null
-  return 'preview must be markdown or plain text, not HTML'
 }
 
 function validateQuestions(questions: AskUserQuestionItem[]): string | null {
@@ -249,13 +239,6 @@ function validateQuestions(questions: AskUserQuestionItem[]): string | null {
         return `Option labels must be unique within question "${questionText}"`
       }
       seenLabels.add(label)
-
-      const previewError = validatePreview(option.preview)
-      if (previewError) return `Option "${label}" in question "${questionText}": ${previewError}`
-    }
-
-    if (item.multiSelect && options.some((option) => !!option.preview)) {
-      return `Question "${questionText}" cannot use preview with multiSelect=true`
     }
   }
 
@@ -303,18 +286,14 @@ function buildStructuredResult(
 
     const annotation = payload.annotations?.[String(index)]
     const notes = annotation?.notes?.trim()
-    if (annotation?.preview || notes) {
-      annotations[question.question] = {
-        ...(annotation?.preview ? { preview: annotation.preview } : {}),
-        ...(notes ? { notes } : {})
-      }
+    if (notes) {
+      annotations[question.question] = { notes }
     }
   }
 
   const summaryParts = Object.entries(answers).map(([questionText, answerText]) => {
     const annotation = annotations[questionText]
     const extras: string[] = []
-    if (annotation?.preview) extras.push('selected preview attached')
     if (annotation?.notes) extras.push(`notes: ${annotation.notes}`)
     return extras.length > 0
       ? `"${questionText}"="${answerText}" (${extras.join('; ')})`
@@ -365,15 +344,7 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
     'Usage notes:\n' +
     '- Users will always be able to select "Other" to provide custom text input\n' +
     '- Use multiSelect: true to allow multiple answers to be selected for a question\n' +
-    '- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label\n' +
-    '\n' +
-    'Preview feature:\n' +
-    'Use the optional preview field on options when presenting concrete artifacts that users need to visually compare:\n' +
-    '- ASCII mockups of UI layouts or components\n' +
-    '- Code snippets showing different implementations\n' +
-    '- Diagram variations\n' +
-    '- Configuration examples\n\n' +
-    'Preview content is rendered as markdown in a monospace-friendly preview box. Multi-line text with newlines is supported. When any option has a preview, the UI switches to a side-by-side layout with a vertical option list on the left and preview on the right. Do not use previews for simple preference questions where labels and descriptions suffice. Preview is only supported for single-select questions. Do not provide HTML.\n',
+    '- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label\n',
   inputSchema: {
     type: 'object',
     properties: {
@@ -413,11 +384,6 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
                     type: 'string',
                     description:
                       'Explanation of what this option means or what will happen if chosen. Useful for context about trade-offs or implications.'
-                  },
-                  preview: {
-                    type: 'string',
-                    description:
-                      'Optional preview content rendered when this option is focused. Use for mockups, code snippets, diagrams, or configuration examples that help users compare options.'
                   }
                 },
                 required: ['label', 'description'],
@@ -448,18 +414,13 @@ const askUserToolDefinition: Omit<ToolDefinition, 'name'> = {
       annotations: {
         type: 'object',
         description:
-          'Optional per-question annotations from the user, such as notes on preview selections. Keyed by question text.',
+          'Optional per-question annotations from the user, such as notes on their selections. Keyed by question text.',
         propertyNames: {
           type: 'string'
         },
         additionalProperties: {
           type: 'object',
           properties: {
-            preview: {
-              type: 'string',
-              description:
-                'The preview content of the selected option, if the question used previews.'
-            },
             notes: {
               type: 'string',
               description: 'Free-text notes the user added to their selection.'
@@ -581,7 +542,7 @@ const askUserToolExecute: ToolHandler['execute'] = async (input, ctx) => {
   }
 
   return encodeStructuredToolResult(
-    buildStructuredResult(questions, payload, { source: metadataSource }) as unknown as Record<
+    buildStructuredResult(questions, payload, { source: metadataSource }) as Record<
       string,
       unknown
     >
@@ -595,16 +556,45 @@ const askUserQuestionHandler: ToolHandler = {
   },
   execute: askUserToolExecute,
   render: {
-    kind: 'native-card',
-    render: (ctx: ToolPanelContext) => (
-      <AskUserQuestionCard
-        toolUseId={ctx.toolUseId ?? ''}
-        input={ctx.input}
-        output={ctx.output}
-        status={ctx.status}
-        isLive={!ctx.output && (ctx.status === 'streaming' || ctx.status === 'running')}
-      />
-    ),
+    kind: 'native-panel',
+    expandWhileActive: true,
+    renderHeader: (ctx: ToolPanelContext) => {
+      const isRunning = ctx.status === 'streaming' || ctx.status === 'running'
+      const isErr = ctx.status === 'error'
+      const isCancelled = ctx.status === 'canceled'
+
+      if (isErr) {
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <AlertTriangle className="size-3.5 text-destructive/70 shrink-0" />
+            <span>{ctx.t('askUser.errorTitle')}</span>
+          </span>
+        )
+      }
+      if (isCancelled) {
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <Ban className="size-3.5 text-muted-foreground/50 shrink-0" />
+            <span>{ctx.t('askUser.canceledTitle')}</span>
+          </span>
+        )
+      }
+      if (isRunning) {
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <MessageCircleQuestion className="size-3.5 text-muted-foreground/70 shrink-0" />
+            <span>{ctx.t('askUser.title')}</span>
+          </span>
+        )
+      }
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <Check className="size-3.5 text-emerald-500 shrink-0" />
+          <span>{ctx.t('askUser.answeredTitle')}</span>
+        </span>
+      )
+    },
+    renderBody: (ctx: ToolPanelContext) => <AskUserQuestionBody ctx={ctx} />,
   },
 }
 

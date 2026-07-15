@@ -9,13 +9,12 @@ import { ContextCompressionMessage } from './ContextCompressionMessage'
 import { UserMessageEntrance } from './transcript/user-message-entrance'
 import type { UnifiedMessage, ToolResultContent } from '@/lib/api/types'
 import type { RequestRetryState, ToolCallState } from '@/lib/agent/types'
-import { isCompactSummaryLikeMessage } from '@/lib/agent/context-compression'
+import { isCompressionMessage } from '@/lib/agent/compression'
 import {
   MARKDOWN_REHYPE_PLUGINS,
   MARKDOWN_REMARK_PLUGINS
 } from '@/lib/utils/markdown-utils'
 
-type MessageRenderMode = 'default' | 'transcript' | 'static'
 
 interface MessageItemProps {
   message: UnifiedMessage
@@ -34,7 +33,7 @@ interface MessageItemProps {
   onRollbackMessage?: (messageId: string) => void
   toolResults?: Map<string, { content: ToolResultContent; isError?: boolean }>
   liveToolCallMap?: Map<string, ToolCallState> | null
-  renderMode?: MessageRenderMode
+  live?: boolean
   requestRetryState?: RequestRetryState | null
 }
 
@@ -95,7 +94,7 @@ function MessageItemInner({
   onRollbackMessage,
   toolResults,
   liveToolCallMap,
-  renderMode = 'default',
+  live = true,
   requestRetryState
 }: MessageItemProps): React.JSX.Element | null {
   if (message.id !== messageId) return null
@@ -103,7 +102,7 @@ function MessageItemInner({
   const inner = (() => {
     switch (message.role) {
       case 'user': {
-        if (isCompactSummaryLikeMessage(message)) {
+        if (isCompressionMessage(message)) {
           return <ContextCompressionMessage message={message} />
         }
         if (message.source === 'team') {
@@ -145,12 +144,10 @@ function MessageItemInner({
             onContinue={onContinueAssistantMessage}
             onDelete={onDeleteMessage}
             liveToolCallMap={liveToolCallMap}
-            renderMode={renderMode}
+            live={live}
             requestRetryState={isLastAssistantMessage ? requestRetryState : null}
           />
         )
-      case 'system':
-        return <ContextCompressionMessage message={message} />
       default:
         return null
     }
@@ -159,7 +156,7 @@ function MessageItemInner({
   if (!inner) return null
 
   const isPlainUserMessage =
-    message.role === 'user' && !isCompactSummaryLikeMessage(message) && message.source !== 'team'
+    message.role === 'user' && !isCompressionMessage(message) && message.source !== 'team'
 
   if (isPlainUserMessage) {
     return (
@@ -252,7 +249,7 @@ function areEqual(prev: MessageItemProps, next: MessageItemProps): boolean {
       prev.onRollbackMessage === next.onRollbackMessage &&
       areToolResultsEqual(prev.toolResults, next.toolResults) &&
       prev.liveToolCallMap === next.liveToolCallMap &&
-      prev.renderMode === next.renderMode &&
+      prev.live === next.live &&
       areRequestRetryStatesEqual(prev.requestRetryState, next.requestRetryState)
     )
   }
@@ -291,7 +288,7 @@ function areEqual(prev: MessageItemProps, next: MessageItemProps): boolean {
     prevUsageSignal === nextUsageSignal &&
     areToolResultsEqual(prev.toolResults, next.toolResults) &&
     prev.liveToolCallMap === next.liveToolCallMap &&
-    prev.renderMode === next.renderMode &&
+    prev.live === next.live &&
     areRequestRetryStatesEqual(prev.requestRetryState, next.requestRetryState)
   )
 }

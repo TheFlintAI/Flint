@@ -3,9 +3,9 @@
     "noApiKey": "未配置 API Key，点击此处配置。",
     "attachImages": "附加图片（也支持粘贴或拖放）",
     "attachMediaFailed": "添加所选文件失败",
-    "mediaFilter": "图片和文档",
+    "documentFilter": "文档",
+    "imageFilter": "图片",
     "allFilesFilter": "所有文件",
-    "dropImages": "拖放图片或文件",
     "dropFiles": "拖放文件以插入路径",
     "clearMessages": "清空消息",
     "clearConfirmTitle": "清空所有消息？",
@@ -31,7 +31,8 @@
     },
     "composerActions": {
       "addActions": "添加操作",
-      "attachMedia": "附件",
+      "attachFile": "文件",
+      "attachImage": "图片",
       "workspace": "工作目录"
     },
     "skillsBadge": {
@@ -52,8 +53,6 @@
     "answeredTitle": "问题已回答",
     "answeredSubtitle": "已记录你的选择与补充说明",
     "recommended": "推荐",
-    "previewBadge": "预览",
-    "previewTitle": "选项预览",
     "notesTitle": "补充说明（可选）",
     "notesPlaceholder": "补充你的约束、偏好或说明…",
     "autoAnswered": "自动回答",
@@ -267,7 +266,6 @@
     "thinkingFor": "正在思考 {{seconds}} 秒",
     "pending": "正在思考",
     "thinkingEllipsis": "思考中…",
-    "secondsShort": "{{seconds}} 秒",
     "thoughts": "已思考"
   },
   "phase": {
@@ -330,10 +328,6 @@
   "assistantMessage": {
     "editedFiles_one": "已编辑 {{count}} 个文件",
     "editedFiles_other": "已编辑 {{count}} 个文件",
-    "totalDuration": "总耗时：{{duration}}",
-    "req": "请求 {{count}}",
-    "ttft": "首 token",
-    "tps": "TPS",
     "regenerateReference": "重新生成",
     "continueToolExecution": "继续执行",
     "continueToolExecutionHint": "使用已保存的工具结果在这条消息里继续，不会新增 AI 消息，也不会重新执行历史工具",
@@ -372,11 +366,6 @@
       "copy": "复制",
       "copied": "已复制"
     }
-  },
-  "messageActions": {
-    "fork": "分叉",
-    "forked": "已分叉为新任务",
-    "forkFailed": "分叉失败"
   },
   "toolGroup": {
     "readFiles": "读取了 {{count}} 个文件",
@@ -449,14 +438,13 @@
     "cannotCompress": "无法压缩",
     "noActiveTask": "没有活跃任务",
     "agentRunning": "代理运行中，请等待完成后再手动压缩",
-    "minMessages": "压缩至少需要 {{min}} 条消息（当前 {{count}} 条）",
-    "tooFewSinceLast": "距上次压缩消息太少，请继续任务",
     "authMissing": "缺少认证",
     "configureApiKey": "请在设置中配置 API Key",
     "providerNotConfigured": "未配置 AI 服务商",
-    "noCompressionNeeded": "无需压缩",
-    "insufficientForEffective": "当前消息数量不足以有效压缩",
-    "failed": "压缩失败"
+    "failed": "压缩失败",
+    "compressContext": "压缩上下文",
+    "contextUsage": "上下文: {{current}} / {{max}} tokens",
+    "compressing": "压缩中..."
   },
   "errors": {
     "apiKeyRequired": "需要 API Key",
@@ -530,11 +518,11 @@
       "TaskGet": "查看任务 {{title}}",
       "TaskUpdate": "更新任务 {{title}}",
       "TaskList": "{{total}} 个任务",
-      "MemoryRead": "读取记忆 {{id}}",
+      "MemoryRead": "读取记忆 {{name}}",
       "MemorySearch": "搜索记忆 {{query}}",
-      "MemoryWrite": "写入记忆 {{id}}",
-      "MemoryWriteUpdated": "更新记忆 {{id}}",
-      "MemoryDelete": "删除记忆 {{id}}",
+      "MemoryWrite": "写入记忆 {{name}}",
+      "MemoryWriteUpdated": "更新记忆 {{name}}",
+      "MemoryDelete": "删除记忆 {{name}}",
       "WebSearch": "搜索网页",
       "WebFetch": "抓取网页",
       "TeamCreate": "创建团队 {{name}}",

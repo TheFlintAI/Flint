@@ -10,7 +10,7 @@ import type {
   ImageErrorCode,
   ToolCallExtraContent
 } from '../api/types'
-import type { CompressionConfig } from './context-compression'
+import type { CompressionConfig } from './compression'
 
 // --- Tool Call Runtime State ---
 

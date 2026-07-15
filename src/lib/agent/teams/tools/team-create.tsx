@@ -70,6 +70,7 @@ export const teamCreateTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: teamCreateHeader,
+    renderBadges: teamCreateBadges,
     renderBody: teamCreateBody
   }
 }
@@ -103,24 +104,25 @@ function errorPre(error: string, ctx: ToolPanelContext): React.ReactNode {
 // ── TeamCreate render ──
 
 function teamCreateHeader(ctx: ToolPanelContext): React.ReactNode {
-  const isLive = isToolLive(ctx.status)
   const parsed = parseTeamOutput(ctx.outputText)
   const teamName =
-    !isLive && parsed.kind === 'object'
+    parsed.kind === 'object'
       ? readString(parsed.data, 'team_name')
       : firstStringInput(ctx.input, ['team_name'])
   return (
     <ToolPanelLead
       icon={<ToolIcon name={ctx.name} />}
       title={teamName ? ctx.t('toolPanel.title.TeamCreate', { name: teamName }) : ctx.displayName}
-      badges={
-        !isLive && parsed.kind === 'object' ? (
-          <Badge tone="green">{ctx.t('teamPanel.created')}</Badge>
-        ) : null
-      }
       titleAttr={teamName || ctx.displayName}
     />
   )
+}
+
+function teamCreateBadges(ctx: ToolPanelContext): React.ReactNode {
+  if (isToolLive(ctx.status)) return null
+  const parsed = parseTeamOutput(ctx.outputText)
+  if (parsed.kind !== 'object') return null
+  return <Badge tone="green">{ctx.t('teamPanel.created')}</Badge>
 }
 
 function teamCreateBody(ctx: ToolPanelContext): React.ReactNode {

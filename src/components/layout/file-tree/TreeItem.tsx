@@ -37,7 +37,7 @@ export function TreeItem({
   node: TreeNode
   depth: number
   onToggle: (path: string) => void
-  onAddToAttachments: (path: string, isDirectory: boolean) => void
+  onAddToAttachments: (path: string) => void
   editState: TreeEditState
   actions: TreeActions
 }): React.JSX.Element {
@@ -51,8 +51,8 @@ export function TreeItem({
   const isRenaming = safeEditState.renamingPath === node.path
 
   const handleAdd = useCallback(() => {
-    onAddToAttachments(node.path, isDir)
-  }, [node.path, isDir, onAddToAttachments])
+    onAddToAttachments(node.path)
+  }, [node.path, onAddToAttachments])
 
   const rowContent = (
     <div

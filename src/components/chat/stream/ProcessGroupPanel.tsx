@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef, useMemo } from 'react'
+import { memo, useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ChevronDown, Brain, Workflow } from 'lucide-react'
 import {
@@ -153,6 +153,7 @@ function PanelToolStep({
       triggerClassName="rounded-md px-2 py-1.5"
       bodyClassName="px-2 pb-2 pt-1"
       header={render.renderHeader(ctx)}
+      badges={render.renderBadges?.(ctx)}
       body={render.renderBody(ctx)}
       trailing={(open) => (
         <TrailingStatus
@@ -192,10 +193,6 @@ function ToolStepRow({ state }: { state: ToolCallRenderState }): React.JSX.Eleme
   }
   if (render.kind === 'native-panel') {
     return <PanelToolStep ctx={ctx} render={render} />
-  }
-  if (render.kind === 'native-card') {
-    // Cards render standalone, not inside process groups
-    return <div className="py-1">{render.render(ctx)}</div>
   }
   // Remote tools: render with a basic shell
   return <PanelToolStep ctx={ctx} render={defaultToolRender(ctx)} />
@@ -258,6 +255,9 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
   const prevActiveRef = useRef(isActive)
 
   useEffect(() => {
+    if (!prevActiveRef.current && isActive) {
+      setOpen(true)
+    }
     if (prevActiveRef.current && !isActive && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevActiveRef.current = isActive
@@ -265,33 +265,6 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
     }
     prevActiveRef.current = isActive
   }, [isActive, open])
-
-  const earliestStart = useMemo(() => {
-    let min: number | undefined
-    for (const s of steps) {
-      const start = s.kind === 'thinking' ? s.startedAt : s.state.startedAt
-      if (start != null && (min === undefined || start < min)) min = start
-    }
-    return min
-  }, [steps])
-
-  const latestCompleted = useMemo(() => {
-    let max: number | undefined
-    for (const s of steps) {
-      const end = s.kind === 'thinking' ? s.completedAt : s.state.completedAt
-      if (end != null && (max === undefined || end > max)) max = end
-    }
-    return max
-  }, [steps])
-
-  const [liveElapsed, setLiveElapsed] = useState(0)
-  useEffect(() => {
-    if (!isActive || earliestStart === undefined) return
-    const tick = (): void => setLiveElapsed((Date.now() - earliestStart) / 1000)
-    tick()
-    const interval = setInterval(tick, 100)
-    return () => clearInterval(interval)
-  }, [isActive, earliestStart])
 
   const hasThinking = steps.some((s) => s.kind === 'thinking')
   const hasTool = steps.some((s) => s.kind === 'tool')
@@ -308,18 +281,6 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
     : isActive
       ? t('processGroup.processing')
       : t(fallbackKey)
-
-  const totalDuration =
-    earliestStart !== undefined && latestCompleted !== undefined
-      ? (latestCompleted - earliestStart) / 1000
-      : null
-  const elapsedLabel = isActive
-    ? liveElapsed > 0
-      ? t('thinking.secondsShort', { seconds: liveElapsed.toFixed(1) })
-      : ''
-    : totalDuration !== null
-      ? t('thinking.secondsShort', { seconds: totalDuration.toFixed(1) })
-      : ''
 
   const countLabel = isActive
     ? t('processGroup.activeSteps', { count: steps.length })
@@ -346,9 +307,6 @@ export const ProcessGroupPanel = memo(function ProcessGroupPanel({
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {isActive ? <ActivityDots /> : null}
           <span className="text-[10px] tabular-nums text-muted-foreground/60">{countLabel}</span>
-          {elapsedLabel ? (
-            <span className="text-[10px] tabular-nums text-muted-foreground/60">{elapsedLabel}</span>
-          ) : null}
           {open ? (
             <ChevronDown className="size-3 text-muted-foreground/50 transition-colors group-hover:text-foreground" />
           ) : (

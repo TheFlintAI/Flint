@@ -14,6 +14,9 @@ const T = tpl(`## Environment
 {{#if eq env.pathStyle "windows"}}- Path Style: Prefer Windows-style paths on the remote host
 {{/if~}}
 - Remote Guidance: Do not assume the local computer's OS, shell, paths, or home directory when SSH is active.
+{{/if~}}
+{{#if workingFolder~}}
+- Working Folder: \`{{workingFolder}}\`{{#if env.isSsh}} (remote){{/if}}. Resolve relative paths against this folder. Use as default cwd for {{#if tool.Bash}}{{tool.Bash}}{{else}}terminal commands{{/if}}.
 {{/if~}}`)
 
 export const environmentSection: PromptSection = {

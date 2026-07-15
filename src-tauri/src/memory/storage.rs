@@ -72,22 +72,6 @@ fn type_prefix(t: &str) -> &str {
     }
 }
 
-pub(crate) fn extract_summary(body: &str) -> String {
-    for line in body.trim().lines() {
-        let t = line.trim();
-        if t.is_empty() {
-            continue;
-        }
-        let s = t.strip_prefix('#').unwrap_or(t).trim();
-        return if s.len() <= 100 {
-            s.into()
-        } else {
-            format!("{}...", &s[..97])
-        };
-    }
-    "(empty)".into()
-}
-
 pub(crate) fn normalize_type(raw: &str) -> Option<String> {
     let t = raw.trim().to_lowercase();
     VALID_TYPES.contains(&t.as_str()).then_some(t)
@@ -149,7 +133,7 @@ impl MemoryStore {
                 id TEXT PRIMARY KEY,
                 entry_type TEXT NOT NULL,
                 body TEXT NOT NULL,
-                summary TEXT NOT NULL,
+                title TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 vector BLOB,
@@ -174,14 +158,14 @@ impl MemoryStore {
             None => (None, None),
         };
         conn.execute(
-            "INSERT INTO memories (id, entry_type, body, summary, created_at, updated_at,
+            "INSERT INTO memories (id, entry_type, body, title, created_at, updated_at,
              vector, vector_dim)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 entry.id,
                 entry.entry_type,
                 entry.body,
-                entry.summary,
+                entry.title,
                 entry.created_at,
                 entry.updated_at,
                 vec_blob,
@@ -203,13 +187,13 @@ impl MemoryStore {
             None => (None, None),
         };
         conn.execute(
-            "UPDATE memories SET entry_type=?2, body=?3, summary=?4, created_at=?5,
+            "UPDATE memories SET entry_type=?2, body=?3, title=?4, created_at=?5,
              updated_at=?6, vector=?7, vector_dim=?8 WHERE id=?1",
             params![
                 entry.id,
                 entry.entry_type,
                 entry.body,
-                entry.summary,
+                entry.title,
                 entry.created_at,
                 entry.updated_at,
                 vec_blob,
@@ -231,7 +215,7 @@ impl MemoryStore {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
-                "SELECT id, entry_type, body, summary, created_at, updated_at
+                "SELECT id, entry_type, body, title, created_at, updated_at
                  FROM memories WHERE id = ?1",
             )
             .map_err(|e| format!("prepare: {e}"))?;
@@ -241,7 +225,7 @@ impl MemoryStore {
                     id: row.get(0)?,
                     entry_type: row.get(1)?,
                     body: row.get(2)?,
-                    summary: row.get(3)?,
+                    title: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
                 })
@@ -257,7 +241,7 @@ impl MemoryStore {
     pub(crate) fn list(&self, params: &MemoryListParams) -> Result<Vec<MemoryEntry>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut sql = String::from(
-            "SELECT id, entry_type, body, summary, created_at, updated_at FROM memories WHERE 1=1",
+            "SELECT id, entry_type, body, title, created_at, updated_at FROM memories WHERE 1=1",
         );
         let mut bind_values: Vec<String> = Vec::new();
 
@@ -287,7 +271,7 @@ impl MemoryStore {
                     id: row.get(0)?,
                     entry_type: row.get(1)?,
                     body: row.get(2)?,
-                    summary: row.get(3)?,
+                    title: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
                 })
@@ -329,7 +313,7 @@ impl MemoryStore {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
-                "SELECT id, entry_type, body, summary, created_at, updated_at, vector
+                "SELECT id, entry_type, body, title, created_at, updated_at, vector
                  FROM memories WHERE vector IS NOT NULL",
             )
             .map_err(|e| format!("prepare: {e}"))?;
@@ -340,7 +324,7 @@ impl MemoryStore {
                     id: row.get(0)?,
                     entry_type: row.get(1)?,
                     body: row.get(2)?,
-                    summary: row.get(3)?,
+                    title: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
                 };
@@ -364,7 +348,7 @@ impl MemoryStore {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
-                "SELECT id, entry_type, body, summary, created_at, updated_at
+                "SELECT id, entry_type, body, title, created_at, updated_at
                  FROM memories ORDER BY updated_at DESC",
             )
             .map_err(|e| format!("prepare: {e}"))?;
@@ -375,7 +359,7 @@ impl MemoryStore {
                     id: row.get(0)?,
                     entry_type: row.get(1)?,
                     body: row.get(2)?,
-                    summary: row.get(3)?,
+                    title: row.get(3)?,
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
                 })
@@ -434,12 +418,12 @@ mod tests {
         MemoryStore::new(&db_path).unwrap()
     }
 
-    fn make_entry(id: &str, ty: &str, body: &str, created_at: &str) -> MemoryEntry {
+    fn make_entry(id: &str, ty: &str, title: &str, body: &str, created_at: &str) -> MemoryEntry {
         MemoryEntry {
             id: id.to_string(),
             entry_type: ty.to_string(),
+            title: title.to_string(),
             body: body.to_string(),
-            summary: extract_summary(body),
             created_at: created_at.to_string(),
             updated_at: created_at.to_string(),
         }
@@ -451,6 +435,7 @@ mod tests {
         let entry = make_entry(
             "ctx_20240601_001",
             "context",
+            "Test body",
             "# Test body\nSome content",
             "2024-06-01T00:00:00Z",
         );
@@ -459,8 +444,8 @@ mod tests {
         let fetched = store.get("ctx_20240601_001").unwrap().unwrap();
         assert_eq!(fetched.id, entry.id);
         assert_eq!(fetched.entry_type, "context");
+        assert_eq!(fetched.title, "Test body");
         assert_eq!(fetched.body, "# Test body\nSome content");
-        assert_eq!(fetched.summary, "Test body");
         assert_eq!(fetched.created_at, "2024-06-01T00:00:00Z");
     }
 
@@ -477,6 +462,7 @@ mod tests {
         let original = make_entry(
             "pre_20240601_001",
             "preference",
+            "Original body",
             "# Original body\nSome content",
             "2024-06-01T00:00:00Z",
         );
@@ -484,14 +470,14 @@ mod tests {
 
         let mut updated = original.clone();
         updated.body = "# Updated body".to_string();
-        updated.summary = extract_summary(&updated.body);
+        updated.title = "Updated body".to_string();
         updated.updated_at = now_iso();
 
         store.update(&updated, None).unwrap();
         let fetched = store.get("pre_20240601_001").unwrap().unwrap();
 
         assert_eq!(fetched.body, "# Updated body");
-        assert_eq!(fetched.summary, "Updated body");
+        assert_eq!(fetched.title, "Updated body");
         assert_eq!(fetched.entry_type, "preference");
         assert_eq!(fetched.created_at, "2024-06-01T00:00:00Z");
         assert_ne!(fetched.updated_at, original.updated_at);
@@ -503,6 +489,7 @@ mod tests {
         let original = make_entry(
             "dec_20240601_001",
             "decision",
+            "Original",
             "# Original",
             "2024-06-01T00:00:00Z",
         );
@@ -511,7 +498,7 @@ mod tests {
         let mut updated = original.clone();
         updated.entry_type = "context".to_string();
         updated.body = "# Completely changed".to_string();
-        updated.summary = extract_summary(&updated.body);
+        updated.title = "Completely changed".to_string();
         updated.updated_at = now_iso();
 
         store.update(&updated, None).unwrap();
@@ -528,6 +515,7 @@ mod tests {
         let original = make_entry(
             "ref_20240601_001",
             "reference",
+            "Original",
             "# Original",
             "2024-01-15T12:30:00Z",
         );
@@ -536,7 +524,7 @@ mod tests {
         for i in 1..=3 {
             let mut updated = original.clone();
             updated.body = format!("# Update {}", i);
-            updated.summary = extract_summary(&updated.body);
+            updated.title = format!("Update {}", i);
             updated.updated_at = now_iso();
             store.update(&updated, None).unwrap();
         }
@@ -549,7 +537,7 @@ mod tests {
     #[test]
     fn test_delete() {
         let store = make_store();
-        let entry = make_entry("ctx_001", "context", "# Body", "2024-06-01T00:00:00Z");
+        let entry = make_entry("ctx_001", "context", "Body", "# Body", "2024-06-01T00:00:00Z");
         store.insert(&entry, None).unwrap();
         assert!(store.get("ctx_001").unwrap().is_some());
 
@@ -567,9 +555,9 @@ mod tests {
     #[test]
     fn test_list_all() {
         let store = make_store();
-        store.insert(&make_entry("ctx_001", "context", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
-        store.insert(&make_entry("pre_001", "preference", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
-        store.insert(&make_entry("dec_001", "decision", "# C", "2024-06-03T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("ctx_001", "context", "A", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("pre_001", "preference", "B", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("dec_001", "decision", "C", "# C", "2024-06-03T00:00:00Z"), None).unwrap();
 
         let params = MemoryListParams {
             entry_type: None,
@@ -586,9 +574,9 @@ mod tests {
     #[test]
     fn test_list_filter_by_type() {
         let store = make_store();
-        store.insert(&make_entry("ctx_001", "context", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
-        store.insert(&make_entry("pre_001", "preference", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
-        store.insert(&make_entry("ctx_002", "context", "# C", "2024-06-03T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("ctx_001", "context", "A", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("pre_001", "preference", "B", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("ctx_002", "context", "C", "# C", "2024-06-03T00:00:00Z"), None).unwrap();
 
         let params = MemoryListParams {
             entry_type: Some("context".to_string()),
@@ -607,7 +595,7 @@ mod tests {
         let store = make_store();
         for i in 0..5 {
             store.insert(
-                &make_entry(&format!("ctx_{:03}", i), "context", &format!("# {}", i), "2024-06-01T00:00:00Z"),
+                &make_entry(&format!("ctx_{:03}", i), "context", &format!("{}", i), &format!("# {}", i), "2024-06-01T00:00:00Z"),
                 None,
             ).unwrap();
         }
@@ -624,8 +612,8 @@ mod tests {
     #[test]
     fn test_count() {
         let store = make_store();
-        store.insert(&make_entry("ctx_001", "context", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
-        store.insert(&make_entry("pre_001", "preference", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("ctx_001", "context", "A", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("pre_001", "preference", "B", "# B", "2024-06-02T00:00:00Z"), None).unwrap();
 
         assert_eq!(store.count(None).unwrap(), 2);
         assert_eq!(store.count(Some("context")).unwrap(), 1);
@@ -638,7 +626,7 @@ mod tests {
         let store = make_store();
         assert_eq!(store.next_counter().unwrap(), 1);
 
-        store.insert(&make_entry("ctx_001", "context", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
+        store.insert(&make_entry("ctx_001", "context", "A", "# A", "2024-06-01T00:00:00Z"), None).unwrap();
         assert_eq!(store.next_counter().unwrap(), 2);
     }
 

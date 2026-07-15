@@ -47,7 +47,7 @@ export function buildMemoryContext(snapshot: MemoryIndexSnapshot): MemoryPromptD
     enabled,
     totalCount: snapshot.total_entries,
     updatedAt: snapshot.updated_at ? new Date(snapshot.updated_at).toISOString() : null,
-    entries: visible.map((e) => ({ summary: e.summary })),
+    entries: visible.map((e) => ({ title: e.title })),
     hiddenCount
   }
 }

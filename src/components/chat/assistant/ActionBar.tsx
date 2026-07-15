@@ -44,7 +44,7 @@ export function ActionIconButton({
           aria-label={label}
           onClick={onClick}
           disabled={disabled}
-          className={`flex size-7 items-center justify-center rounded-md border border-border/50 bg-background/90 text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 ${danger ? 'hover:text-destructive' : 'hover:text-accent-foreground'}`}
+          className={`flex size-7 items-center justify-center rounded-full border border-border/50 bg-background/90 text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 ${danger ? 'hover:text-destructive' : 'hover:text-accent-foreground'}`}
         >
           {icon}
         </button>

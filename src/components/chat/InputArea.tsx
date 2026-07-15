@@ -51,7 +51,6 @@ import {
   isImageAttachment,
   isFileAttachment,
   composerImageToImageAttachment,
-  type ComposerAttachment,
   type ComposerFileAttachment
 } from '@/lib/chat/composer-attachment'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -163,7 +162,6 @@ export function InputArea({
     handlePaste,
     handleDropFiles,
     getPastedImageFiles,
-    getImageMediaTypeForPath,
     setAttachments,
     setPendingImageReads
   } = useComposerAttachments({
@@ -454,34 +452,18 @@ export function InputArea({
     useUIStore.getState().setPendingInsertText(null)
   }, [pendingInsert])
 
-  // ---- Attach media handler ----
-  const handleAttachMedia = React.useCallback(async (): Promise<void> => {
+  // ---- Attach files handler (documents only, no images) ----
+  const handleAttachFiles = React.useCallback(async (): Promise<void> => {
     try {
       const result = (await tauriCommands.invoke(TAURI_COMMANDS.FS_SELECT_FILE, {
         multiSelections: true,
         filters: [
           {
-            name: t('input.mediaFilter'),
+            name: t('input.documentFilter'),
             extensions: [
-              'png',
-              'jpg',
-              'jpeg',
-              'gif',
-              'webp',
-              'md',
-              'txt',
-              'docx',
-              'pdf',
-              'html',
-              'csv',
-              'json',
-              'xml',
-              'yaml',
-              'yml',
-              'ts',
-              'js',
-              'tsx',
-              'jsx'
+              'md', 'txt', 'docx', 'pdf', 'html', 'csv',
+              'json', 'xml', 'yaml', 'yml',
+              'ts', 'js', 'tsx', 'jsx'
             ]
           },
           { name: t('input.allFilesFilter'), extensions: ['*'] }
@@ -500,55 +482,76 @@ export function InputArea({
       )
       if (result.canceled || paths.length === 0) return
 
-      // Always load images as previews, regardless of vision support.
-      // Vision check gates only whether images are sent to the model (see handleSend).
-      const imagePaths = paths.filter((filePath) => Boolean(getImageMediaTypeForPath(filePath)))
-      const filePaths = paths.filter((filePath) => !imagePaths.includes(filePath))
-      const imageFallbackPaths: string[] = []
-
-      if (imagePaths.length > 0) {
-        setPendingImageReads((prev) => prev + imagePaths.length)
-        try {
-          const images = await Promise.all(
-            imagePaths.map(async (filePath) => {
-              const attachment = await readImagePathAsAttachment(filePath)
-              if (!attachment) {
-                imageFallbackPaths.push(filePath)
-                return null
-              }
-              const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath
-              return { attachment, name }
-            })
-          )
-          const valid = images.filter(
-            (item): item is NonNullable<typeof item> => item !== null
-          )
-          if (valid.length > 0) {
-            setAttachments((prev) => [
-              ...prev,
-              ...valid.map(({ attachment, name }) => ({
-                type: 'image' as const,
-                id: attachment.id,
-                name,
-                dataUrl: attachment.dataUrl,
-                mediaType: attachment.mediaType
-              }))
-            ])
-          }
-        } finally {
-          setPendingImageReads((prev) => Math.max(0, prev - imagePaths.length))
-        }
-      }
-
-      const pathsForFileReferences = [...filePaths, ...imageFallbackPaths]
-      if (pathsForFileReferences.length > 0) {
-        addFiles(pathsForFileReferences)
-      }
+      addFiles(paths)
     } catch (error) {
-      log.error('Failed to attach media:', error)
+      log.error('Failed to attach files:', error)
       toast.error(t('input.attachMediaFailed'))
     }
-  }, [addFiles, readImagePathAsAttachment, getImageMediaTypeForPath, supportsVision, t])
+  }, [addFiles, t])
+
+  // ---- Attach images handler (images only, reads as base64) ----
+  const handleAttachImages = React.useCallback(async (): Promise<void> => {
+    try {
+      const result = (await tauriCommands.invoke(TAURI_COMMANDS.FS_SELECT_FILE, {
+        multiSelections: true,
+        filters: [
+          {
+            name: t('input.imageFilter'),
+            extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp']
+          },
+          { name: t('input.allFilesFilter'), extensions: ['*'] }
+        ]
+      })) as { canceled?: boolean; path?: string; paths?: string[] }
+
+      const paths = Array.from(
+        new Set(
+          (Array.isArray(result.paths) && result.paths.length > 0
+            ? result.paths
+            : result.path
+              ? [result.path]
+              : []
+          ).filter((filePath): filePath is string => Boolean(filePath))
+        )
+      )
+      if (result.canceled || paths.length === 0) return
+
+      setPendingImageReads((prev) => prev + paths.length)
+      try {
+        const images = await Promise.all(
+          paths.map(async (filePath) => {
+            const attachment = await readImagePathAsAttachment(filePath)
+            if (!attachment) {
+              // Fall back to file reference when image read fails
+              addFiles([filePath])
+              return null
+            }
+            const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath
+            return { attachment, name }
+          })
+        )
+        const valid = images.filter(
+          (item): item is NonNullable<typeof item> => item !== null
+        )
+        if (valid.length > 0) {
+          setAttachments((prev) => [
+            ...prev,
+            ...valid.map(({ attachment, name }) => ({
+              type: 'image' as const,
+              id: attachment.id,
+              name,
+              dataUrl: attachment.dataUrl,
+              mediaType: attachment.mediaType
+            }))
+          ])
+        }
+      } finally {
+        setPendingImageReads((prev) => Math.max(0, prev - paths.length))
+      }
+    } catch (error) {
+      log.error('Failed to attach images:', error)
+      toast.error(t('input.attachMediaFailed'))
+    }
+  }, [addFiles, readImagePathAsAttachment, t])
 
   const handleSelectWorkspace = React.useCallback(async (): Promise<void> => {
     try {
@@ -705,10 +708,12 @@ export function InputArea({
   // ---- Toolbar controls ----
   const composerActionsControl = (
     <ComposerActionsMenu
-      onAttachMedia={() => void handleAttachMedia()}
+      onAttachFiles={() => void handleAttachFiles()}
+      onAttachImages={supportsVision ? () => void handleAttachImages() : undefined}
       disabled={disabled || isStreaming}
       triggerClassName="rounded-full"
       menuClassName="composer-flyout"
+      supportsVision={supportsVision}
       workingFolder={workingFolder}
       onSelectWorkspace={() => void handleSelectWorkspace()}
     />
@@ -765,7 +770,7 @@ export function InputArea({
           workingFolder={workingFolder}
           workspaceDisplayName={workspaceDisplayName}
           activeTaskId={activeTaskId ?? null}
-          onInsertFile={(filePath, isDirectory) => addFiles([filePath], isDirectory)}
+          onInsertFile={(filePath) => addFiles([filePath])}
         />
       )}
     </div>
@@ -842,7 +847,7 @@ export function InputArea({
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent/70 pointer-events-none">
               <span className="flex items-center gap-1.5 text-xs text-primary/70 font-medium">
                 <FileUp className="size-3.5" />
-                {supportsVision ? t('input.dropImages') : t('input.dropFiles')}
+                {t('input.dropFiles')}
               </span>
             </div>
           )}

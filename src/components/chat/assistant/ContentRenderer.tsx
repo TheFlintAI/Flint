@@ -5,9 +5,7 @@ import { ImageGenerationErrorCard } from '../ImageGenerationErrorCard'
 import { AgentErrorCard } from '../AgentErrorCard'
 import { ImagePreview } from '../ImagePreview'
 import type { ContentBlock, ToolResultContent } from '@/lib/api/types'
-import { toolRegistry } from '@/lib/agent/tool-registry'
 import { ToolPanel } from '../tool-panel/ToolPanel'
-import { ToolCard } from '../tool-panel/ToolCard'
 import type { ToolCallRenderState } from '../tool-panel/types'
 import { ThinkingChip, ProcessGroupPanel, type ProcessStep } from '../stream'
 import type { ToolCallState, ToolCallStatus } from '@/lib/agent/types'
@@ -119,7 +117,7 @@ type RenderUnit =
   | { kind: 'thinking'; text: string; isStreaming: boolean; startedAt?: number; completedAt?: number; key: string }
   | { kind: 'text'; text: string; isStreaming: boolean; key: string }
   | { kind: 'stage'; title: string; key: string }
-  | { kind: 'tool'; state: ToolCallRenderState; isCard: boolean; key: string }
+  | { kind: 'tool'; state: ToolCallRenderState; key: string }
   | { kind: 'media'; index: number; key: string }
 
 type GroupedUnit = RenderUnit | {
@@ -139,7 +137,7 @@ function isProcessUnit(
   unit: RenderUnit
 ): unit is Extract<RenderUnit, { kind: 'thinking' | 'tool' }> {
   if (unit.kind === 'thinking') return true
-  if (unit.kind === 'tool') return !unit.isCard
+  if (unit.kind === 'tool') return true
   return false
 }
 
@@ -324,14 +322,12 @@ function buildRenderUnits(
         break
       }
       case 'tool_use': {
-        const renderKind = toolRegistry.get(block.name)?.render?.kind
-        const isCard = renderKind === 'native-card'
         const state = buildToolCallRenderState(block, {
           isStreaming: opts.isStreaming,
           toolResults: opts.toolResults,
           liveToolCallMap: opts.effectiveLiveToolCallMap
         })
-        units.push({ kind: 'tool', state, isCard, key: isCard ? `card-${block.id}` : `call-${block.id}` })
+        units.push({ kind: 'tool', state, key: `call-${block.id}` })
         break
       }
       case 'image':
@@ -494,23 +490,7 @@ export function renderAssistantContent(props: AssistantContentRendererProps): Re
                 <StreamingMarkdownContent text={unit.text} isStreaming={unit.isStreaming} />
               </div>
             )
-          case 'tool': {
-            if (unit.isCard) {
-              return (
-                <ScaleIn key={unit.key} className={liveScaleInClassName}>
-                  <ToolCard
-                    toolUseId={unit.state.toolUseId}
-                    name={unit.state.name}
-                    input={unit.state.input}
-                    output={unit.state.output}
-                    status={unit.state.status}
-                    error={unit.state.error}
-                    startedAt={unit.state.startedAt}
-                    completedAt={unit.state.completedAt}
-                  />
-                </ScaleIn>
-              )
-            }
+          case 'tool':
             return (
               <ScaleIn key={unit.key} className={liveScaleInClassName}>
                 <ToolPanel
@@ -525,7 +505,6 @@ export function renderAssistantContent(props: AssistantContentRendererProps): Re
                 />
               </ScaleIn>
             )
-          }
           case 'media': {
             const block = normalizedContent[unit.index] as MediaBlock
             return renderMediaBlock(block, unit.key, liveScaleInClassName)

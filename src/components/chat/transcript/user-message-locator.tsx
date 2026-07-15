@@ -99,7 +99,7 @@ export function buildUserLocatorItem(
   messageCount: number,
   t: TFunction
 ): UserMessageLocatorItem | null {
-  if (source.source === 'team' || source.meta?.compactSummary) return null
+  if (source.source === 'team' || source.meta?.compression) return null
 
   const textPreview = truncateLocatorPreview(
     normalizeLocatorPreview(getUserMessageText(source.content))

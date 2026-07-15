@@ -130,6 +130,28 @@ const WHITELIST: RegExp[] = [
   /^test\b/,
   /^\[/,
   /^time\b/,
+  // ── Windows CMD read-only commands ──
+  /^findstr\b/i,
+  /^where\b/i,
+  /^fc\b/i,
+  /^comp\b/i,
+  /^ipconfig\b/i,
+  /^ping\b/i,
+  /^tracert\b/i,
+  /^pathping\b/i,
+  /^nslookup\b/i,
+  /^getmac\b/i,
+  /^systeminfo\b/i,
+  /^tasklist\b/i,
+  /^driverquery\b/i,
+  /^ver$/i,
+  /^vol\b/i,
+  /^gpresult\b/i,
+  /^openfiles\b/i,
+  /^cls$/i,
+  /^color\b/i,
+  /^title\b/i,
+  /^help\b/i,
 ]
 
 const BLACKLIST: RegExp[] = [
@@ -431,9 +453,22 @@ function buildLivePreviewPayload(
 // Render
 
 function bashHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName } = ctx
   const command = compactWhitespace(getStringInput(input, ['command', 'command_preview']))
   const description = getStringInput(input, ['description'])
+
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name="Bash" />}
+      title={command || displayName}
+      subtitle={command ? description || undefined : undefined}
+      titleAttr={command || displayName}
+    />
+  )
+}
+
+function bashBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, t } = ctx
   const stats = bashOutputStats(outputText)
 
   const badges: React.ReactNode[] = []
@@ -447,16 +482,7 @@ function bashHeader(ctx: ToolPanelContext): React.ReactNode {
   if (stats.lines !== null) {
     badges.push(<Badge key="lines" tone="blue">{t('toolCall.outputLineCount', { count: stats.lines })}</Badge>)
   }
-
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name="Bash" />}
-      title={command || displayName}
-      subtitle={command ? description || undefined : undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={command || displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function bashBody(ctx: ToolPanelContext): React.ReactNode {
@@ -664,7 +690,7 @@ const bashHandler: ToolHandler = {
       cleanup()
     }
   },
-  render: { kind: 'native-panel', renderHeader: bashHeader, renderBody: bashBody },
+  render: { kind: 'native-panel', renderHeader: bashHeader, renderBadges: bashBadges, renderBody: bashBody },
 }
 
 export function registerBashTools(): void {

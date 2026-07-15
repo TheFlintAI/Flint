@@ -579,3 +579,46 @@
     max-height: 40px;
   }
 }
+
+/* ── Ask User Card: flowing border glow ────────────────────────── */
+
+@keyframes ask-user-border-glow {
+  0%   { --ask-user-glow-angle: 0deg; }
+  100% { --ask-user-glow-angle: 360deg; }
+}
+
+@property --ask-user-glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ask-user-card {
+  position: relative;
+  isolation: isolate;
+  background: var(--card);
+}
+
+.ask-user-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--ask-user-glow-angle),
+    hsl(0 0% 22%) 0%,
+    hsl(0 0% 48%) 25%,
+    hsl(0 0% 22%) 50%,
+    hsl(0 0% 36%) 75%,
+    hsl(0 0% 22%) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ask-user-border-glow 4s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}

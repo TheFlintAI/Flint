@@ -18,7 +18,7 @@ export interface WorkerTaskInfo {
 }
 
 export interface MemoryEntryData {
-  summary: string
+  title: string
 }
 
 /** Structured memory data rendered by the memory section (presentation lives in the template). */

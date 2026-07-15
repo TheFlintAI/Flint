@@ -37,7 +37,7 @@ interface WorkspaceFilePopoverProps {
   workspaceDisplayName: string
   activeTaskId: string | null
   /** Called when a file is selected for insertion — the caller adds it as an attachment. */
-  onInsertFile?: (filePath: string, isDirectory: boolean) => void
+  onInsertFile?: (filePath: string) => void
 }
 
 export function WorkspaceFilePopover({
@@ -185,8 +185,8 @@ export function WorkspaceFilePopover({
 
   // ---- Insert file reference into composer ----
   const handleInsertFile = useCallback(
-    (filePath: string, isDirectory: boolean) => {
-      onInsertFile?.(filePath, isDirectory)
+    (filePath: string) => {
+      onInsertFile?.(filePath)
       setOpen(false)
     },
     [onInsertFile]
@@ -391,7 +391,7 @@ export function WorkspaceFilePopover({
                       className={cn(
                         'workspace-filetree-row workspace-filetree-row--interactive group flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left'
                       )}
-                      onClick={() => handleInsertFile(file.path, false)}
+                      onClick={() => handleInsertFile(file.path)}
                       title={file.path}
                     >
                       {fileIcon(file.name)}

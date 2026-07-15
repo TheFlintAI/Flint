@@ -121,3 +121,11 @@ pub(crate) struct FsEntry {
     pub(crate) size: u64,
     pub(crate) modified: Option<u64>,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct NotifyOptions {
+    pub(crate) title: String,
+    pub(crate) body: String,
+    pub(crate) task_id: String,
+}

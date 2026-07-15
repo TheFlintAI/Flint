@@ -188,6 +188,7 @@ export const waitTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: waitHeader,
+    renderBadges: waitBadges,
     renderBody: waitBody
   }
 }
@@ -322,6 +323,20 @@ function waitHeader(ctx: ToolPanelContext): React.ReactNode {
   if (parsed.kind === 'error') return errorLead(ctx, parsed.error)
   if (parsed.kind === 'empty') return streamingLead(ctx, ctx.displayName)
   const data = parsed.data
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name={ctx.name} />}
+      title={ctx.displayName}
+      subtitle={readString(data, 'message') || undefined}
+      titleAttr={ctx.displayName}
+    />
+  )
+}
+
+function waitBadges(ctx: ToolPanelContext): React.ReactNode {
+  const parsed = parseTeamOutput(ctx.outputText)
+  if (parsed.kind !== 'object') return null
+  const data = parsed.data
   const total = readNumber(data, 'total')
   const completed = readArray(data, 'completed')
   const stillRunning = readArray(data, 'still_running')
@@ -341,15 +356,7 @@ function waitHeader(ctx: ToolPanelContext): React.ReactNode {
       </Badge>
     )
   }
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name={ctx.name} />}
-      title={ctx.displayName}
-      subtitle={readString(data, 'message') || undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={ctx.displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function waitBody(ctx: ToolPanelContext): React.ReactNode {

@@ -62,7 +62,7 @@ impl MemorySystem {
                 .map(|e| MemoryIndexEntry {
                     id: e.id,
                     entry_type: e.entry_type,
-                    summary: e.summary,
+                    title: e.title,
                     updated_at: e.updated_at,
                 })
                 .collect(),
@@ -135,7 +135,6 @@ impl MemorySystem {
         }
 
         let now = storage::now_iso();
-        let summary = storage::extract_summary(&body);
 
         // Determine vector: use provided vector, or embed locally
         let vector: Option<Vec<f32>> = if let Some(ref v) = p.vector {
@@ -155,11 +154,27 @@ impl MemorySystem {
                 .get(existing_id)?
                 .ok_or_else(|| format!("Memory entry \"{}\" not found for update", existing_id))?;
 
-            let entry = merge_entry(existing, &p, body, summary, now);
+            let title = p
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(&existing.title)
+                .to_string();
+
+            let entry = merge_entry(existing, &p, title, body, now);
             self.store.update(&entry, vector.as_deref())?;
             Ok(entry)
         } else {
             // ── CREATE path ──────────────────────────────────────────
+            let title = p
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "title is required for new memory entries".to_string())?
+                .to_string();
+
             let et = p
                 .entry_type
                 .as_deref()
@@ -172,8 +187,8 @@ impl MemorySystem {
             let entry = MemoryEntry {
                 id,
                 entry_type: et,
+                title,
                 body,
-                summary,
                 created_at: now.clone(),
                 updated_at: now,
             };
@@ -241,8 +256,8 @@ impl MemorySystem {
 fn merge_entry(
     existing: MemoryEntry,
     p: &MemoryWriteParams,
+    title: String,
     body: String,
-    summary: String,
     now: String,
 ) -> MemoryEntry {
     MemoryEntry {
@@ -252,8 +267,8 @@ fn merge_entry(
             .as_deref()
             .and_then(storage::normalize_type)
             .unwrap_or(existing.entry_type),
+        title,
         body,
-        summary,
         created_at: existing.created_at,
         updated_at: now,
     }
@@ -269,8 +284,8 @@ mod tests {
         MemoryEntry {
             id: "pre_20240601_001".into(),
             entry_type: "preference".into(),
+            title: "Original body".into(),
             body: "Original body".into(),
-            summary: "Original body".into(),
             created_at: "2024-06-01T00:00:00Z".into(),
             updated_at: "2024-06-01T00:00:00Z".into(),
         }
@@ -280,6 +295,7 @@ mod tests {
         MemoryWriteParams {
             id: Some(id.into()),
             entry_type: None,
+            title: None,
             body: body.into(),
             vector: None,
         }
@@ -307,13 +323,14 @@ mod tests {
         let params = MemoryWriteParams {
             id: Some("pre_20240601_001".into()),
             entry_type: Some("decision".into()),
+            title: Some("New title".into()),
             body: "New body".into(),
             vector: None,
         };
-        let merged = merge_entry(existing, &params, "New body".into(), "New body".into(), "2024-06-02T00:00:00Z".into());
+        let merged = merge_entry(existing, &params, "New title".into(), "New body".into(), "2024-06-02T00:00:00Z".into());
         assert_eq!(merged.entry_type, "decision");
         assert_eq!(merged.body, "New body");
-        assert_eq!(merged.summary, "New body");
+        assert_eq!(merged.title, "New title");
         assert_eq!(merged.updated_at, "2024-06-02T00:00:00Z");
         assert_eq!(merged.created_at, "2024-06-01T00:00:00Z");
     }
@@ -324,10 +341,11 @@ mod tests {
         let params = MemoryWriteParams {
             id: Some("pre_20240601_001".into()),
             entry_type: Some("garbage".into()),
+            title: None,
             body: "New body".into(),
             vector: None,
         };
-        let merged = merge_entry(existing, &params, "New body".into(), "New body".into(), "2024-06-02T00:00:00Z".into());
+        let merged = merge_entry(existing, &params, "Original body".into(), "New body".into(), "2024-06-02T00:00:00Z".into());
         assert_eq!(merged.entry_type, "preference");
     }
 }

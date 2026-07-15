@@ -13,10 +13,9 @@ import { ToolLogRow } from './ToolLogRow'
 // a container for the items that arrived while it was the current step, not a
 // detached label.
 // `active` marks the stage the teammate is currently working in (the last
-// stage while the member is still running). It starts collapsed; the user can
-// manually expand it. It auto-collapses ~800ms after it settles if still open — so
-// a long run leaves a compact trail of stage labels instead of an ever-growing
-// wall of expanded sections.
+// stage while the member is still running). It auto-opens when streaming starts
+// and auto-collapses ~800ms after it settles — so a long run leaves a compact
+// trail of stage labels instead of an ever-growing wall of expanded sections.
 export const StageSection = memo(function StageSection({
   title,
   live,
@@ -33,6 +32,9 @@ export const StageSection = memo(function StageSection({
   const prevActiveRef = useRef(active)
 
   useEffect(() => {
+    if (!prevActiveRef.current && active) {
+      setOpen(true)
+    }
     if (prevActiveRef.current && !active && open) {
       const timer = setTimeout(() => setOpen(false), 800)
       prevActiveRef.current = active

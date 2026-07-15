@@ -53,6 +53,7 @@ export const teamDeleteTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: teamDeleteHeader,
+    renderBadges: teamDeleteBadges,
     renderBody: teamDeleteBody
   }
 }
@@ -91,17 +92,22 @@ function errorPre(error: string, ctx: ToolPanelContext): React.ReactNode {
 // ── TeamDelete render ──
 
 function teamDeleteHeader(ctx: ToolPanelContext): React.ReactNode {
-  const isLive = isToolLive(ctx.status)
   const parsed = parseTeamOutput(ctx.outputText)
   const teamName = parsed.kind === 'object' ? readString(parsed.data, 'team_name') : ''
   return (
     <ToolPanelLead
       icon={<ToolIcon name={ctx.name} />}
       title={teamName ? ctx.t('toolPanel.title.TeamDelete', { name: teamName }) : ctx.displayName}
-      badges={!isLive && parsed.kind === 'object' ? <Badge tone="red">{ctx.t('teamPanel.deleted')}</Badge> : null}
       titleAttr={teamName || ctx.displayName}
     />
   )
+}
+
+function teamDeleteBadges(ctx: ToolPanelContext): React.ReactNode {
+  if (isToolLive(ctx.status)) return null
+  const parsed = parseTeamOutput(ctx.outputText)
+  if (parsed.kind !== 'object') return null
+  return <Badge tone="red">{ctx.t('teamPanel.deleted')}</Badge>
 }
 
 function teamDeleteBody(ctx: ToolPanelContext): React.ReactNode {

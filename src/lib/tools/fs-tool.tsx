@@ -22,6 +22,7 @@ import { ReadOutputBlock } from '@/components/chat/tool-panel/ReadOutputBlock'
 import { LazySyntaxHighlighter } from '@/components/chat/LazySyntaxHighlighter'
 import { LSOutputBlock, parseLsEntries } from '@/components/chat/tool-panel/LsOutputBlock'
 import { detectLang } from '@/lib/utils/detect-lang'
+import { truncateContent } from '@/lib/utils/truncation'
 import { DiffFallback } from '@/components/ui/lazy-fallback'
 
 const CodeDiffViewer = React.lazy(() =>
@@ -170,7 +171,20 @@ async function assertCurrentFileMatchesLastRead(args: {
   return null
 }
 
-type ReadFileTextResult = { content: string } | { error: string }
+type ReadFileTextResult =
+  | { content: string; truncated?: boolean; totalLines?: number }
+  | { error: string }
+
+// Record type for the raw Rust response which may carry truncation metadata.
+interface ReadFileRawResponse {
+  content: string
+  path?: string
+  truncated?: boolean
+  totalLines?: number
+  notFound?: boolean
+  format?: string
+  totalPages?: number
+}
 
 // Single source of truth for parsing an fs:read-file response.
 // Returns the file text or a fail-fast error — never coerces the raw
@@ -188,14 +202,18 @@ async function readFileText(
   })
   if (isErrorResult(result)) return { error: `Read failed: ${result.error}` }
 
-  const obj = result as Record<string, unknown> | undefined
+  const obj = result as ReadFileRawResponse | undefined
   if (obj && obj.notFound === true) {
     return { error: `Read failed: file not found: ${resolvedPath}` }
   }
   if (!obj || typeof obj.content !== 'string') {
     return { error: 'Read failed: unexpected fs:read-file response' }
   }
-  return { content: obj.content }
+  return {
+    content: obj.content,
+    truncated: obj.truncated,
+    totalLines: obj.totalLines,
+  }
 }
 
 function applyExactReplacement(args: {
@@ -346,9 +364,23 @@ function readStringField(input: Record<string, unknown>, key: string, previewKey
 }
 
 function readHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, output, displayName, t } = ctx
+  const { input, output, displayName, t } = ctx
   const filePath = getStringInput(input, ['file_path', 'path'])
   const fileName = pathFileName(filePath)
+
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name="Read" />}
+      title={filePath ? t('toolPanel.title.Read', { file: fileName }) : displayName}
+      subtitle={filePath ? pathParent(filePath) || compactPath(filePath, 2) : undefined}
+      titleAttr={filePath || displayName}
+    />
+  )
+}
+
+function readBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { input, outputText, output, t } = ctx
+  const filePath = getStringInput(input, ['file_path', 'path'])
   const lines = getReadOutputLineCount(outputText)
   const range = lineRangeBadge(input, t)
 
@@ -356,16 +388,7 @@ function readHeader(ctx: ToolPanelContext): React.ReactNode {
   if (lines !== null) badges.push(<Badge key="lines" tone="blue">{t('toolCall.lineCount', { count: lines })}</Badge>)
   if (range) badges.push(<Badge key="range">{range}</Badge>)
   if (output && hasImageBlocks(output)) badges.push(<Badge key="img" tone="blue">{t('toolCall.imageFile')}</Badge>)
-
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name="Read" />}
-      title={filePath ? t('toolPanel.title.Read', { file: fileName }) : displayName}
-      subtitle={filePath ? pathParent(filePath) || compactPath(filePath, 2) : undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={filePath || displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function readBody(ctx: ToolPanelContext): React.ReactNode {
@@ -457,26 +480,29 @@ function deleteBody(ctx: ToolPanelContext): React.ReactNode {
 }
 
 function lsHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName, t } = ctx
   const path = getStringInput(input, ['path'])
   const compact = compactPath(path, 3)
-  const parsed = parseLsEntries(outputText)
-  const dirs = parsed?.filter((e: any) => e.type === 'directory').length ?? null
-  const files = parsed?.filter((e: any) => e.type === 'file').length ?? null
-
-  const badges: React.ReactNode[] = []
-  if (dirs !== null && files !== null) {
-    badges.push(<Badge key="count">{t('toolCall.foldersAndFiles', { folders: dirs, files })}</Badge>)
-  }
 
   return (
     <ToolPanelLead
       icon={<ToolIcon name="LS" />}
       title={path ? t('toolPanel.title.LS', { path: compact }) : displayName}
       subtitle={path && compact !== path ? path : undefined}
-      badges={badges.length ? <>{badges}</> : null}
       titleAttr={path || displayName}
     />
+  )
+}
+
+function lsBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, t } = ctx
+  const parsed = parseLsEntries(outputText)
+  const dirs = parsed?.filter((e: any) => e.type === 'directory').length ?? null
+  const files = parsed?.filter((e: any) => e.type === 'file').length ?? null
+
+  if (dirs === null || files === null) return null
+  return (
+    <Badge key="count">{t('toolCall.foldersAndFiles', { folders: dirs, files })}</Badge>
   )
 }
 
@@ -521,9 +547,14 @@ const readHandler: ToolHandler = {
     })
     if ('error' in result) throw new Error(result.error)
     await recordRead(ctx, resolvedPath)
-    return result.content
+
+    // Apply unified byte-level truncation with friendly notice.
+    // Even with offset/limit, the Rust side may truncate at MAX_OUTPUT_BYTES;
+    // this ensures the AI never receives more than MAX_CONTENT_BYTES.
+    const truncated = truncateContent(result.content)
+    return truncated.content
   },
-  render: { kind: 'native-panel', renderHeader: readHeader, renderBody: readBody, expandForImages: true },
+  render: { kind: 'native-panel', renderHeader: readHeader, renderBadges: readBadges, renderBody: readBody, expandForImages: true },
 }
 
 const writeHandler: ToolHandler = {
@@ -689,7 +720,7 @@ const lsHandler: ToolHandler = {
     })
     return encodeStructuredToolResult(formatLsResultForPrompt(result))
   },
-  render: { kind: 'native-panel', renderHeader: lsHeader, renderBody: lsBody },
+  render: { kind: 'native-panel', renderHeader: lsHeader, renderBadges: lsBadges, renderBody: lsBody },
 }
 
 const deleteHandler: ToolHandler = {

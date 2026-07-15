@@ -60,7 +60,12 @@ pub(crate) fn read_file(
     let content = decode_text(&bytes, path)?;
 
     if offset.is_none() && limit.is_none() {
-        return Ok(json!({ "content": content, "path": path }));
+        let (content, truncated, total_lines) = truncate_output(&content);
+        let mut result = json!({ "content": content, "path": path, "truncated": truncated });
+        if let Some(lines) = total_lines {
+            result["totalLines"] = json!(lines);
+        }
+        return Ok(result);
     }
 
     let lines: Vec<&str> = content.split_inclusive('\n').collect();
@@ -215,7 +220,14 @@ fn truncate_output(content: &str) -> (String, bool, Option<usize>) {
         return (content.to_string(), false, Some(total_lines));
     }
 
-    let truncated: String = content.chars().take(MAX_OUTPUT_BYTES).collect();
+    // Truncate to MAX_OUTPUT_BYTES bytes, respecting UTF-8 character boundaries.
+    // char_indices yields (byte_offset, char) pairs; we stop once byte_offset
+    // reaches or exceeds the limit.
+    let truncated: String = content
+        .char_indices()
+        .take_while(|(byte_offset, _)| *byte_offset < MAX_OUTPUT_BYTES)
+        .map(|(_, ch)| ch)
+        .collect();
     let truncated_lines = truncated.lines().count();
     (truncated, true, Some(truncated_lines))
 }

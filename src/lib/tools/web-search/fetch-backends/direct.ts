@@ -2,10 +2,10 @@ import Defuddle from 'defuddle'
 import type { ToolContext } from '../../tool-types'
 import { httpGet } from '../http'
 import { parseHtml } from '../html-utils'
+import { truncateContent } from '@/lib/utils/truncation'
 import {
   BROWSER_USER_AGENT,
   FETCH_TIMEOUT_MS,
-  MAX_FETCH_CONTENT_LENGTH,
   type FetchResult
 } from '../types'
 
@@ -34,7 +34,7 @@ export async function fetchDirect(url: string, ctx: ToolContext): Promise<FetchR
   if (contentType.includes('application/json')) {
     try {
       const parsed = JSON.parse(body)
-      const content = JSON.stringify(parsed, null, 2).slice(0, MAX_FETCH_CONTENT_LENGTH)
+      const content = truncateContent(JSON.stringify(parsed, null, 2)).content
       if (content.trim()) {
         return { content, contentType, statusCode: response.statusCode, engine: 'direct' }
       }
@@ -48,20 +48,18 @@ export async function fetchDirect(url: string, ctx: ToolContext): Promise<FetchR
     const doc = parseHtml(body)
     const result = new Defuddle(doc, { markdown: true, url }).parse()
     const title = result.title.trim()
-    const markdown = `${title ? `# ${title}\n\n` : ''}${result.content ?? ''}`.slice(
-      0,
-      MAX_FETCH_CONTENT_LENGTH
-    )
-    if (!markdown.trim()) throw new Error('empty content after extraction')
+    const markdown = `${title ? `# ${title}\n\n` : ''}${result.content ?? ''}`
+    const { content } = truncateContent(markdown)
+    if (!content.trim()) throw new Error('empty content after extraction')
     return {
-      content: markdown,
+      content,
       contentType: 'text/markdown',
       statusCode: response.statusCode,
       engine: 'direct'
     }
   }
 
-  const content = body.slice(0, MAX_FETCH_CONTENT_LENGTH)
+  const content = truncateContent(body).content
   if (!content.trim()) throw new Error('empty body')
   return { content, contentType, statusCode: response.statusCode, engine: 'direct' }
 }

@@ -2,6 +2,7 @@ type ReplayContentBlock = {
   type?: unknown
   id?: unknown
   toolUseId?: unknown
+  text?: string
 }
 
 type ReplayMessage<TBlock extends ReplayContentBlock> = {
@@ -101,12 +102,12 @@ function splitAssistantReplaySegments<TBlock extends ReplayContentBlock>(
   return segments
 }
 
-function appendContent<TBlock extends ReplayContentBlock>(
-  target: TBlock[],
-  content: string | TBlock[]
+function appendContent(
+  target: ReplayContentBlock[],
+  content: string | ReplayContentBlock[]
 ): void {
   if (typeof content === 'string') {
-    target.push({ type: 'text', text: content } as unknown as TBlock)
+    target.push({ type: 'text', text: content })
     return
   }
 

@@ -1,17 +1,8 @@
-﻿import * as React from 'react'
-import { useState, useCallback } from 'react'
+import * as React from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import Markdown from 'react-markdown'
-import {
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  ChevronLeft,
-  MessageSquare,
-  Sparkles,
-  PanelRight,
-  ListChecks
-} from 'lucide-react'
+import { Check, ChevronRight, ChevronLeft, MessageCircleQuestion } from 'lucide-react'
+import { RadioGroup as RadioGroupPrimitive } from 'radix-ui'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,24 +15,14 @@ import type {
   AskUserResolvedPayload,
   AskUserStructuredResult
 } from '@/lib/tools/ask-user-tool'
-import type { ToolCallStatus } from '@/lib/agent/types'
+import type { ToolPanelContext } from '@/lib/tools/tool-render-types'
 import type { ToolResultContent } from '@/lib/api/types'
 import {
   decodeStructuredToolResult,
   isStructuredToolErrorText
 } from '@/lib/tools/tool-result-format'
-import {
-  MARKDOWN_REHYPE_PLUGINS,
-  MARKDOWN_REMARK_PLUGINS
-} from '@/lib/utils/markdown-utils'
 
-interface AskUserQuestionCardProps {
-  toolUseId: string
-  input: Record<string, unknown>
-  output?: ToolResultContent
-  status: ToolCallStatus | 'completed'
-  isLive: boolean
-}
+// ── Types ──────────────────────────────────────────────────────────
 
 interface AnsweredPair {
   question: string
@@ -49,7 +30,11 @@ interface AnsweredPair {
   annotation?: AskUserAnnotation
 }
 
+// ── Constants ──────────────────────────────────────────────────────
+
 const RECOMMENDED_OPTION_RE = /\s*(?:\(|\[)?recommended(?:\)|\])?\s*/i
+
+// ── Helpers ────────────────────────────────────────────────────────
 
 function getOptionLabel(label: string | undefined | null): string {
   return typeof label === 'string' ? label : ''
@@ -97,18 +82,17 @@ function parseStructuredAnsweredResult(
     parsed.annotations &&
     typeof parsed.annotations === 'object' &&
     !Array.isArray(parsed.annotations)
-      ? Object.fromEntries(
-          Object.entries(parsed.annotations as Record<string, unknown>)
-            .map(([key, value]) => {
-              if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-              const record = value as Record<string, unknown>
-              const preview = typeof record.preview === 'string' ? record.preview : undefined
-              const notes = typeof record.notes === 'string' ? record.notes : undefined
-              if (!preview && !notes) return null
-              return [key, { ...(preview ? { preview } : {}), ...(notes ? { notes } : {}) }]
-            })
-            .filter((entry): entry is [string, AskUserAnnotation] => entry !== null)
-        )
+      ? (() => {
+          const result: Record<string, AskUserAnnotation> = {}
+          for (const [key, value] of Object.entries(parsed.annotations as Record<string, unknown>)) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+            const record = value as Record<string, unknown>
+            const notes = typeof record.notes === 'string' ? record.notes : undefined
+            if (!notes) continue
+            result[key] = { notes }
+          }
+          return Object.keys(result).length > 0 ? result : undefined
+        })()
       : undefined
 
   return {
@@ -137,265 +121,32 @@ function parseAnsweredPairs(output: ToolResultContent | undefined): {
     }))
     return { pairs, structured }
   }
-
-  return {
-    pairs: [],
-    structured: null
-  }
+  return { pairs: [], structured: null }
 }
 
-function isRedundantSummary(summary: string | undefined, pairs: AnsweredPair[]): boolean {
-  const normalized = summary?.trim()
-  if (!normalized) return true
-  if (pairs.length === 0) return false
-
-  return /^User has answered your questions(?::|\.)/i.test(normalized)
-}
-
-function PreviewPane({ preview }: { preview: string }): React.JSX.Element {
-  const { t } = useTranslation('chat')
-
-  return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <PanelRight className="size-3.5 text-muted-foreground" />
-        <div className="text-xs font-medium text-foreground">{t('askUser.previewTitle')}</div>
-        <Badge variant="outline" className="ml-auto text-[10px]">
-          Markdown
-        </Badge>
-      </div>
-      <div className="max-h-56 overflow-auto rounded-lg border border-border/60 bg-background px-3 py-2 text-foreground">
-        <div className="typeset typeset-sm">
-          <Markdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} rehypePlugins={MARKDOWN_REHYPE_PLUGINS}>
-            {preview}
-          </Markdown>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function QuestionBlock({
-  index,
-  item,
-  selected,
-  customText,
-  notes,
-  hoveredOption,
-  onToggle,
-  onCustomTextChange,
-  onNotesChange,
-  onHoverOption,
-  disabled
-}: {
-  index: number
-  item: AskUserQuestionItem
-  selected: Set<string>
+function questionHasAnswer(
+  question: AskUserQuestionItem | undefined,
+  selected: Set<string>,
   customText: string
-  notes: string
-  hoveredOption?: string | null
-  onToggle: (index: number, value: string) => void
-  onCustomTextChange: (index: number, text: string) => void
-  onNotesChange: (index: number, text: string) => void
-  onHoverOption: (index: number, value: string | null) => void
-  disabled: boolean
-}): React.JSX.Element {
-  const { t } = useTranslation('chat')
-  const isOtherSelected = selected.has('__other__')
-  const selectedLabels = [...selected].filter((value) => value !== '__other__')
-  const selectedOption =
-    !item.multiSelect && selectedLabels.length === 1
-      ? item.options?.find((option) => option.label === selectedLabels[0])
-      : undefined
-  const hoveredPreviewOption =
-    !item.multiSelect && hoveredOption
-      ? item.options?.find((option) => option.label === hoveredOption)
-      : undefined
-  const selectedPreview = hoveredPreviewOption?.preview ?? selectedOption?.preview
-  const showNotes = !!item.options?.length && selectedLabels.length > 0 && !isOtherSelected
-
-  return (
-    <div
-      className={cn(
-        'grid gap-3',
-        selectedPreview && 'lg:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]'
-      )}
-    >
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          {item.header && (
-            <Badge variant="default" className="px-2 py-0.5 text-[10px] font-medium">
-              {item.header}
-            </Badge>
-          )}
-          <p className="text-[13px] font-semibold leading-tight text-foreground">{item.question}</p>
-        </div>
-
-        {item.options && item.options.length > 0 && (
-          <div className="space-y-1.5">
-            {item.options.map((opt, oi) => {
-              const value = getOptionLabel(opt.label)
-              if (!value) return null
-
-              const isSelected = selected.has(value)
-              const isRecommended = isRecommendedOptionLabel(value)
-              return (
-                <button
-                  key={oi}
-                  disabled={disabled}
-                  onClick={() => onToggle(index, value)}
-                  onMouseEnter={() => onHoverOption(index, value)}
-                  onFocus={() => onHoverOption(index, value)}
-                  onMouseLeave={() => onHoverOption(index, null)}
-                  onBlur={() => onHoverOption(index, null)}
-                  className={cn(
-                    'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13px] leading-tight transition-all',
-                    isSelected
-                      ? 'border-foreground/20 bg-accent/50 text-foreground shadow-sm'
-                      : 'border-border/80 bg-background/80 hover:border-foreground/20 hover:bg-muted/40 hover:shadow-sm',
-                    disabled && 'cursor-not-allowed opacity-50'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'mt-0.5 flex size-4 shrink-0 items-center justify-center border transition-all',
-                      item.multiSelect ? 'rounded-md' : 'rounded-full',
-                      isSelected
-                        ? 'scale-105 border-primary bg-primary text-primary-foreground'
-                        : 'border-muted-foreground/40 bg-background'
-                    )}
-                  >
-                    {isSelected && <Check className="size-3 stroke-[2.5]" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <div
-                        className={cn(
-                          'font-medium transition-colors',
-                          isSelected ? 'text-foreground' : 'text-muted-foreground'
-                        )}
-                      >
-                        {stripRecommendedMarker(opt.label)}
-                      </div>
-                      {isRecommended && (
-                        <Badge
-                          variant="outline"
-                          className="border-muted-foreground/30 text-[10px] text-muted-foreground"
-                        >
-                          <Sparkles className="size-3" />
-                          {t('askUser.recommended')}
-                        </Badge>
-                      )}
-                      {opt.preview && !item.multiSelect && (
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                          <PanelRight className="size-3" />
-                          {t('askUser.previewBadge')}
-                        </Badge>
-                      )}
-                    </div>
-                    {opt.description && (
-                      <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
-                        {opt.description}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-            <button
-              disabled={disabled}
-              onClick={() => onToggle(index, '__other__')}
-              className={cn(
-                'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13px] leading-tight transition-all',
-                isOtherSelected
-                  ? 'border-foreground/20 bg-accent/50 text-foreground shadow-sm'
-                  : 'border-border/80 bg-background/80 hover:border-foreground/20 hover:bg-muted/40 hover:shadow-sm',
-                disabled && 'cursor-not-allowed opacity-50'
-              )}
-            >
-              <span
-                className={cn(
-                  'mt-0.5 flex size-4 shrink-0 items-center justify-center border transition-all',
-                  item.multiSelect ? 'rounded-md' : 'rounded-full',
-                  isOtherSelected
-                    ? 'scale-105 border-primary bg-primary text-primary-foreground'
-                    : 'border-muted-foreground/40 bg-background'
-                )}
-              >
-                {isOtherSelected && <Check className="size-3 stroke-[2.5]" />}
-              </span>
-              <span
-                className={cn(
-                  'font-medium transition-colors',
-                  isOtherSelected ? 'text-foreground' : 'text-muted-foreground'
-                )}
-              >
-                {t('askUser.other')}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {(!item.options || item.options.length === 0 || isOtherSelected) && (
-          <Textarea
-            disabled={disabled}
-            value={customText}
-            onChange={(e) => onCustomTextChange(index, e.target.value)}
-            placeholder={t('askUser.answerPlaceholder')}
-            rows={3}
-            className={cn(
-              'min-h-[84px] rounded-md border bg-background/70 text-sm shadow-none',
-              'placeholder:text-muted-foreground/50',
-              'focus-visible:ring-1 focus-visible:ring-ring/20',
-              disabled && 'cursor-not-allowed bg-muted/20 opacity-50'
-            )}
-          />
-        )}
-
-        {showNotes && (
-          <div className="space-y-1.5 rounded-lg border border-dashed border-border/70 bg-muted/10 p-3">
-            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-              <ListChecks className="size-3.5" />
-              {t('askUser.notesTitle')}
-            </div>
-            <Textarea
-              disabled={disabled}
-              value={notes}
-              onChange={(e) => onNotesChange(index, e.target.value)}
-              placeholder={t('askUser.notesPlaceholder')}
-              rows={3}
-              className={cn(
-                'min-h-[76px] rounded-md border bg-background/80 text-sm shadow-none',
-                'placeholder:text-muted-foreground/50',
-                'focus-visible:ring-1 focus-visible:ring-ring/20',
-                disabled && 'cursor-not-allowed bg-muted/20 opacity-50'
-              )}
-            />
-          </div>
-        )}
-      </div>
-
-      {selectedPreview && <PreviewPane preview={selectedPreview} />}
-    </div>
-  )
+): boolean {
+  if (!question) return false
+  const pickedCount = [...selected].filter((value) => value !== '__other__').length
+  if (pickedCount > 0) return true
+  if (selected.has('__other__') && customText.trim()) return true
+  return (!question.options || question.options.length === 0) && !!customText.trim()
 }
 
 function buildSubmissionPayload(
   questions: AskUserQuestionItem[],
   selections: Map<number, Set<string>>,
-  customTexts: Map<number, string>,
-  notesByQuestion: Map<number, string>
+  customTexts: Map<number, string>
 ): AskUserResolvedPayload {
   const answers: AskUserAnswers = {}
-  const annotations: Record<string, AskUserAnnotation> = {}
-
   for (let i = 0; i < questions.length; i += 1) {
     const sel = selections.get(i) ?? new Set()
     const custom = customTexts.get(i) ?? ''
-    const notes = notesByQuestion.get(i)?.trim() ?? ''
     const q = questions[i]
     const picked = [...sel].filter((value) => value !== '__other__')
-
     if (sel.has('__other__') || !q.options || q.options.length === 0) {
       if (custom.trim()) {
         answers[String(i)] = q.multiSelect ? [...picked, custom.trim()] : custom.trim()
@@ -405,90 +156,330 @@ function buildSubmissionPayload(
     } else if (picked.length > 0) {
       answers[String(i)] = q.multiSelect ? picked : picked[0]
     }
-
-    if (!q.multiSelect && picked.length === 1) {
-      const option = q.options?.find((candidate) => candidate.label === picked[0])
-      if (option?.preview || notes) {
-        annotations[String(i)] = {
-          ...(option?.preview ? { preview: option.preview } : {}),
-          ...(notes ? { notes } : {})
-        }
-      }
-    } else if (notes) {
-      annotations[String(i)] = { notes }
-    }
   }
-
-  return {
-    answers,
-    ...(Object.keys(annotations).length > 0 ? { annotations } : {})
-  }
+  return { answers }
 }
 
-function questionHasAnswer(
-  question: AskUserQuestionItem | undefined,
-  selected: Set<string>,
+// ── Sub-components ─────────────────────────────────────────────────
+
+function StepIndicator({
+  questions,
+  currentIndex,
+  selections,
+  customTexts,
+  onSelect
+}: {
+  questions: AskUserQuestionItem[]
+  currentIndex: number
+  selections: Map<number, Set<string>>
+  customTexts: Map<number, string>
+  onSelect: (index: number) => void
+}): React.JSX.Element | null {
+  if (questions.length <= 1) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {questions.map((q, i) => {
+        const isActive = i === currentIndex
+        const isDone = questionHasAnswer(q, selections.get(i) ?? new Set(), customTexts.get(i) ?? '')
+        return (
+          <React.Fragment key={`${q.header ?? q.question}-${i}`}>
+            {i > 0 && <ChevronRight className="size-3 shrink-0 text-muted-foreground/30" />}
+            <button
+              type="button"
+              onClick={() => onSelect(i)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors',
+                isActive && 'bg-primary text-primary-foreground',
+                isDone && !isActive && 'bg-secondary text-secondary-foreground',
+                !isDone && !isActive && 'bg-transparent text-muted-foreground/50 ring-1 ring-inset ring-border/50'
+              )}
+            >
+              {isDone && <Check className="size-3" />}
+              {q.header ?? i + 1}
+            </button>
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
+function RadioOption({
+  value,
+  label,
+  description,
+  isRecommended
+}: {
+  value: string
+  label: string
+  description?: string
+  isRecommended?: boolean
+}): React.JSX.Element {
+  const id = React.useId()
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        'group flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors',
+        'hover:bg-accent/40',
+        'has-[[data-state=checked]]:bg-accent/30 has-[[data-state=checked]]:ring-1 has-[[data-state=checked]]:ring-border/60'
+      )}
+    >
+      <RadioGroupPrimitive.Item
+        id={id}
+        value={value}
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-full border transition-all',
+          'border-muted-foreground/30 bg-transparent',
+          'hover:border-primary/60',
+          'data-[state=checked]:border-primary data-[state=checked]:bg-primary',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
+        )}
+      >
+        <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
+          <div className="size-1.5 rounded-full bg-primary-foreground" />
+        </RadioGroupPrimitive.Indicator>
+      </RadioGroupPrimitive.Item>
+      <div className="min-w-0 flex-1">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {isRecommended && (
+          <span className="ml-1.5 text-[11px] text-muted-foreground/50">(Recommended)</span>
+        )}
+        {description && (
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground/60">{description}</p>
+        )}
+      </div>
+    </label>
+  )
+}
+
+function CheckOption({
+  checked,
+  label,
+  description,
+  isRecommended,
+  onChange
+}: {
+  checked: boolean
+  label: string
+  description?: string
+  isRecommended?: boolean
+  onChange: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+        checked ? 'bg-accent/30 ring-1 ring-border/60' : 'hover:bg-accent/40'
+      )}
+    >
+      <span
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-sm border transition-all',
+          checked
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-muted-foreground/30 bg-transparent'
+        )}
+      >
+        {checked && <Check className="size-3 stroke-[2.5]" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {isRecommended && (
+          <span className="ml-1.5 text-[11px] text-muted-foreground/50">(Recommended)</span>
+        )}
+        {description && (
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground/60">{description}</p>
+        )}
+      </div>
+    </button>
+  )
+}
+
+function QuestionBody({
+  index,
+  item,
+  selected,
+  customText,
+  onToggle,
+  onCustomTextChange,
+  onSetSingleSelect,
+  disabled
+}: {
+  index: number
+  item: AskUserQuestionItem
+  selected: Set<string>
   customText: string
-): boolean {
-  if (!question) return false
+  onToggle: (index: number, value: string) => void
+  onCustomTextChange: (index: number, text: string) => void
+  onSetSingleSelect: (index: number, value: string) => void
+  disabled: boolean
+}): React.JSX.Element {
+  const { t } = useTranslation('chat')
+  const isOtherSelected = selected.has('__other__')
+  const isMulti = item.multiSelect === true
+  const options = item.options ?? []
 
-  const pickedCount = [...selected].filter((value) => value !== '__other__').length
-  if (pickedCount > 0) return true
-  if (selected.has('__other__') && customText.trim()) return true
-  return (!question.options || question.options.length === 0) && !!customText.trim()
+  const radioValue = React.useMemo(() => {
+    if (isMulti) return undefined
+    if (isOtherSelected) return '__other__'
+    const picked = [...selected].filter((v) => v !== '__other__')
+    return picked[0] ?? ''
+  }, [isMulti, isOtherSelected, selected])
+
+  const handleRadioChange = useCallback(
+    (value: string) => onSetSingleSelect(index, value),
+    [index, onSetSingleSelect]
+  )
+
+  const hasOptions = options.length > 0
+
+  return (
+    <div className="space-y-2.5">
+      <p className="text-sm font-medium leading-snug text-foreground">{item.question}</p>
+
+      {hasOptions && (
+        <div className="space-y-0.5">
+          {isMulti ? (
+            options.map((opt, oi) => {
+              const value = getOptionLabel(opt.label)
+              if (!value) return null
+              return (
+                <CheckOption
+                  key={oi}
+                  checked={selected.has(value)}
+                  label={stripRecommendedMarker(opt.label)}
+                  description={opt.description}
+                  isRecommended={isRecommendedOptionLabel(value)}
+                  onChange={() => onToggle(index, value)}
+                />
+              )
+            })
+          ) : (
+            <RadioGroupPrimitive.Root
+              value={radioValue}
+              onValueChange={handleRadioChange}
+              className="space-y-0.5"
+            >
+              {options.map((opt, oi) => {
+                const value = getOptionLabel(opt.label)
+                if (!value) return null
+                return (
+                  <RadioOption
+                    key={oi}
+                    value={value}
+                    label={stripRecommendedMarker(opt.label)}
+                    description={opt.description}
+                    isRecommended={isRecommendedOptionLabel(value)}
+                  />
+                )
+              })}
+            </RadioGroupPrimitive.Root>
+          )}
+
+          {/* "Other" option */}
+          <div className={cn(
+            'rounded-lg px-3 py-2 transition-colors',
+            isOtherSelected ? 'bg-accent/30 ring-1 ring-border/60' : 'hover:bg-accent/40'
+          )}>
+            <div className="flex items-center gap-3">
+              {isMulti ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onToggle(index, '__other__')}
+                  className={cn(
+                    'flex size-4 shrink-0 items-center justify-center rounded-sm border transition-all',
+                    isOtherSelected
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-muted-foreground/30 bg-transparent',
+                    disabled && 'cursor-not-allowed opacity-50'
+                  )}
+                >
+                  {isOtherSelected && <Check className="size-3 stroke-[2.5]" />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (isOtherSelected) onSetSingleSelect(index, '')
+                    else handleRadioChange('__other__')
+                  }}
+                  className={cn(
+                    'flex size-4 shrink-0 items-center justify-center rounded-full border transition-all',
+                    isOtherSelected
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground/30 bg-transparent',
+                    disabled && 'cursor-not-allowed opacity-50'
+                  )}
+                >
+                  {isOtherSelected && <div className="size-1.5 rounded-full bg-primary-foreground" />}
+                </button>
+              )}
+              <span className="text-sm font-medium text-foreground">{t('askUser.other')}</span>
+            </div>
+
+            {isOtherSelected && (
+              <Textarea
+                disabled={disabled}
+                value={customText}
+                onChange={(e) => onCustomTextChange(index, e.target.value)}
+                placeholder={t('askUser.answerPlaceholder')}
+                rows={3}
+                className={cn(
+                  'mt-2 min-h-[72px] rounded-md border bg-background/60 text-sm shadow-none',
+                  'placeholder:text-muted-foreground/40',
+                  'focus-visible:ring-1 focus-visible:ring-ring/20',
+                  disabled && 'cursor-not-allowed opacity-50'
+                )}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {!hasOptions && (
+        <Textarea
+          disabled={disabled}
+          value={customText}
+          onChange={(e) => onCustomTextChange(index, e.target.value)}
+          placeholder={t('askUser.answerPlaceholder')}
+          rows={3}
+          className={cn(
+            'min-h-[72px] rounded-md border bg-background/60 text-sm shadow-none',
+            'placeholder:text-muted-foreground/40',
+            'focus-visible:ring-1 focus-visible:ring-ring/20',
+            disabled && 'cursor-not-allowed opacity-50'
+          )}
+        />
+      )}
+    </div>
+  )
 }
 
-export function AskUserQuestionCard({
-  toolUseId,
-  input,
-  output,
-  status,
-  isLive
-}: AskUserQuestionCardProps): React.JSX.Element {
+// ── Pending (active form) ──────────────────────────────────────────
+
+function PendingContent({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const questions = React.useMemo(() => coerceAskUserQuestions(input.questions), [input.questions])
-  const parsedAnswers = React.useMemo(() => parseAnsweredPairs(output), [output])
-  const answeredPairs = parsedAnswers.pairs
-  const answeredStructured = parsedAnswers.structured
-  const answeredText = React.useMemo(() => outputAsText(output), [output])
-  const outputErrorMessage = React.useMemo(() => {
-    const text = outputAsText(output)
-    if (!text || !isStructuredToolErrorText(text)) return null
-    const parsed = decodeStructuredToolResult(text)
-    if (!parsed || Array.isArray(parsed) || typeof parsed.error !== 'string') return null
-    return parsed.error
-  }, [output])
-  const isError = status === 'error' || !!outputErrorMessage
-  const isCanceled = status === 'canceled'
-  const isAnswered = status === 'completed' && answeredPairs.length > 0
-  const isPending = !isAnswered && !isError && !isCanceled && (status === 'running' || isLive)
-  const isCompletedWithoutAnswers =
-    status === 'completed' && !isAnswered && !isError && !isCanceled && !!answeredText
+  const questions = useMemo(() => coerceAskUserQuestions(ctx.input.questions), [ctx.input.questions])
+  const toolUseId = ctx.toolUseId ?? ''
 
   const [selections, setSelections] = useState<Map<number, Set<string>>>(() => new Map())
   const [customTexts, setCustomTexts] = useState<Map<number, string>>(() => new Map())
-  const [notesByQuestion, setNotesByQuestion] = useState<Map<number, string>>(() => new Map())
-  const [hoveredOptions, setHoveredOptions] = useState<Map<number, string | null>>(() => new Map())
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setSelections(new Map())
     setCustomTexts(new Map())
-    setNotesByQuestion(new Map())
-    setHoveredOptions(new Map())
     setCurrentQuestionIndex(0)
   }, [toolUseId])
 
   const handleToggle = useCallback(
     (qIdx: number, value: string) => {
-      if (value === '__other__') {
-        setHoveredOptions((prev) => {
-          const next = new Map(prev)
-          next.delete(qIdx)
-          return next
-        })
-      }
-
       setSelections((prev) => {
         const next = new Map(prev)
         const current = new Set(next.get(qIdx) ?? [])
@@ -503,9 +494,7 @@ export function AskUserQuestionCard({
         } else if (current.has(value)) {
           current.delete(value)
         } else {
-          if (!q?.multiSelect) {
-            current.clear()
-          }
+          if (!q?.multiSelect) current.clear()
           current.add(value)
           if (!q?.multiSelect) current.delete('__other__')
         }
@@ -516,6 +505,19 @@ export function AskUserQuestionCard({
     [questions]
   )
 
+  const handleSetSingleSelect = useCallback(
+    (qIdx: number, value: string) => {
+      setSelections((prev) => {
+        const next = new Map(prev)
+        const current = new Set<string>()
+        if (value && value !== '') current.add(value)
+        next.set(qIdx, current)
+        return next
+      })
+    },
+    []
+  )
+
   const handleCustomTextChange = useCallback((qIdx: number, text: string) => {
     setCustomTexts((prev) => {
       const next = new Map(prev)
@@ -524,40 +526,17 @@ export function AskUserQuestionCard({
     })
   }, [])
 
-  const handleNotesChange = useCallback((qIdx: number, text: string) => {
-    setNotesByQuestion((prev) => {
-      const next = new Map(prev)
-      next.set(qIdx, text)
-      return next
-    })
-  }, [])
-
-  const handleHoverOption = useCallback((qIdx: number, value: string | null) => {
-    setHoveredOptions((prev) => {
-      const next = new Map(prev)
-      if (value === null) {
-        next.delete(qIdx)
-      } else {
-        next.set(qIdx, value)
-      }
-      return next
-    })
-  }, [])
-
   const handleSubmit = useCallback(() => {
-    resolveAskUserAnswers(
-      toolUseId,
-      buildSubmissionPayload(questions, selections, customTexts, notesByQuestion)
-    )
-  }, [toolUseId, questions, selections, customTexts, notesByQuestion])
+    resolveAskUserAnswers(toolUseId, buildSubmissionPayload(questions, selections, customTexts))
+  }, [toolUseId, questions, selections, customTexts])
 
-  const hasCurrentAnswer = React.useMemo(() => {
+  const hasCurrentAnswer = useMemo(() => {
     const sel = selections.get(currentQuestionIndex) ?? new Set()
     const custom = customTexts.get(currentQuestionIndex) ?? ''
     return questionHasAnswer(questions[currentQuestionIndex], sel, custom)
   }, [currentQuestionIndex, questions, selections, customTexts])
 
-  const hasAllAnswers = React.useMemo(() => {
+  const hasAllAnswers = useMemo(() => {
     for (let i = 0; i < questions.length; i += 1) {
       const sel = selections.get(i) ?? new Set()
       const custom = customTexts.get(i) ?? ''
@@ -569,9 +548,7 @@ export function AskUserQuestionCard({
   const isLastQuestion = currentQuestionIndex === questions.length - 1
   const isFirstQuestion = currentQuestionIndex === 0
 
-  React.useEffect(() => {
-    if (!isPending) return
-
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.isComposing) return
       const target = event.target
@@ -580,321 +557,189 @@ export function AskUserQuestionCard({
         const editable = target.getAttribute('contenteditable')
         if (tagName === 'textarea' || tagName === 'input' || editable === 'true') return
       }
-
       if (event.key === 'ArrowLeft' && questions.length > 1 && !isFirstQuestion) {
         event.preventDefault()
         setCurrentQuestionIndex((value) => Math.max(0, value - 1))
-        return
-      }
-
-      if (
-        event.key === 'ArrowRight' &&
-        questions.length > 1 &&
-        !isLastQuestion &&
-        hasCurrentAnswer
-      ) {
+      } else if (event.key === 'ArrowRight' && questions.length > 1 && !isLastQuestion && hasCurrentAnswer) {
         event.preventDefault()
         setCurrentQuestionIndex((value) => Math.min(questions.length - 1, value + 1))
-        return
-      }
-
-      if (event.key === 'Enter' && !event.shiftKey && isLastQuestion && hasAllAnswers) {
+      } else if (event.key === 'Enter' && !event.shiftKey && isLastQuestion && hasAllAnswers) {
         event.preventDefault()
         handleSubmit()
       }
     }
-
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [
-    handleSubmit,
-    hasAllAnswers,
-    hasCurrentAnswer,
-    isFirstQuestion,
-    isLastQuestion,
-    isPending,
-    questions.length
-  ])
-
-  const handleNext = useCallback(() => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1)
-    }
-  }, [currentQuestionIndex, questions.length])
-
-  const handlePrevious = useCallback(() => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1)
-    }
-  }, [currentQuestionIndex])
-
-  if (isError || isCanceled) {
-    const title = isCanceled ? t('askUser.canceledTitle') : t('askUser.errorTitle')
-    const subtitle = isCanceled ? t('askUser.canceledSubtitle') : t('askUser.errorSubtitle')
-
-    return (
-      <div
-        className={cn(
-          'my-2.5 rounded-lg p-4 shadow-sm',
-          isCanceled
-            ? 'border border-border/70 bg-muted/20'
-            : 'border border-destructive/40 bg-destructive/5'
-        )}
-      >
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span
-            className={cn(
-              'flex size-7 items-center justify-center rounded-full border',
-              isCanceled
-                ? 'border-border/60 bg-background/70'
-                : 'border-destructive/30 bg-destructive/10'
-            )}
-          >
-            <MessageSquare
-              className={cn('size-3.5', isCanceled ? 'text-muted-foreground' : 'text-destructive')}
-            />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div>{title}</div>
-            <div className="text-[11px] text-muted-foreground">{subtitle}</div>
-          </div>
-        </div>
-
-        {(outputErrorMessage ?? answeredText) && (
-          <div
-            className={cn(
-              'mt-3 rounded-lg border px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap',
-              isCanceled
-                ? 'border-border/60 bg-background/60 text-muted-foreground'
-                : 'border-destructive/30 bg-background/60 text-muted-foreground'
-            )}
-          >
-            {outputErrorMessage ?? answeredText}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (isAnswered) {
-    return (
-      <div className="my-2.5 rounded-lg border border-border/70 bg-background/70 p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span className="flex size-7 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-            <CheckCircle2 className="size-3.5 text-muted-foreground" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{t('askUser.answeredTitle')}</span>
-              {answeredStructured?.autoAnswered && (
-                <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  <Sparkles className="size-3" />
-                  {t('askUser.autoAnswered')}
-                </Badge>
-              )}
-              {answeredStructured?.source && (
-                <Badge variant="default" className="text-[10px]">
-                  {t('askUser.sourceLabel')}: {answeredStructured.source}
-                </Badge>
-              )}
-            </div>
-            <div className="text-[11px] text-muted-foreground">{t('askUser.answeredSubtitle')}</div>
-          </div>
-        </div>
-
-        {answeredStructured?.summary &&
-          !isRedundantSummary(answeredStructured.summary, answeredPairs) && (
-            <div className="mt-3 rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
-              {answeredStructured.summary}
-            </div>
-          )}
-
-        <div className="mt-3 space-y-2.5">
-          {answeredPairs.map((pair, index) => (
-            <div
-              key={`${pair.question}-${index}`}
-              className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
-            >
-              <div className="flex items-start gap-2 text-xs leading-5">
-                <span className="mt-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  Q
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-foreground/90">{pair.question}</div>
-                </div>
-              </div>
-              <div className="mt-1.5 flex items-start gap-2 text-xs leading-5">
-                <span className="mt-0.5 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  A
-                </span>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="whitespace-pre-wrap break-words text-muted-foreground">
-                    {pair.answer}
-                  </div>
-                  {pair.annotation?.notes && (
-                    <div className="rounded-lg border border-border/50 bg-background/70 px-2.5 py-2 text-[11px] text-muted-foreground">
-                      <div className="mb-1 font-medium text-foreground/80">
-                        {t('askUser.notesTitle')}
-                      </div>
-                      <div className="whitespace-pre-wrap break-words">{pair.annotation.notes}</div>
-                    </div>
-                  )}
-                  {pair.annotation?.preview && (
-                    <div className="rounded-lg border border-border/50 bg-background/70 p-2.5">
-                      <PreviewPane preview={pair.annotation.preview} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (isCompletedWithoutAnswers) {
-    return (
-      <div className="my-2.5 rounded-lg border border-border/70 bg-background/70 p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span className="flex size-7 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-            <MessageSquare className="size-3.5 text-muted-foreground" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div>{t('askUser.completedTitle')}</div>
-            <div className="text-[11px] text-muted-foreground">
-              {t('askUser.completedSubtitle')}
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-          {answeredText}
-        </div>
-      </div>
-    )
-  }
+  }, [handleSubmit, hasAllAnswers, hasCurrentAnswer, isFirstQuestion, isLastQuestion, questions.length])
 
   const currentQuestion = questions[currentQuestionIndex]
   if (!currentQuestion) return <></>
 
   return (
-    <div className="my-2.5 rounded-lg border border-border/70 bg-background/70 p-4 shadow-sm">
-      <div className="flex items-center gap-2">
-        <span className="flex size-7 items-center justify-center rounded-full border border-border/60 bg-muted/40">
-          <MessageSquare className="size-3.5 text-primary" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-foreground">{t('askUser.title')}</div>
-          <div className="text-[11px] text-muted-foreground">{t('askUser.subtitle')}</div>
-        </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
-          {questions.length > 1 && (
-            <span className="font-mono text-xs">
-              {currentQuestionIndex + 1}/{questions.length}
-            </span>
-          )}
-          {isPending && (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-              <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-              {t('askUser.waiting')}
-            </span>
-          )}
-        </div>
-      </div>
-
+    <>
+      {/* Step indicator */}
       {questions.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {questions.map((question, index) => {
-            const isActive = index === currentQuestionIndex
-            const isDone = (() => {
-              const sel = selections.get(index) ?? new Set()
-              const custom = customTexts.get(index) ?? ''
-              return questionHasAnswer(question, sel, custom)
-            })()
-
-            return (
-              <button
-                key={`${question.header ?? question.question}-${index}`}
-                type="button"
-                onClick={() => setCurrentQuestionIndex(index)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors',
-                  isActive
-                    ? 'border-foreground/20 bg-accent text-foreground'
-                    : isDone
-                      ? 'border-border/70 bg-muted/30 text-foreground'
-                      : 'border-border/70 bg-background/60 text-muted-foreground hover:bg-muted/30'
-                )}
-              >
-                {isDone ? (
-                  <Check className="size-3" />
-                ) : (
-                  <span className="size-3 rounded-full border" />
-                )}
-                <span>{question.header || `${index + 1}`}</span>
-              </button>
-            )
-          })}
+        <div className="mb-4">
+          <StepIndicator
+            questions={questions}
+            currentIndex={currentQuestionIndex}
+            selections={selections}
+            customTexts={customTexts}
+            onSelect={setCurrentQuestionIndex}
+          />
         </div>
       )}
 
-      <div className="mt-3">
-        <QuestionBlock
-          index={currentQuestionIndex}
-          item={currentQuestion}
-          selected={selections.get(currentQuestionIndex) ?? new Set()}
-          customText={customTexts.get(currentQuestionIndex) ?? ''}
-          notes={notesByQuestion.get(currentQuestionIndex) ?? ''}
-          hoveredOption={hoveredOptions.get(currentQuestionIndex) ?? null}
-          onToggle={handleToggle}
-          onCustomTextChange={handleCustomTextChange}
-          onNotesChange={handleNotesChange}
-          onHoverOption={handleHoverOption}
-          disabled={!isPending}
-        />
-      </div>
+      {/* Question body */}
+      <QuestionBody
+        index={currentQuestionIndex}
+        item={currentQuestion}
+        selected={selections.get(currentQuestionIndex) ?? new Set()}
+        customText={customTexts.get(currentQuestionIndex) ?? ''}
+        onToggle={handleToggle}
+        onCustomTextChange={handleCustomTextChange}
+        onSetSingleSelect={handleSetSingleSelect}
+        disabled={false}
+      />
 
-      {isPending && (
-        <div className="mt-3 flex items-center gap-1.5 border-t border-border/50 pt-3">
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-between">
+        <div>
           {questions.length > 1 && !isFirstQuestion && (
             <Button
-              onClick={handlePrevious}
-              variant="outline"
-              size="xs"
-              className="gap-1 text-[12px]"
+              onClick={() => setCurrentQuestionIndex((v) => Math.max(0, v - 1))}
+              variant="ghost" size="xs"
             >
               <ChevronLeft className="size-3.5" />
               {t('askUser.previous')}
             </Button>
           )}
-
-          <div className="flex-1" />
-
+        </div>
+        <div className="flex items-center gap-2">
           {questions.length > 1 && !isLastQuestion && (
             <Button
-              onClick={handleNext}
+              onClick={() => setCurrentQuestionIndex((v) => Math.min(questions.length - 1, v + 1))}
               disabled={!hasCurrentAnswer}
-              size="xs"
-              className="gap-1 text-[12px]"
+              variant="outline" size="xs"
             >
               {t('askUser.next')}
               <ChevronRight className="size-3.5" />
             </Button>
           )}
-
           {isLastQuestion && (
-            <Button
-              onClick={handleSubmit}
-              disabled={!hasAllAnswers}
-              size="xs"
-              className="gap-1 text-[12px]"
-            >
+            <Button onClick={handleSubmit} disabled={!hasAllAnswers} size="xs">
               {t('askUser.submit')}
-              <ChevronRight className="size-3.5" />
             </Button>
           )}
         </div>
+      </div>
+    </>
+  )
+}
+
+// ── Answered (Q&A summary) ─────────────────────────────────────────
+
+function AnsweredContent({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
+  const { t } = useTranslation('chat')
+  const parsedAnswers = useMemo(() => parseAnsweredPairs(ctx.output), [ctx.output])
+  const answeredPairs = parsedAnswers.pairs
+
+  if (answeredPairs.length === 0) {
+    return <p className="text-xs text-muted-foreground/60">{t('askUser.answeredSubtitle')}</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {answeredPairs.map((pair, idx) => (
+        <div key={`${pair.question}-${idx}`} className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge className="h-4 shrink-0 rounded px-1 text-[10px] leading-none bg-blue-500/15 text-blue-400 hover:bg-blue-500/15 border-0">
+              Q
+            </Badge>
+            <p className="text-xs leading-5 text-foreground/80">{pair.question}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="h-4 shrink-0 rounded px-1 text-[10px] leading-none bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15 border-0">
+              A
+            </Badge>
+            <p className="text-xs leading-5 whitespace-pre-wrap break-words text-foreground/70">{pair.answer}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Error / Canceled ───────────────────────────────────────────────
+
+function ErrorContent({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
+  const { t } = useTranslation('chat')
+  const outputText = useMemo(() => outputAsText(ctx.output), [ctx.output])
+  const outputErrorMessage = useMemo(() => {
+    const text = outputText
+    if (!text || !isStructuredToolErrorText(text)) return null
+    const parsed = decodeStructuredToolResult(text)
+    if (!parsed || Array.isArray(parsed) || typeof parsed.error !== 'string') return null
+    return parsed.error
+  }, [outputText])
+
+  const isCanceled = ctx.status === 'canceled'
+  const subtitle = isCanceled ? t('askUser.canceledSubtitle') : t('askUser.errorSubtitle')
+
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground/60">{subtitle}</p>
+      {(outputErrorMessage ?? outputText) && (
+        <p className="mt-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground/70">
+          {outputErrorMessage ?? outputText}
+        </p>
       )}
     </div>
   )
+}
+
+// ── Completed without answers ──────────────────────────────────────
+
+function CompletedContent({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
+  const outputText = useMemo(() => outputAsText(ctx.output), [ctx.output])
+  return (
+    <p className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground/60">
+      {outputText}
+    </p>
+  )
+}
+
+// ── Main Body Component ────────────────────────────────────────────
+
+/**
+ * Renders the body content for the AskUserQuestion tool panel.
+ * This is the renderBody target for the native-panel render descriptor.
+ * ToolShell provides the collapsible container, header, and trailing status.
+ */
+export function AskUserQuestionBody({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
+  const questions = useMemo(() => coerceAskUserQuestions(ctx.input.questions), [ctx.input.questions])
+  const parsedAnswers = useMemo(() => parseAnsweredPairs(ctx.output), [ctx.output])
+  const answeredText = useMemo(() => outputAsText(ctx.output), [ctx.output])
+  const outputErrorMessage = useMemo(() => {
+    const text = answeredText
+    if (!text || !isStructuredToolErrorText(text)) return null
+    const parsed = decodeStructuredToolResult(text)
+    if (!parsed || Array.isArray(parsed) || typeof parsed.error !== 'string') return null
+    return parsed.error
+  }, [answeredText])
+
+  const isError = ctx.status === 'error' || !!outputErrorMessage
+  const isCanceled = ctx.status === 'canceled'
+  const isAnswered = ctx.status === 'completed' && parsedAnswers.pairs.length > 0
+  const isPending = !isAnswered && !isError && !isCanceled &&
+    (ctx.status === 'streaming' || ctx.status === 'running')
+  const isCompletedWithoutAnswers =
+    ctx.status === 'completed' && !isAnswered && !isError && !isCanceled && !!answeredText
+
+  if (isError || isCanceled) return <ErrorContent ctx={ctx} />
+  if (isAnswered) return <AnsweredContent ctx={ctx} />
+  if (isCompletedWithoutAnswers) return <CompletedContent ctx={ctx} />
+  if (!isPending || questions.length === 0) return <></>
+
+  return <PendingContent ctx={ctx} />
 }

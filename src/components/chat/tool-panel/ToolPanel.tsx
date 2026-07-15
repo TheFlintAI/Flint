@@ -35,11 +35,6 @@ function ToolPanelInner(props: ToolPanelProps): React.JSX.Element | null {
     return <NativePanelShell ctx={ctx} render={render} status={props.status} />
   }
 
-  if (render.kind === 'native-card') {
-    // Card tools render via ToolCard, not ToolPanel
-    return <UnknownToolPanel ctx={ctx} />
-  }
-
   // render.kind === 'remote'
   return <RemotePanelShell ctx={ctx} render={render} status={props.status} />
 }
@@ -65,6 +60,7 @@ function NativePanelShell({
       expandWhileActive={render.expandWhileActive}
       expandForImages={render.expandForImages}
       header={render.renderHeader(ctx)}
+      badges={render.renderBadges?.(ctx)}
       body={render.renderBody(ctx)}
       trailing={(open) => (
         <TrailingStatus

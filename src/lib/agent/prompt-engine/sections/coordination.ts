@@ -19,11 +19,6 @@ Keep your work scoped to your assigned task; avoid unrelated files.
 ## Direct Instructions
 {{worker.instructions}}
 {{/if~}}
-{{#if workingFolder~}}
-## Working Folder
-\`{{workingFolder}}\`
-Resolve relative paths against this folder.
-{{/if~}}
 ## Team Protocol
 - Use {{tool.TaskUpdate}} to claim or complete your assigned task accurately.
 - Use {{tool.SendMessage}} for coordination; the lead only sees what you explicitly send or submit.

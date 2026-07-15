@@ -194,7 +194,6 @@ export interface ChatStore {
   clearTaskPromptSnapshot: (taskId: string) => void
   clearTaskMessages: (taskId: string) => void
   duplicateTask: (taskId: string) => Promise<string | null>
-  forkTaskFromMessage: (taskId: string, messageId: string) => Promise<string | null>
   togglePinTask: (taskId: string) => void
   restoreTask: (task: Task) => void
   importTask: (task: Task) => string
@@ -1146,48 +1145,6 @@ export const useChatStore = create<ChatStore>()(
         syncTasksById(state)
         state.activeTaskId = newId
       })
-      dbCreateTask(newTask)
-      clonedMessages.forEach((msg, i) => dbAddMessage(newId, msg, i))
-      useTodoStore.getState().clearPlanItems()
-      usePlanStore.getState().setActivePlan(null)
-      useUIStore.getState().syncTaskScopedState(newId)
-      return newId
-    },
-
-    forkTaskFromMessage: async (taskId, messageId) => {
-      await get().loadTaskMessages(taskId)
-      const source = get().tasks.find((s) => s.id === taskId)
-      if (!source) return null
-
-      const messageIndex = source.messages.findIndex((message) => message.id === messageId)
-      if (messageIndex < 0) return null
-
-      const newId = nanoid()
-      const now = Date.now()
-      const clonedMessages = cloneMessagesForNewTask(source.messages.slice(0, messageIndex + 1))
-      const newTask: Task = {
-        id: newId,
-        title: source.title,
-        messages: clonedMessages,
-        messageCount: clonedMessages.length,
-        messagesLoaded: true,
-        loadedRangeStart: 0,
-        loadedRangeEnd: clonedMessages.length,
-        lastKnownMessageCount: clonedMessages.length,
-        createdAt: now,
-        updatedAt: now,
-        workingFolder: source.workingFolder,
-        sshConnectionId: source.sshConnectionId,
-        providerId: source.providerId,
-        modelId: source.modelId
-      }
-
-      set((state) => {
-        state.tasks.push(newTask)
-        syncTasksById(state)
-        state.activeTaskId = newId
-      })
-
       dbCreateTask(newTask)
       clonedMessages.forEach((msg, i) => dbAddMessage(newId, msg, i))
       useTodoStore.getState().clearPlanItems()

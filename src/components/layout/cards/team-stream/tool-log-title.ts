@@ -40,10 +40,10 @@ const EXTRACTORS: Record<string, (input: Input) => string> = {
   TaskUpdate: (i) => `#${firstString(i.taskId)}`,
   WebSearch: (i) => truncate(firstString(i.query)),
   WebFetch: (i) => truncate(firstString(i.url)),
-  MemoryRead: (i) => firstString(i.key),
-  MemorySearch: (i) => firstString(i.query, i.key),
-  MemoryWrite: (i) => firstString(i.key),
-  MemoryDelete: (i) => firstString(i.key)
+  MemoryRead: (i) => firstString(i.entryId),
+  MemorySearch: (i) => firstString(i.query),
+  MemoryWrite: (i) => firstString(i.entryId),
+  MemoryDelete: (i) => firstString(i.entryId)
 }
 
 export function formatToolLogTitle(

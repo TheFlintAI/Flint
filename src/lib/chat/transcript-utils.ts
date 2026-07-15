@@ -1,9 +1,8 @@
 import type { ContentBlock, ToolResultContent, ToolUseBlock, UnifiedMessage } from '@/lib/api/types'
 import { isEditableUserMessage } from '@/lib/chat/image-attachments'
 import {
-  isCompactBoundaryMessage,
-  isCompactSummaryLikeMessage
-} from '@/lib/agent/context-compression'
+  isCompressionMessage
+} from '@/lib/agent/compression'
 
 export interface RenderableMessageMeta {
   messageId: string
@@ -97,7 +96,7 @@ export function isToolResultOnlyUserMessage(message: UnifiedMessage): boolean {
 }
 
 function isRealUserMessage(message: UnifiedMessage): boolean {
-  return isEditableUserMessage(message) && !isCompactSummaryLikeMessage(message)
+  return isEditableUserMessage(message) && !isCompressionMessage(message)
 }
 
 function hasVisibleAssistantBlock(block: ContentBlock): boolean {
@@ -138,7 +137,7 @@ function hasVisibleAssistantStringContent(content: string): boolean {
 }
 
 function shouldRenderInMessageList(message: UnifiedMessage): boolean {
-  if (message.role === 'system') return isCompactBoundaryMessage(message)
+  if (message.role === 'system') return false
   if (isToolResultOnlyUserMessage(message)) return false
   // Hide team-sourced user messages from the chat panel —
   // teammate output is displayed in the right sidebar team panel instead
@@ -152,7 +151,7 @@ function shouldRenderInMessageList(message: UnifiedMessage): boolean {
 }
 
 function isTransparentSystemMessage(message: UnifiedMessage): boolean {
-  return message.role === 'system' && !isCompactBoundaryMessage(message)
+  return message.role === 'system'
 }
 
 function collectToolResults(

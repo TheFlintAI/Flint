@@ -523,8 +523,21 @@ function formatGrepResultForPrompt(result: GrepToolResult): string | Record<stri
 // Render helpers
 
 function grepHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName, t } = ctx
   const pattern = getStringInput(input, ['pattern'])
+
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name="Grep" />}
+      title={pattern ? t('toolPanel.title.Grep', { pattern }) : displayName}
+      subtitle={searchScopeText(input, t) || undefined}
+      titleAttr={[pattern || '', searchScopeText(input, t)].filter(Boolean).join('\n') || displayName}
+    />
+  )
+}
+
+function grepBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, t } = ctx
   const parsed = outputText ? parseGrepOutput(outputText) : null
   const matchCount = parsed?.matches.length ?? null
   const fileCount = parsed ? new Set(parsed.matches.map((m: any) => m.file)).size : null
@@ -538,16 +551,7 @@ function grepHeader(ctx: ToolPanelContext): React.ReactNode {
       </Badge>
     )
   }
-
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name="Grep" />}
-      title={pattern ? t('toolPanel.title.Grep', { pattern }) : displayName}
-      subtitle={searchScopeText(input, t) || undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={[pattern || '', searchScopeText(input, t)].filter(Boolean).join('\n') || displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function grepBody(ctx: ToolPanelContext): React.ReactNode {
@@ -556,9 +560,22 @@ function grepBody(ctx: ToolPanelContext): React.ReactNode {
 }
 
 function globHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName, t } = ctx
   const pattern = getStringInput(input, ['pattern'])
   const path = getStringInput(input, ['path'])
+
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name="Glob" />}
+      title={pattern ? t('toolPanel.title.Glob', { pattern }) : displayName}
+      subtitle={path ? t('toolCall.searchInPath', { path: compactPath(path, 3) }) : undefined}
+      titleAttr={[pattern, path].filter(Boolean).join('\n') || displayName}
+    />
+  )
+}
+
+function globBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, t } = ctx
   const parsed = outputText ? parseGlobOutput(outputText) : null
 
   const badges: React.ReactNode[] = []
@@ -570,16 +587,7 @@ function globHeader(ctx: ToolPanelContext): React.ReactNode {
       </Badge>
     )
   }
-
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name="Glob" />}
-      title={pattern ? t('toolPanel.title.Glob', { pattern }) : displayName}
-      subtitle={path ? t('toolCall.searchInPath', { path: compactPath(path, 3) }) : undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={[pattern, path].filter(Boolean).join('\n') || displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function globBody(ctx: ToolPanelContext): React.ReactNode {
@@ -624,7 +632,7 @@ const globHandler: ToolHandler = {
       )
     )
   },
-  render: { kind: 'native-panel', renderHeader: globHeader, renderBody: globBody },
+  render: { kind: 'native-panel', renderHeader: globHeader, renderBadges: globBadges, renderBody: globBody },
 }
 
 const grepHandler: ToolHandler = {
@@ -684,7 +692,7 @@ const grepHandler: ToolHandler = {
     )
     return typeof formatted === 'string' ? formatted : encodeStructuredToolResult(formatted)
   },
-  render: { kind: 'native-panel', renderHeader: grepHeader, renderBody: grepBody },
+  render: { kind: 'native-panel', renderHeader: grepHeader, renderBadges: grepBadges, renderBody: grepBody },
 }
 
 export function registerSearchTools(): void {

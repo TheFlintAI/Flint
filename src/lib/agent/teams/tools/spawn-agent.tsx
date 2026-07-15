@@ -273,7 +273,6 @@ function errorPre(error: string, ctx: ToolPanelContext): React.ReactNode {
 // ── SpawnAgent render ──
 
 function spawnAgentHeader(ctx: ToolPanelContext): React.ReactNode {
-  const isLive = isToolLive(ctx.status)
   const parsed = parseTeamOutput(ctx.outputText)
   const memberName = parsed.kind === 'object' ? readString(parsed.data, 'name') : ''
   const inputName = firstStringInput(ctx.input, ['name'])
@@ -284,14 +283,14 @@ function spawnAgentHeader(ctx: ToolPanelContext): React.ReactNode {
       icon={<ToolIcon name={ctx.name} />}
       title={titleName ? ctx.t('toolPanel.title.SpawnAgent', { name: titleName }) : ctx.displayName}
       subtitle={inputDesc || undefined}
-      badges={
-        isLive ? null : (
-          <Badge tone="green">{ctx.t('teamPanel.spawned')}</Badge>
-        )
-      }
       titleAttr={titleName || undefined}
     />
   )
+}
+
+function spawnAgentBadges(ctx: ToolPanelContext): React.ReactNode {
+  if (isToolLive(ctx.status)) return null
+  return <Badge tone="green">{ctx.t('teamPanel.spawned')}</Badge>
 }
 
 function spawnAgentBody(ctx: ToolPanelContext): React.ReactNode {
@@ -379,6 +378,7 @@ export const spawnAgentTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: spawnAgentHeader,
+    renderBadges: spawnAgentBadges,
     renderBody: spawnAgentBody
   },
 }

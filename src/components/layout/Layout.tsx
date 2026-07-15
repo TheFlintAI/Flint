@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect } from 'react'
-import { X, PanelLeftOpen, PanelRightOpen, PanelRightClose, Settings } from 'lucide-react'
+import { X, PanelLeftOpen, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { confirm } from '@/components/ui/confirm-dialog'
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -258,25 +258,6 @@ export function Layout(): React.JSX.Element {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-background shadow-sm relative">
-              {!leftSidebarOpen && (
-                <div className="absolute left-3 bottom-3 z-10">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 rounded-md text-muted-foreground/70 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => useUIStore.getState().openSettingsPage('general')}
-                      >
-                        <Settings className="size-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      {t('settings.redesign.preferences', { defaultValue: 'Preferences' })}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
               {/* Intermediate flex wrappers — no overflow-hidden needed here;
                    the parent (line 303) already clips for rounded-2xl */}
               <div className="flex min-h-0 min-w-0 flex-1">

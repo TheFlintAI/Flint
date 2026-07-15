@@ -30,6 +30,7 @@ const T = tpl(`<tool_usage>
 - Do only what was asked; avoid over-engineering. Do not add or remove comments unless asked.
 - Never introduce vulnerabilities or hardcode secrets. Never edit files you have not read.
 {{/if~}}
+
 </tool_usage>`)
 
 export const toolUsageSection: PromptSection = {

@@ -1,32 +1,21 @@
 import * as React from 'react'
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import {
   Copy,
-  RotateCcw,
-  GitFork
+  RotateCcw
 } from 'lucide-react'
 import { useChatStore } from '@/stores/chat-store'
 import { useAgentStore } from '@/stores/agent-store'
 import { useShallow } from 'zustand/react/shallow'
 import type { ContentBlock, TokenUsage, ToolResultContent } from '@/lib/api/types'
-import {
-  formatTokens
-} from '@/lib/utils/format-tokens'
-import { formatDurationMs } from '@/lib/utils/format-duration'
-import { useMemoizedTokens } from '@/hooks/use-estimated-tokens'
 import type { RequestRetryState, ToolCallState } from '@/lib/agent/types'
 import { ActionIconButton } from './assistant/ActionBar'
-import { useUIStore } from '@/stores/ui-store'
-import { createLogger } from '@/lib/logger'
+import { CompressButton } from './assistant/CompressButton'
+
 import { parseThinkTags, stripThinkTags, stripThinkTagMarkers } from '@/lib/chat/think-tag-parser'
 import { stripStageTags } from '@/lib/chat/stage-tag-parser'
 import { renderAssistantContent } from './assistant/ContentRenderer'
-
-const log = createLogger('AssistantMessage')
-
-type AssistantRenderMode = 'default' | 'transcript' | 'static'
 
 interface AssistantMessageProps {
   content: string | ContentBlock[]
@@ -44,7 +33,9 @@ interface AssistantMessageProps {
   onRetry?: (messageId: string) => void
   onContinue?: () => void
   onDelete?: (messageId: string) => void
-  renderMode?: AssistantRenderMode
+  /** When false, disables reactive behaviors (image-gen state, live tool calls, action bar buttons).
+   *  Older messages scrolled out of the live window receive `live={false}`. */
+  live?: boolean
   requestRetryState?: RequestRetryState | null
 }
 
@@ -54,17 +45,6 @@ function formatRetryDelay(delayMs: number): string {
   if (delayMs < 1000) return `${delayMs}ms`
   if (delayMs < 10_000) return `${(delayMs / 1000).toFixed(1)}s`
   return `${Math.round(delayMs / 1000)}s`
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
 }
 
 function normalizeStructuredBlocks(blocks: ContentBlock[]): ContentBlock[] {
@@ -147,38 +127,21 @@ export function AssistantMessage({
   onRetry,
   onContinue,
   onDelete,
-  renderMode = 'default',
+  live = true,
   requestRetryState
 }: AssistantMessageProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const fadeInClassName = ''
   const liveScaleInClassName = ''
-  const navigateToTask = useUIStore((s) => s.navigateToTask)
-  const forkTaskFromMessage = useChatStore((s) => s.forkTaskFromMessage)
-  const [forking, setForking] = useState(false)
-
-  const isLiveMode = renderMode === 'default'
-
-  // --- derived content ---
-  const plainTextForTokens = useMemo(() => {
-    if (usage || isStreaming) return ''
-    if (typeof content === 'string') return stripStageTags(stripThinkTags(content))
-    if (!Array.isArray(content)) return ''
-    return content
-      .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
-      .map((b) => stripStageTags(stripThinkTags(b.text)))
-      .join('\n')
-  }, [content, usage, isStreaming])
-  const fallbackTokens = useMemoizedTokens(plainTextForTokens)
 
   const isGeneratingImage = useChatStore((s) =>
-    isLiveMode && msgId ? !!s.generatingImageMessages[msgId] : false
+    live && msgId ? !!s.generatingImageMessages[msgId] : false
   )
   const imageGenerationTiming = useChatStore((s) =>
-    isLiveMode && msgId ? s.imageGenerationTimings[msgId] : undefined
+    live && msgId ? s.imageGenerationTimings[msgId] : undefined
   )
   const generatingImagePreview = useChatStore((s) =>
-    isLiveMode && msgId ? s.generatingImagePreviews[msgId] : undefined
+    live && msgId ? s.generatingImagePreviews[msgId] : undefined
   )
 
   const stringSegments = useMemo(
@@ -205,7 +168,7 @@ export function AssistantMessage({
   }, [isStreaming, messageToolUseIds])
   const liveToolCalls = useAgentStore(
     useShallow((s) => {
-      if (!isLiveMode || liveToolCallMap || !isStreaming || liveToolCallIds.length === 0) {
+      if (!live || liveToolCallMap || !isStreaming || liveToolCallIds.length === 0) {
         return EMPTY_LIVE_TOOL_CALLS
       }
       const idSet = new Set(liveToolCallIds)
@@ -233,9 +196,9 @@ export function AssistantMessage({
 
   // Hydrate change sets from DB after streaming completes
   useEffect(() => {
-    if (!isLiveMode || !isLastAssistantMessage || !taskId || isStreaming) return
+    if (!live || !isLastAssistantMessage || !taskId || isStreaming) return
     void hydrateChangeSets(taskId)
-  }, [isLastAssistantMessage, isLiveMode, isStreaming, taskId, hydrateChangeSets])
+  }, [isLastAssistantMessage, live, isStreaming, taskId, hydrateChangeSets])
 
   // --- plain text for actions ---
   const plainText =
@@ -253,53 +216,6 @@ export function AssistantMessage({
     if (!plainText) return
     navigator.clipboard.writeText(plainText)
   }, [plainText])
-
-  const handleFork = useCallback(async (): Promise<void> => {
-    if (!taskId || !msgId || forking) return
-    setForking(true)
-    try {
-      const forkedTaskId = await forkTaskFromMessage(taskId, msgId)
-      if (!forkedTaskId) {
-        toast.error(t('messageActions.forkFailed'))
-        return
-      }
-      navigateToTask(forkedTaskId)
-      toast.success(t('messageActions.forked'))
-    } catch (error) {
-      log.error('Failed to fork taskItem:', error)
-      toast.error(t('messageActions.forkFailed'))
-    } finally {
-      setForking(false)
-    }
-  }, [forkTaskFromMessage, forking, msgId, navigateToTask, taskId, t])
-
-  // --- transcript footer ---
-  const timingSummary = useMemo(() => {
-    if (renderMode !== 'transcript') return null
-    const imgGenDuration =
-      imageGenerationTiming?.startedAt && imageGenerationTiming.completedAt
-        ? formatDurationMs(imageGenerationTiming.completedAt - imageGenerationTiming.startedAt)
-        : null
-    const totalDuration =
-      imgGenDuration ?? (usage?.totalDurationMs ? formatDurationMs(usage.totalDurationMs) : null)
-    const perRequest = usage?.requestTimings ?? []
-    const lastTiming = perRequest.length > 0 ? perRequest[perRequest.length - 1] : null
-    if (!totalDuration && !lastTiming) return null
-
-    let lastDetail: string | null = null
-    if (lastTiming) {
-      const parts: string[] = []
-      const totalMs = toFiniteNumber(lastTiming.totalMs)
-      const ttftMs = toFiniteNumber(lastTiming.ttftMs)
-      const tps = toFiniteNumber(lastTiming.tps)
-      if (totalMs !== null) parts.push(`${t('assistantMessage.req', { count: perRequest.length })} ${formatDurationMs(totalMs)}`)
-      if (ttftMs !== null) parts.push(`${t('assistantMessage.ttft')} ${formatDurationMs(ttftMs)}`)
-      if (tps !== null) parts.push(`${t('assistantMessage.tps')} ${tps.toFixed(1)}`)
-      lastDetail = parts.length > 0 ? parts.join(' · ') : null
-    }
-    return { totalDuration, lastDetail }
-  }, [imageGenerationTiming, t, usage, renderMode])
-
 
   return (
     <div className="group/msg flex flex-col">
@@ -343,42 +259,12 @@ export function AssistantMessage({
               t
             })}
 
-            {renderMode === 'transcript' && !isStreaming && plainText && (
-              <p className="mt-1 text-[10px] text-muted-foreground/55 tabular-nums">
-                {usage
-                  ? (() => {
-                      const u = usage!
-                      const total = (u.inputTokens ?? 0) + (u.outputTokens ?? 0)
-                      return (
-                        <>
-                          {`${formatTokens(total)} ${t('unit.tokens', { ns: 'common' })} (${formatTokens(u.inputTokens ?? 0)}↓ ${formatTokens(u.outputTokens)}↑`}
-                          {u.cacheReadTokens ? ` · ${formatTokens(u.cacheReadTokens)} ${t('unit.cached', { ns: 'common' })}` : ''}
-                          {u.reasoningTokens ? ` · ${formatTokens(u.reasoningTokens)} ${t('unit.reasoning', { ns: 'common' })}` : ''}
-                          {u.cacheCreationTokens ? ` · ${formatTokens(u.cacheCreationTokens)} cache write` : ''}
-                          {')'}
-                        </>
-                      )
-                    })()
-                  : `~${formatTokens(fallbackTokens)} ${t('unit.tokens', { ns: 'common' })}`}
-              </p>
-            )}
-
-            {renderMode === 'transcript' && !isStreaming && timingSummary && (
-              <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground/55 tabular-nums">
-                {timingSummary.totalDuration && (
-                  <div>
-                    {t('assistantMessage.totalDuration', { duration: timingSummary.totalDuration })}
-                  </div>
-                )}
-                {timingSummary.lastDetail && <div>{timingSummary.lastDetail}</div>}
-              </div>
-            )}
-
         {/* action bar */}
         {!isStreaming &&
             (plainText ||
-              (isLiveMode && taskId && msgId) ||
-              (showRetry && onRetry)) && (
+              (live && taskId && msgId) ||
+              (showRetry && onRetry) ||
+              (live && taskId)) && (
           <div
             className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100"
           >
@@ -389,20 +275,15 @@ export function AssistantMessage({
                 onClick={handleCopy}
               />
             )}
-            {isLiveMode && taskId && msgId ? (
-              <ActionIconButton
-                label={t('messageActions.fork')}
-                icon={<GitFork className="size-3.5" />}
-                onClick={() => void handleFork()}
-                disabled={forking}
-              />
-            ) : null}
             {showRetry && onRetry ? (
               <ActionIconButton
                 label={t('assistantMessage.regenerateReference', { defaultValue: 'Regenerate reference' })}
                 icon={<RotateCcw className="size-3.5" />}
                 onClick={() => msgId && onRetry?.(msgId)}
               />
+            ) : null}
+            {live && taskId ? (
+              <CompressButton usage={usage} taskId={taskId} />
             ) : null}
           </div>
         )}

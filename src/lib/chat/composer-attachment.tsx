@@ -6,7 +6,6 @@ import {
   FileJson,
   FileText,
   FileArchive,
-  Folder,
   Image,
 } from 'lucide-react'
 import type { ImageAttachment } from './image-attachments'
@@ -31,8 +30,6 @@ export interface ComposerFileAttachment {
   sendPath: string
   previewPath: string
   isWorkspaceFile: boolean
-  /** Whether this attachment represents a directory rather than a regular file. */
-  isDirectory?: boolean
   /** File size in bytes (if available). */
   size?: number
 }
@@ -58,8 +55,7 @@ export function composerImageToImageAttachment(att: ComposerImageAttachment): Im
 /** Create a ComposerFileAttachment from a raw file path and optional working folder. */
 export function createComposerFileAttachment(
   filePath: string,
-  workingFolder?: string,
-  isDirectory?: boolean
+  workingFolder?: string
 ): ComposerFileAttachment | null {
   const normalizedPath = filePath.replace(/\\/g, '/').trim()
   if (!normalizedPath) return null
@@ -85,7 +81,6 @@ export function createComposerFileAttachment(
     sendPath,
     previewPath: normalizedPath,
     isWorkspaceFile,
-    ...(isDirectory ? { isDirectory: true } : {}),
   }
 }
 
@@ -152,10 +147,6 @@ export function attachmentFileIcon(
   att: ComposerFileAttachment,
   className?: string
 ): React.ReactNode {
-  if (att.isDirectory) {
-    return <Folder className={className} />
-  }
-
   const ext = resolveFileExt(att.name)
 
   if (ext === 'json') return <FileJson className={className} />

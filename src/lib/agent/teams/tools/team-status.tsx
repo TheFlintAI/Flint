@@ -70,6 +70,7 @@ export const teamStatusTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: teamStatusHeader,
+    renderBadges: teamStatusBadges,
     renderBody: teamStatusBody,
     expandWhileActive: false
   }
@@ -236,16 +237,27 @@ function teamStatusHeader(ctx: ToolPanelContext): React.ReactNode {
       icon={<ToolIcon name={ctx.name} />}
       title={teamName || ctx.displayName}
       subtitle={summary || undefined}
-      badges={
-        <>
-          <Badge tone="blue">{ctx.t('teamPanel.memberCount', { count: members.length })}</Badge>
-          <Badge tone={completedTasks === tasks.length && tasks.length > 0 ? 'green' : 'default'}>
-            {ctx.t('teamPanel.taskProgress', { done: completedTasks, total: tasks.length })}
-          </Badge>
-        </>
-      }
       titleAttr={teamName || ctx.displayName}
     />
+  )
+}
+
+function teamStatusBadges(ctx: ToolPanelContext): React.ReactNode {
+  const parsed = parseTeamOutput(ctx.outputText)
+  if (parsed.kind !== 'object') return null
+  const data = parsed.data
+  const members = readArray(data, 'members')
+  const tasks = readArray(data, 'tasks')
+  const completedTasks = tasks.filter(
+    (t) => (t as Record<string, unknown>).status === 'completed'
+  ).length
+  return (
+    <>
+      <Badge tone="blue">{ctx.t('teamPanel.memberCount', { count: members.length })}</Badge>
+      <Badge tone={completedTasks === tasks.length && tasks.length > 0 ? 'green' : 'default'}>
+        {ctx.t('teamPanel.taskProgress', { done: completedTasks, total: tasks.length })}
+      </Badge>
+    </>
   )
 }
 

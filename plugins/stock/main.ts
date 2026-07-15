@@ -56,7 +56,15 @@ const $s = $plugin.state.define({
   cn: false,
   us: false,
   entries: [] as Entry[],
-  results: [] as { key: string; title: string; subtitle?: string; badge?: string; badgeVariant?: string; disabled?: boolean; disabledReason?: string }[],
+  results: [] as {
+    key: string
+    title: string
+    subtitle?: string
+    badge?: string | Record<string, string>
+    badgeVariant?: 'info' | 'success'
+    disabled?: boolean
+    disabledReason?: string
+  }[],
   loading: false,
 })
 
@@ -288,13 +296,13 @@ function renderSettings(): VNode {
     }),
     $plugin.ui.tagList({
       id: 'wl', label: { en: 'Watchlist', zh: '自选' },
-      tags: $s.get('entries').map(e => ({ key: e.symbol, label: e.symbol, description: e.name !== e.symbol ? e.name : undefined, badge: e.market === 'cn' ? { en: 'A-Shares', zh: 'A股' } : { en: 'US', zh: '美股' }, badgeVariant: (e.market === 'cn' ? 'info' : 'success') as any })),
+      tags: $s.get('entries').map(e => ({ key: e.symbol, label: e.symbol, description: e.name !== e.symbol ? e.name : undefined, badge: e.market === 'cn' ? { en: 'A-Shares', zh: 'A股' } : { en: 'US', zh: '美股' }, badgeVariant: (e.market === 'cn' ? 'info' : 'success') })),
       max: CAP, emptyText: { en: 'Search to add stocks', zh: '搜索添加自选' },
       addPanel: $plugin.ui.searchInput({
         id: 'wl-search',
         placeholder: { en: 'Search symbol or name…', zh: '搜索代码或名称…' },
         searchAction: 'search', minQueryLength: 2, debounceMs: 300,
-        results: $s.get('results') as any, resultsLoading: $s.get('loading'),
+        results: $s.get('results'), resultsLoading: $s.get('loading'),
         emptyText: { en: 'No results', zh: '无结果' },
       }),
     }),

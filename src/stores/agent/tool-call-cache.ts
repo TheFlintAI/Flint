@@ -140,7 +140,7 @@ function normalizeToolCallPatch(
 
 function toolCallPatchHasChanges(existing: ToolCallState, patch: Partial<ToolCallState>): boolean {
   for (const [key, nextValue] of Object.entries(patch)) {
-    const currentValue = (existing as unknown as Record<string, unknown>)[key]
+    const currentValue: unknown = existing[key as keyof ToolCallState]
     if (Object.is(currentValue, nextValue)) continue
 
     // For object-like fields (input/output), callers may pass new objects with the

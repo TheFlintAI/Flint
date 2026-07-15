@@ -10,11 +10,10 @@ import type { AgentEvent, AgentLoopConfig, ToolCallState } from './types'
 import type { ToolContext } from '../tools/tool-types'
 import { summarizeToolInputForHistory, sanitizeMessagesForToolReplay } from '../tools/tool-input-sanitizer'
 import {
-  resetCompressionFailures,
   shouldCompress,
   shouldPreCompress,
   preCompressMessages
-} from './context-compression'
+} from './compression'
 import { createLogger } from '@/lib/logger'
 import { ProviderRequestError, isAccountFailoverCandidate, getRetryDelay, delayWithAbort } from './loop/retry-logic'
 import { safeParseToolInput } from './loop/block-utils'
@@ -60,9 +59,6 @@ export async function* runAgentLoop(
   let conversationMessages = [...messages]
   let iteration = 0
   let fullCompressionApplied = false
-  if (config.contextCompression) {
-    resetCompressionFailures()
-  }
   let lastInputTokens = config.contextCompression ? findRecentContextUsage(messages) : 0
   const hasIterationLimit = Number.isFinite(config.maxIterations) && config.maxIterations > 0
   const buildLoopEndEvent = (

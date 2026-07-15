@@ -242,7 +242,7 @@ function TranscriptScrollerView({
   onRollbackMessage,
 }: TranscriptScrollerViewProps): React.JSX.Element {
   const { t } = useTranslation('chat')
-  const { scrollToMessage } = useMessageScroller()
+  const { scrollToMessage, scrollToEnd } = useMessageScroller()
   const scrollable = useMessageScrollerScrollable()
   const visibility = useMessageScrollerVisibility()
 
@@ -307,6 +307,13 @@ function TranscriptScrollerView({
       }
     }
   }, [])
+
+  // ── scroll to bottom when streaming starts (user sent a message) ──
+  React.useEffect(() => {
+    if (streamingMessageId) {
+      scrollToEnd({ behavior: 'auto' })
+    }
+  }, [streamingMessageId, scrollToEnd])
 
   // ── render ──
   return (
@@ -375,7 +382,7 @@ function TranscriptScrollerView({
               if (!message) return null
 
               const isStreaming = streamingMessageId === messageId
-              const rowRenderMode = !isStreaming && rowIndex < liveCutoffIndex ? 'static' : undefined
+              const rowLive = isStreaming || rowIndex >= liveCutoffIndex
 
               return (
                 <MessageScrollerItem
@@ -394,7 +401,7 @@ function TranscriptScrollerView({
                     disableAnimation={disableAnimation}
                     toolResults={toolResultsLookup.get(messageId)}
                     highlightMessageId={highlightedMessageId}
-                    renderMode={rowRenderMode}
+                    live={rowLive}
                     requestRetryState={
                       isLastAssistantMessage ? (taskRequestRetryState ?? null) : null
                     }

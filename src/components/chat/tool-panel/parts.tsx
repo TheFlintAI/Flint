@@ -103,13 +103,13 @@ export function StatusPill({
   )
 }
 
-// --- Standard leading header cluster (icon + title + subtitle + badges) ---
+// --- Standard leading header cluster (icon + title + subtitle) ---
+// Badges are rendered separately by ToolShell at the far right.
 
 export interface ToolPanelLeadProps {
   icon: React.ReactNode
   title: React.ReactNode
   subtitle?: React.ReactNode
-  badges?: React.ReactNode
   titleAttr?: string
 }
 
@@ -117,7 +117,6 @@ export function ToolPanelLead({
   icon,
   title,
   subtitle,
-  badges,
   titleAttr
 }: ToolPanelLeadProps): React.JSX.Element {
   return (
@@ -135,7 +134,6 @@ export function ToolPanelLead({
           </span>
         ) : null}
       </span>
-      {badges ? <span className="flex shrink-0 items-center gap-1">{badges}</span> : null}
     </div>
   )
 }

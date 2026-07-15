@@ -148,7 +148,33 @@ export function useAggregatedChangeSummaries(
   const fallbackSummaries = React.useMemo(
     () =>
       Object.fromEntries(
-        changes.map((change) => [change.id, summarizeTrackedChange(change)])
+        changes.map((change) => {
+          // When aggregated op is 'create'|'delete' but source changes include
+          // modifications, use the last source change's before/after to compute
+          // a meaningful diff summary that reflects actual modifications rather
+          // than showing the entire file as added/deleted.
+          if (
+            (change.op === 'create' || change.op === 'delete') &&
+            change.sourceChanges.length > 1
+          ) {
+            const lastSource = change.sourceChanges[change.sourceChanges.length - 1]
+            if (
+              canRenderInlineSnapshot(lastSource.before) &&
+              canRenderInlineSnapshot(lastSource.after)
+            ) {
+              return [
+                change.id,
+                summarizeDiff(
+                  computeDiff(
+                    snapshotText(lastSource.before),
+                    snapshotText(lastSource.after)
+                  )
+                )
+              ]
+            }
+          }
+          return [change.id, summarizeTrackedChange(change)]
+        })
       ) as Record<string, DiffSummaryStats>,
     [changes]
   )

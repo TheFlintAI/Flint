@@ -151,6 +151,7 @@ export const sendMessageTool: ToolHandler = {
   render: {
     kind: 'native-panel',
     renderHeader: sendMessageHeader,
+    renderBadges: sendMessageBadges,
     renderBody: sendMessageBody
   }
 }
@@ -205,15 +206,18 @@ function sendMessageHeader(ctx: ToolPanelContext): React.ReactNode {
       icon={<ToolIcon name={ctx.name} />}
       title={title}
       subtitle={subtitle}
-      badges={
-        msgType ? (
-          <Badge tone={MESSAGE_TYPE_TONE[msgType] ?? 'default'}>
-            {enumLabel(ctx.t, 'teamPanel.messageType', msgType)}
-          </Badge>
-        ) : null
-      }
       titleAttr={title}
     />
+  )
+}
+
+function sendMessageBadges(ctx: ToolPanelContext): React.ReactNode {
+  const msgType = firstStringInput(ctx.input, ['type'])
+  if (!msgType) return null
+  return (
+    <Badge tone={MESSAGE_TYPE_TONE[msgType] ?? 'default'}>
+      {enumLabel(ctx.t, 'teamPanel.messageType', msgType)}
+    </Badge>
   )
 }
 

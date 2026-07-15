@@ -30,28 +30,25 @@ export interface ToolPanelContext {
 
 // Native render (built-in tools)
 
-/** Card variant: full interactive card component (e.g. AskUserQuestion). */
-export interface NativeCardRender {
-  kind: 'native-card'
-  render: (ctx: ToolPanelContext) => ReactNode
-}
-
 /** Inline variant: flat chip with no collapsible shell (e.g. Skill). */
 export interface NativeInlineRender {
   kind: 'native-inline'
   render: (ctx: ToolPanelContext) => ReactNode
 }
 
-/** Panel variant: collapsible card with header + body. */
+/** Panel variant: collapsible card with header + body + optional badges. */
 export interface NativePanelRender {
   kind: 'native-panel'
+  /** Icon + title + subtitle (no badges). */
   renderHeader: (ctx: ToolPanelContext) => ReactNode
+  /** Badges rendered at the far right of the title bar. */
+  renderBadges?: (ctx: ToolPanelContext) => ReactNode
   renderBody: (ctx: ToolPanelContext) => ReactNode
   expandWhileActive?: boolean
   expandForImages?: boolean
 }
 
-export type NativeToolRender = NativeCardRender | NativeInlineRender | NativePanelRender
+export type NativeToolRender = NativeInlineRender | NativePanelRender
 
 // Remote render (plugin tools)
 

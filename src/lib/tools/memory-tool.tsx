@@ -50,12 +50,13 @@ const readHandler: ToolHandler = {
     return encodeStructuredToolResult({
       id: entry.id,
       type: entry.type,
+      title: entry.title,
       createdAt: entry.created_at,
       updatedAt: entry.updated_at,
       lines: lines.map((text, index) => ({ line: index + 1, text }))
     })
   },
-  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBody: memoryBody }
+  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBadges: memoryBadges, renderBody: memoryBody }
 }
 
 // MemorySearch
@@ -94,12 +95,13 @@ const searchHandler: ToolHandler = {
       matches: results.map((r) => ({
         entryId: r.entry.id,
         type: r.entry.type,
+        summary: r.entry.title,
         score: Math.round(r.score * 1000) / 1000,
         matchedLines: r.matched_lines.map((ml) => ({ line: ml.line, text: ml.text })),
       })),
     })
   },
-  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBody: memoryBody }
+  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBadges: memoryBadges, renderBody: memoryBody }
 }
 
 // MemoryWrite
@@ -115,6 +117,10 @@ const writeHandler: ToolHandler = {
         entryId: {
           type: 'string',
           description: 'Existing entry ID to update. Omit to create a new entry.'
+        },
+        title: {
+          type: 'string',
+          description: 'Human-readable title for the memory entry. Required for new entries.'
         },
         type: {
           type: 'string',
@@ -134,9 +140,13 @@ const writeHandler: ToolHandler = {
 
     const entryId = asString(input.entryId) || undefined
     const rawType = asString(input.type)
+    const rawTitle = asString(input.title)
 
-    // Validate type for new entries
+    // Validate required fields for new entries
     if (!entryId) {
+      if (!rawTitle) {
+        return encodeToolError('MemoryWrite requires a title for new entries.')
+      }
       if (!rawType) {
         return encodeToolError('MemoryWrite requires a type for new entries: preference, decision, context, reference.')
       }
@@ -148,6 +158,7 @@ const writeHandler: ToolHandler = {
 
     const result = await writeMemoryEntry(ctx.commands, {
       id: entryId,
+      title: rawTitle || undefined,
       type: rawType || undefined,
       body,
     })
@@ -155,10 +166,11 @@ const writeHandler: ToolHandler = {
     return encodeStructuredToolResult({
       id: result.id,
       type: result.type,
+      title: result.title,
       action: entryId ? 'updated' : 'created'
     })
   },
-  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBody: memoryBody }
+  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBadges: memoryBadges, renderBody: memoryBody }
 }
 
 // MemoryDelete
@@ -183,14 +195,17 @@ const deleteHandler: ToolHandler = {
     const entryId = asString(input.entryId)
     if (!entryId) return encodeToolError('MemoryDelete requires an entryId.')
 
+    // Load entry first to capture title for the result panel
+    const entry = await loadMemoryEntry(ctx.commands, entryId)
+
     const success = await deleteMemoryEntry(ctx.commands, entryId)
     if (!success) {
       return encodeToolError(`Failed to delete memory entry "${entryId}". It may not exist.`)
     }
 
-    return encodeStructuredToolResult({ deleted: true, id: entryId })
+    return encodeStructuredToolResult({ deleted: true, id: entryId, title: entry?.title || '' })
   },
-  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBody: memoryBody }
+  render: { kind: 'native-panel', renderHeader: memoryHeader, renderBadges: memoryBadges, renderBody: memoryBody }
 }
 
 // Render functions
@@ -199,12 +214,13 @@ interface MemoryMatch {
   entryId: string
   type: string
   score: number
+  title: string
   matchedLines: Array<{ line: number; text: string }>
 }
 
 interface MemoryDetail {
-  id: string
   type: string
+  title: string
   createdAt?: number
   updatedAt?: number
   lines: Array<{ line: number; text: string }>
@@ -215,8 +231,8 @@ type ParsedMemoryOutput =
   | { kind: 'error'; error: string }
   | { kind: 'detail'; entry: MemoryDetail }
   | { kind: 'search'; query: string; matches: MemoryMatch[] }
-  | { kind: 'write'; id: string; type: string; action: string }
-  | { kind: 'delete'; id: string }
+  | { kind: 'write'; id: string; type: string; action: string; title: string }
+  | { kind: 'delete'; id: string; title: string }
 
 function parseMemoryOutput(outputText: string | undefined): ParsedMemoryOutput {
   if (!outputText) return { kind: 'empty' }
@@ -247,12 +263,13 @@ function parseMemoryOutput(outputText: string | undefined): ParsedMemoryOutput {
       kind: 'write',
       id: parsed.id,
       type: typeof parsed.type === 'string' ? parsed.type : '',
-      action: parsed.action
+      action: parsed.action,
+      title: typeof parsed.title === 'string' ? parsed.title : ''
     }
   }
 
   if (parsed.deleted === true && typeof parsed.id === 'string') {
-    return { kind: 'delete', id: parsed.id }
+    return { kind: 'delete', id: parsed.id, title: typeof parsed.title === 'string' ? parsed.title : '' }
   }
 
   return { kind: 'empty' }
@@ -264,6 +281,7 @@ function extractMatch(raw: unknown): MemoryMatch {
     entryId: typeof m.entryId === 'string' ? m.entryId : '',
     type: typeof m.type === 'string' ? m.type : '',
     score: typeof m.score === 'number' ? m.score : 0,
+    title: typeof m.title === 'string' ? m.title : '',
     matchedLines: Array.isArray(m.matchedLines)
       ? (m.matchedLines as unknown[]).map((ml) => {
           const l = ml as Record<string, unknown>
@@ -278,8 +296,8 @@ function extractMatch(raw: unknown): MemoryMatch {
 
 function extractMemoryDetail(parsed: Record<string, unknown>): MemoryDetail {
   return {
-    id: typeof parsed.id === 'string' ? parsed.id : '',
     type: typeof parsed.type === 'string' ? parsed.type : '',
+    title: typeof parsed.title === 'string' ? parsed.title : '',
     createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : undefined,
     updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : undefined,
     lines: Array.isArray(parsed.lines)
@@ -320,7 +338,7 @@ function formatTimestamp(ts?: number): string {
 }
 
 const HEADER_COVERED: ReadonlySet<string> = new Set([
-  'entryId', 'query', 'body', 'type', 'limit'
+  'entryId', 'query', 'body', 'title', 'type', 'limit'
 ])
 
 function memoryHeader(ctx: ToolPanelContext): React.ReactNode {
@@ -348,14 +366,9 @@ function memoryHeader(ctx: ToolPanelContext): React.ReactNode {
       return (
         <ToolPanelLead
           icon={<ToolIcon name={name} />}
-          title={ctx.t('toolPanel.title.MemoryRead', { id: parsed.entry.id })}
+          title={ctx.t('toolPanel.title.MemoryRead', { name: parsed.entry.title })}
           subtitle={typeLabel(ctx, parsed.entry.type) || undefined}
-          badges={
-            <>
-              <Badge tone={typeTone(parsed.entry.type)}>{typeLabel(ctx, parsed.entry.type)}</Badge>
-            </>
-          }
-          titleAttr={`${parsed.entry.id}\n${parsed.entry.type}`}
+          titleAttr={`${parsed.entry.title}\n${parsed.entry.type}`}
         />
       )
     case 'search':
@@ -363,11 +376,6 @@ function memoryHeader(ctx: ToolPanelContext): React.ReactNode {
         <ToolPanelLead
           icon={<ToolIcon name={name} />}
           title={parsed.query ? ctx.t('toolPanel.title.MemorySearch', { query: parsed.query }) : displayName}
-          badges={
-            <Badge tone={parsed.matches.length > 0 ? 'amber' : 'default'}>
-              {ctx.t('memoryPanel.matchCount', { count: parsed.matches.length })}
-            </Badge>
-          }
           titleAttr={parsed.query || displayName}
         />
       )
@@ -377,50 +385,52 @@ function memoryHeader(ctx: ToolPanelContext): React.ReactNode {
           icon={<ToolIcon name={name} />}
           title={
             parsed.action === 'created'
-              ? ctx.t('toolPanel.title.MemoryWrite', { id: parsed.id })
-              : ctx.t('toolPanel.title.MemoryWriteUpdated', { id: parsed.id })
+              ? ctx.t('toolPanel.title.MemoryWrite', { name: parsed.title })
+              : ctx.t('toolPanel.title.MemoryWriteUpdated', { name: parsed.title })
           }
           subtitle={typeLabel(ctx, parsed.type) || undefined}
-          badges={
-            <>
-              <Badge tone={typeTone(parsed.type)}>{typeLabel(ctx, parsed.type)}</Badge>
-            </>
-          }
-          titleAttr={`${parsed.action}: ${parsed.id}`}
+          titleAttr={`${parsed.action}: ${parsed.title}`}
         />
       )
     case 'delete':
       return (
         <ToolPanelLead
           icon={<ToolIcon name={name} />}
-          title={ctx.t('toolPanel.title.MemoryDelete', { id: parsed.id })}
+          title={ctx.t('toolPanel.title.MemoryDelete', { name: parsed.title })}
           subtitle={ctx.t('memoryPanel.action.deleted')}
-          badges={<Badge tone="red">{ctx.t('memoryPanel.action.deleted')}</Badge>}
-          titleAttr={`deleted: ${parsed.id}`}
+          titleAttr={`deleted: ${parsed.title}`}
         />
       )
+  }
+}
+
+function memoryBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, status } = ctx
+  if (isToolLive(status)) return null
+  const parsed = parseMemoryOutput(outputText)
+  if (!parsed || parsed.kind === 'empty' || parsed.kind === 'error') return null
+
+  switch (parsed.kind) {
+    case 'detail':
+      return <Badge tone={typeTone(parsed.entry.type)}>{typeLabel(ctx, parsed.entry.type)}</Badge>
+    case 'search':
+      return (
+        <Badge tone={parsed.matches.length > 0 ? 'amber' : 'default'}>
+          {ctx.t('memoryPanel.matchCount', { count: parsed.matches.length })}
+        </Badge>
+      )
+    case 'write':
+      return <Badge tone={typeTone(parsed.type)}>{typeLabel(ctx, parsed.type)}</Badge>
+    case 'delete':
+      return <Badge tone="red">{ctx.t('memoryPanel.action.deleted')}</Badge>
   }
 }
 
 function streamingMemoryHeader(ctx: ToolPanelContext): React.ReactNode {
   const { input, displayName, name } = ctx
 
-  const entryId = firstStringInput(input, ['entryId'])
-  if (entryId) {
-    const title =
-      name === 'MemoryRead' ? ctx.t('toolPanel.title.MemoryRead', { id: entryId }) :
-      name === 'MemoryWrite' ? ctx.t('toolPanel.title.MemoryWrite', { id: entryId }) :
-      name === 'MemoryDelete' ? ctx.t('toolPanel.title.MemoryDelete', { id: entryId }) :
-      entryId
-    return (
-      <ToolPanelLead
-        icon={<ToolIcon name={name} />}
-        title={title}
-        titleAttr={entryId}
-      />
-    )
-  }
-
+  // During streaming we don't have the result (no title yet), so show
+  // a generic action label. The completed header will show the title.
   const query = firstStringInput(input, ['query'])
   if (query) {
     return (
@@ -519,8 +529,8 @@ function memoryBody(ctx: ToolPanelContext): React.ReactNode {
                 className="rounded-md border border-border/40 bg-muted/20 px-3 py-2"
               >
                 <div className="mb-1.5 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium text-foreground/80">
-                    {match.entryId}
+                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/80">
+                    {match.title}
                   </span>
                   <Badge tone={typeTone(match.type)}>{typeLabel(ctx, match.type)}</Badge>
                   <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
@@ -556,7 +566,6 @@ function memoryBody(ctx: ToolPanelContext): React.ReactNode {
               : 'space-y-0.5'
           }
         >
-          <FieldRow label="id" value={parsed.id} mono />
           <FieldRow label="type" value={typeLabel(ctx, parsed.type)} />
           <FieldRow label="action" value={actionLabel(ctx, parsed.action)} />
         </div>
@@ -570,7 +579,6 @@ function memoryBody(ctx: ToolPanelContext): React.ReactNode {
               : 'space-y-0.5'
           }
         >
-          <FieldRow label="id" value={parsed.id} mono />
           <FieldRow label="status" value={actionLabel(ctx, 'deleted')} />
         </div>
       )}

@@ -3,9 +3,9 @@
     "noApiKey": "No API key configured. Click here to configure.",
     "attachImages": "Attach images (paste or drag & drop also supported)",
     "attachMediaFailed": "Failed to add the selected files",
-    "mediaFilter": "Images and documents",
+    "documentFilter": "Documents",
+    "imageFilter": "Images",
     "allFilesFilter": "All files",
-    "dropImages": "Drop images or files",
     "dropFiles": "Drop files to insert paths",
     "clearMessages": "Clear messages",
     "clearConfirmTitle": "Clear all messages?",
@@ -31,7 +31,8 @@
     },
     "composerActions": {
       "addActions": "Add actions",
-      "attachMedia": "Attachment",
+      "attachFile": "Files",
+      "attachImage": "Images",
       "workspace": "Workspace"
     },
     "skillsBadge": {
@@ -52,8 +53,6 @@
     "answeredTitle": "Questions answered",
     "answeredSubtitle": "Your selections and notes have been recorded",
     "recommended": "Recommended",
-    "previewBadge": "Preview",
-    "previewTitle": "Option preview",
     "notesTitle": "Notes (optional)",
     "notesPlaceholder": "Add constraints, preferences, or context…",
     "autoAnswered": "Auto-answered",
@@ -274,7 +273,6 @@
     "thinkingFor": "Thinking for {{seconds}}s",
     "pending": "Thinking",
     "thinkingEllipsis": "Thinking…",
-    "secondsShort": "{{seconds}}s",
     "thoughts": "Thought"
   },
   "toolCluster": {
@@ -330,10 +328,6 @@
   "assistantMessage": {
     "editedFiles_one": "Edited {{count}} file",
     "editedFiles_other": "Edited {{count}} files",
-    "totalDuration": "Total: {{duration}}",
-    "req": "Req {{count}}",
-    "ttft": "TTFT",
-    "tps": "TPS",
     "regenerateReference": "Regenerate",
     "continueToolExecution": "Continue execution",
     "continueToolExecutionHint": "Continue from saved tool results in this same message without creating a new AI message.",
@@ -372,11 +366,6 @@
       "copy": "Copy",
       "copied": "Copied"
     }
-  },
-  "messageActions": {
-    "fork": "Fork",
-    "forked": "Forked into a new task",
-    "forkFailed": "Fork failed"
   },
   "toolGroup": {
     "readFiles": "Read {{count}} files",
@@ -449,14 +438,13 @@
     "cannotCompress": "Cannot compress",
     "noActiveTask": "No active task",
     "agentRunning": "Agent is running, please wait for completion before manual compression",
-    "minMessages": "At least {{min}} messages required for compression (currently {{count}})",
-    "tooFewSinceLast": "Too few messages since last compression, please continue the task",
     "authMissing": "Authentication missing",
     "configureApiKey": "Please configure API key in Settings",
     "providerNotConfigured": "AI provider not configured",
-    "noCompressionNeeded": "No compression needed",
-    "insufficientForEffective": "Current message count insufficient for effective compression",
-    "failed": "Compression failed"
+    "failed": "Compression failed",
+    "compressContext": "Compress context",
+    "contextUsage": "Context: {{current}} / {{max}} tokens",
+    "compressing": "Compressing..."
   },
   "errors": {
     "apiKeyRequired": "API key required",
@@ -530,11 +518,11 @@
       "TaskGet": "View task {{title}}",
       "TaskUpdate": "Update task {{title}}",
       "TaskList": "{{total}} tasks",
-      "MemoryRead": "Read memory {{id}}",
+      "MemoryRead": "Read memory {{name}}",
       "MemorySearch": "Search memories {{query}}",
-      "MemoryWrite": "Write memory {{id}}",
-      "MemoryWriteUpdated": "Update memory {{id}}",
-      "MemoryDelete": "Delete memory {{id}}",
+      "MemoryWrite": "Write memory {{name}}",
+      "MemoryWriteUpdated": "Update memory {{name}}",
+      "MemoryDelete": "Delete memory {{name}}",
       "WebSearch": "Web search",
       "WebFetch": "Fetch",
       "TeamCreate": "Create team {{name}}",

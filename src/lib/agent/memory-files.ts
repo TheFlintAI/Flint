@@ -93,6 +93,7 @@ export async function writeMemoryEntry(
   commands: TauriCommandClient,
   params: {
     id?: string
+    title?: string
     type?: string
     body: string
     vector?: number[]

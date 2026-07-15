@@ -1,15 +1,15 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { nanoid } from 'nanoid'
 import { useChatStore } from '@/stores/chat-store'
 import { useAgentStore } from '@/stores/agent-store'
 import { useProviderStore } from '@/stores/provider-store'
 import { useSettingsStore, resolveReasoningEffortForModel } from '@/stores/settings-store'
 import {
   compressMessages,
-  isCompactSummaryLikeMessage,
-} from '@/lib/agent/context-compression'
-import type { ProviderConfig } from '@/lib/api/types'
+} from '@/lib/agent/compression'
+import type { ProviderConfig, UnifiedMessage } from '@/lib/api/types'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('ManualCompression')
@@ -28,7 +28,7 @@ export function useManualCompression(): (
       toast.error(t('compression.cannotCompress'), { description: t('compression.noActiveTask') })
       return 'blocked'
     }
-    // Limitation 1: agent must not be running
+
     const taskStatus = agentStore.runningTasks[taskId]
     if (taskStatus === 'running' || taskStatus === 'retrying') {
       toast.error(t('compression.cannotCompress'), {
@@ -37,31 +37,15 @@ export function useManualCompression(): (
       return 'blocked'
     }
 
-    const messages = await chatStore.getTaskMessagesForRequest(taskId, {
+    const allMessages = await chatStore.getTaskMessagesForRequest(taskId, {
       requestContextMaxMessages: null,
       includeTrailingAssistantPlaceholder: false
     })
-    const MIN_MESSAGES = 8
 
-    // Limitation 2: minimum message count
-    if (messages.length < MIN_MESSAGES) {
-      toast.error(t('compression.cannotCompress'), {
-        description: t('compression.minMessages', { min: MIN_MESSAGES, count: messages.length })
-      })
-      return 'blocked'
-    }
+    // Snapshot original messages for rollback on failure
+    const originalMessages = chatStore.tasks.find((s) => s.id === taskId)?.messages ?? allMessages
 
-    const hasRecentSummary = messages
-      .slice(0, 3)
-      .some((message) => isCompactSummaryLikeMessage(message))
-    if (hasRecentSummary && messages.length < MIN_MESSAGES + 4) {
-      toast.error(t('compression.cannotCompress'), {
-        description: t('compression.tooFewSinceLast')
-      })
-      return 'blocked'
-    }
-
-    // Build provider config (same as sendMessage)
+    // Build provider config
     const settings = useSettingsStore.getState()
     const providerStore = useProviderStore.getState()
     const activeProvider = providerStore.getActiveProvider()
@@ -124,23 +108,56 @@ export function useManualCompression(): (
       }
     }
 
+    // Create a streaming placeholder message
+    const placeholderId = nanoid()
+    const placeholder: UnifiedMessage = {
+      id: placeholderId,
+      role: 'user',
+      content: '',
+      createdAt: Date.now(),
+      meta: {
+        compression: {
+          trigger: 'manual',
+          messagesCompressed: allMessages.length,
+        }
+      }
+    }
+
+    // Insert placeholder so the UI shows the streaming panel
+    chatStore.addMessage(taskId, placeholder)
+
+    let streamingContent = ''
+
     try {
       const { messages: compressed, result } = await compressMessages(
-        messages,
+        allMessages,
         config,
         undefined,
+        focusPrompt || undefined,
         undefined,
-        focusPrompt || undefined
+        'manual',
+        0,
+        (chunk: string) => {
+          streamingContent += chunk
+          chatStore.updateMessage(taskId, placeholderId, { content: streamingContent })
+        }
       )
+
       if (!result.compressed) {
+        // Restore original messages, removing the placeholder
+        chatStore.replaceTaskMessages(taskId, originalMessages)
         toast.warning('No compression needed', {
           description: 'Current message count insufficient for effective compression'
         })
         return 'skipped'
       }
+
+      // Replace all messages with the compression result (immediate, no animation delay)
       chatStore.replaceTaskMessages(taskId, compressed)
       return 'compressed'
     } catch (err) {
+      // Rollback to original messages on failure
+      chatStore.replaceTaskMessages(taskId, originalMessages)
       const errMsg = err instanceof Error ? err.message : String(err)
       log.error('Manual compress error', err)
       toast.error(t('compression.failed'), { description: errMsg })

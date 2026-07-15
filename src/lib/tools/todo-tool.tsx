@@ -175,7 +175,7 @@ const taskCreateHandler: ToolHandler = {
     })
   },
   groups: ['task-management'],
-  render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
+  render: { kind: 'native-panel', renderHeader: taskHeader, renderBadges: taskBadges, renderBody: taskBody },
 }
 
 // TaskGet
@@ -229,7 +229,7 @@ const taskGetHandler: ToolHandler = {
     })
   },
   groups: ['task-management'],
-  render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
+  render: { kind: 'native-panel', renderHeader: taskHeader, renderBadges: taskBadges, renderBody: taskBody },
 }
 
 // TaskUpdate
@@ -389,7 +389,7 @@ const taskUpdateHandler: ToolHandler = {
     })
   },
   groups: ['task-management'],
-  render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
+  render: { kind: 'native-panel', renderHeader: taskHeader, renderBadges: taskBadges, renderBody: taskBody },
 }
 
 // TaskList
@@ -441,7 +441,7 @@ const taskListHandler: ToolHandler = {
     })
   },
   groups: ['task-management'],
-  render: { kind: 'native-panel', renderHeader: taskHeader, renderBody: taskBody },
+  render: { kind: 'native-panel', renderHeader: taskHeader, renderBadges: taskBadges, renderBody: taskBody },
 }
 
 // Render functions
@@ -488,14 +488,23 @@ function parseTaskOutput(outputText: string | undefined): ParsedTaskOutput {
   if (parsed.task && typeof parsed.task === 'object' && !Array.isArray(parsed.task)) {
     task = parsed.task as TaskSnapshot
   } else if (typeof parsed.id === 'string') {
-    task = parsed as unknown as TaskSnapshot
+    // Build task from flat fields instead of casting the whole object,
+    // since parsed is Record<string, unknown> and doesn't overlap with TaskSnapshot.
+    task = {
+      id: parsed.id,
+      subject: typeof parsed.subject === 'string' ? parsed.subject : undefined,
+      title: typeof parsed.title === 'string' ? parsed.title : undefined,
+      status: typeof parsed.status === 'string' ? parsed.status : undefined,
+      activeForm: typeof parsed.activeForm === 'string' ? parsed.activeForm : undefined,
+      owner: typeof parsed.owner === 'string' ? parsed.owner : null,
+    }
   }
 
   if (!task?.subject && typeof parsed.subject === 'string') {
-    task = { ...task, subject: parsed.subject as string, title: parsed.title as string | undefined }
+    task = { ...task, subject: parsed.subject, title: typeof parsed.title === 'string' ? parsed.title : undefined }
   }
   if (task && !task.id && typeof parsed.task_id === 'string') {
-    task = { ...task, id: parsed.task_id as string }
+    task = { ...task, id: parsed.task_id }
   }
 
   if (!task) return { kind: 'empty' }
@@ -640,13 +649,6 @@ function taskListHeader(
           ? ctx.t('taskPanel.taskListProgress', { completed, total })
           : undefined
       }
-      badges={
-        completed > 0 ? (
-          <Badge tone="green">
-            {completed}/{total}
-          </Badge>
-        ) : undefined
-      }
       titleAttr={ctx.displayName}
     />
   )
@@ -666,16 +668,39 @@ function singleTaskHeader(
       icon={<ToolIcon name={ctx.name} />}
       title={displayTitle ? primaryTitle : ctx.displayName}
       subtitle={task.status ? statusLabel(ctx, task.status) : undefined}
-      badges={
-        task.status ? (
-          <Badge tone={statusBadgeTone(task.status)}>
-            {statusLabel(ctx, task.status)}
-          </Badge>
-        ) : undefined
-      }
       titleAttr={[task.subject, task.title, task.id].filter(Boolean).join('\n') || ctx.displayName}
     />
   )
+}
+
+function taskBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, status } = ctx
+  if (isToolLive(status)) return null
+  const parsed = parseTaskOutput(outputText)
+  if (!parsed || parsed.kind === 'empty' || parsed.kind === 'error') return null
+
+  if (parsed.kind === 'list') {
+    const total = parsed.total ?? parsed.tasks.length
+    const completed = parsed.tasks.filter((t) => t.status === 'completed').length
+    if (completed <= 0) return null
+    return (
+      <Badge tone="green">
+        {completed}/{total}
+      </Badge>
+    )
+  }
+
+  if (parsed.kind === 'single') {
+    const task = parsed.task
+    if (!task.status) return null
+    return (
+      <Badge tone={statusBadgeTone(task.status)}>
+        {statusLabel(ctx, task.status)}
+      </Badge>
+    )
+  }
+
+  return null
 }
 
 function taskBody(ctx: ToolPanelContext): React.ReactNode {

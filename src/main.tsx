@@ -12,7 +12,7 @@ window.addEventListener('beforeunload', () => {
 })
 
 // Diagnostic: verify Tauri IPC bridge is available at startup
-const tauriInternals = (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+const tauriInternals = window.__TAURI_INTERNALS__
 if (!tauriInternals) {
   document.body.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;background:#0a0a0a;color:#f5f5f5">

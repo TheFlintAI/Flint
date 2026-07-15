@@ -62,7 +62,7 @@ export interface TranscriptRowProps {
   toolResults?: ToolResultsLookup
   highlightMessageId?: string | null
   requestRetryState?: RequestRetryState | null
-  renderMode?: 'default' | 'transcript' | 'static'
+  live?: boolean
   onRetry?: () => void
   onContinue?: () => void
   onDeleteMessage?: (messageId: string) => void
@@ -83,7 +83,7 @@ export function areTranscriptRowPropsEqual(prev: TranscriptRowProps, next: Trans
     (prev.toolResults === next.toolResults ||
       areToolResultsEqual(prev.toolResults, next.toolResults)) &&
     prev.highlightMessageId === next.highlightMessageId &&
-    prev.renderMode === next.renderMode &&
+    prev.live === next.live &&
     areRequestRetryStatesEqual(prev.requestRetryState, next.requestRetryState) &&
     prev.onRetry === next.onRetry &&
     prev.onContinue === next.onContinue &&
@@ -118,7 +118,7 @@ export const TranscriptRow = React.memo(function TranscriptRow({
   toolResults,
   highlightMessageId,
   requestRetryState,
-  renderMode,
+  live,
   onRetry,
   onContinue,
   onDeleteMessage,
@@ -150,7 +150,7 @@ export const TranscriptRow = React.memo(function TranscriptRow({
         isLastAssistantMessage={isLastAssistantMessage}
         showContinue={showContinue}
         disableAnimation={disableAnimation}
-        renderMode={renderMode}
+        live={live}
         onRetryAssistantMessage={onRetry}
         onContinueAssistantMessage={onContinue}
         onDeleteMessage={onDeleteMessage}

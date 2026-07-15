@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import Markdown, { type Components } from 'react-markdown'
 import {
@@ -45,16 +45,7 @@ export const ThinkingContent = memo(function ThinkingContent({
   const isThinking = isStreaming && !completedAt
   const renderPool = useStreamingRenderPool(thinking, isThinking)
   const hasThinkingContent = thinking.trim().length > 0
-  const [liveElapsed, setLiveElapsed] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!isThinking || !startedAt) return
-    const tick = (): void => setLiveElapsed((Date.now() - startedAt) / 1000)
-    tick()
-    const interval = setInterval(tick, 100)
-    return () => clearInterval(interval)
-  }, [isThinking, startedAt])
 
   useEffect(() => {
     if (!isThinking || !hasThinkingContent || !contentRef.current) return
@@ -84,11 +75,6 @@ export const ThinkingContent = memo(function ThinkingContent({
       <span className="text-[12px] text-muted-foreground/70">
         {t('thinking.pending', { defaultValue: 'Thinking' })}
       </span>
-      {liveElapsed > 0 && (
-        <span className="text-[10px] text-muted-foreground/40">
-          {t('thinking.secondsShort', { seconds: liveElapsed.toFixed(1) })}
-        </span>
-      )}
     </div>
   )
 })

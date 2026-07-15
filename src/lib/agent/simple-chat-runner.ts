@@ -25,7 +25,7 @@ import {
   shouldRequestPreciseResponsesContextTokens,
   shouldUseEstimatedContextTokens
 } from '@/lib/agent/context-estimation'
-import { resolveCompressionContextLength } from '@/lib/agent/context-compression'
+import { resolveCompressionContextLength } from '@/lib/agent/compression'
 import {
   shouldSuppressTransientRuntimeError
 } from '@/lib/chat/message-utils'

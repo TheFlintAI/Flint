@@ -48,13 +48,12 @@ export interface UseComposerAttachmentsResult {
   attachments: ComposerAttachment[]
   pendingImageReads: number
   addImages: (files: File[]) => Promise<void>
-  addFiles: (filePaths: string[], isDirectory?: boolean) => void
+  addFiles: (filePaths: string[]) => void
   removeAttachment: (id: string) => void
   readImagePathAsAttachment: (filePath: string) => Promise<ImageAttachment | null>
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleDropFiles: (fileList: FileList | null) => void
   getPastedImageFiles: (clipboardData: DataTransfer | null | undefined) => File[]
-  getImageMediaTypeForPath: (filePath: string) => string | null
   setAttachments: React.Dispatch<React.SetStateAction<ComposerAttachment[]>>
   setPendingImageReads: React.Dispatch<React.SetStateAction<number>>
 }
@@ -90,10 +89,10 @@ export function useComposerAttachments({
   }, [])
 
   const addFiles = React.useCallback(
-    (filePaths: string[], isDirectory?: boolean) => {
+    (filePaths: string[]) => {
       const newFiles: ComposerFileAttachment[] = []
       for (const filePath of filePaths) {
-        const created = createComposerFileAttachment(filePath, workingFolder, isDirectory)
+        const created = createComposerFileAttachment(filePath, workingFolder)
         if (created) {
           newFiles.push(created)
         }
@@ -204,7 +203,6 @@ export function useComposerAttachments({
     handlePaste,
     handleDropFiles,
     getPastedImageFiles,
-    getImageMediaTypeForPath,
     setAttachments,
     setPendingImageReads
   }

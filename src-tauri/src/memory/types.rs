@@ -8,8 +8,8 @@ pub struct MemoryEntry {
     pub id: String,
     #[serde(rename = "type")]
     pub entry_type: String,
+    pub title: String,
     pub body: String,
-    pub summary: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -21,7 +21,7 @@ pub struct MemoryIndexEntry {
     pub id: String,
     #[serde(rename = "type")]
     pub entry_type: String,
-    pub summary: String,
+    pub title: String,
     pub updated_at: String,
 }
 
@@ -58,6 +58,8 @@ pub struct MemoryWriteParams {
     pub id: Option<String>,
     #[serde(rename = "type")]
     pub entry_type: Option<String>,
+    /// Human-readable title provided by the agent. Required for new entries.
+    pub title: Option<String>,
     pub body: String,
     /// Pre-computed embedding vector for the body.
     /// If not provided, the local embedding backend generates one.

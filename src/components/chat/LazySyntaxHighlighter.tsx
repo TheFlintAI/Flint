@@ -34,10 +34,6 @@ import prismTsx from 'react-syntax-highlighter/dist/esm/languages/prism/tsx'
 import prismTypescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
 import prismYaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml'
 
-type SyntaxHighlighterComponent = React.ComponentType<Record<string, unknown>> & {
-  registerLanguage?: (name: string, grammar: unknown) => void
-}
-
 const LANGUAGE_ALIASES: Record<string, string> = {
   ts: 'typescript',
   js: 'javascript',
@@ -88,10 +84,8 @@ const LANGUAGE_GRAMMARS: Record<string, unknown> = {
   markup: prismMarkup
 }
 
-const Highlighter = PrismLight as unknown as SyntaxHighlighterComponent
-
 for (const [language, grammar] of Object.entries(LANGUAGE_GRAMMARS)) {
-  Highlighter.registerLanguage?.(language, grammar)
+  PrismLight.registerLanguage(language, grammar)
 }
 
 function normalizeLanguage(language?: string): string {
@@ -100,12 +94,19 @@ function normalizeLanguage(language?: string): string {
   return LANGUAGE_ALIASES[normalized] ?? normalized
 }
 
-type LazySyntaxHighlighterProps = Record<string, unknown> & {
+type LazySyntaxHighlighterProps = {
   language?: string
   children: string
   className?: string
   customStyle?: React.CSSProperties
   codeTagProps?: React.HTMLAttributes<HTMLElement>
+  showLineNumbers?: boolean
+  showInlineLineNumbers?: boolean
+  wrapLines?: boolean
+  wrapLongLines?: boolean
+  startingLineNumber?: number
+  lineNumberContainerStyle?: React.CSSProperties
+  lineNumberStyle?: React.CSSProperties | ((lineNumber: number) => React.CSSProperties)
 }
 
 export function LazySyntaxHighlighter({
@@ -114,7 +115,13 @@ export function LazySyntaxHighlighter({
   className,
   customStyle,
   codeTagProps,
-  ...rest
+  showLineNumbers,
+  showInlineLineNumbers,
+  wrapLines,
+  wrapLongLines,
+  startingLineNumber,
+  lineNumberContainerStyle,
+  lineNumberStyle,
 }: LazySyntaxHighlighterProps): React.JSX.Element {
   const normalizedLanguage = normalizeLanguage(language)
   const canHighlight =
@@ -147,15 +154,21 @@ export function LazySyntaxHighlighter({
   }
 
   return (
-    <Highlighter
+    <PrismLight
       language={normalizedLanguage}
       style={oneDark}
       className={className}
       customStyle={customStyle}
       codeTagProps={codeTagProps}
-      {...rest}
+      showLineNumbers={showLineNumbers}
+      showInlineLineNumbers={showInlineLineNumbers}
+      wrapLines={wrapLines}
+      wrapLongLines={wrapLongLines}
+      startingLineNumber={startingLineNumber}
+      lineNumberContainerStyle={lineNumberContainerStyle}
+      lineNumberStyle={lineNumberStyle}
     >
       {children}
-    </Highlighter>
+    </PrismLight>
   )
 }

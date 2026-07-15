@@ -55,11 +55,10 @@ import { type AgentEvent, type AgentLoopConfig, type ToolCallState } from '@/lib
 import { ApiStreamError } from '@/services/tauri-api/api-stream'
 import {
   compressMessages,
-  mergeCompressedMessagesIntoConversation,
   resolveCompressionContextLength,
-  resolveCompressionReservedOutputBudget,
+  resolveCompressionReservedOutput,
   resolveCompressionThreshold
-} from '@/lib/agent/context-compression'
+} from '@/lib/agent/compression'
 import { runAgentLoop } from '@/lib/agent/agent-loop'
 import {
   liveToolInputSignature,
@@ -102,7 +101,7 @@ import {
   estimateCurrentIterationContextTokens,
   summarizeActiveTeamForPromptCache
 } from '@/lib/chat/provider-utils'
-import type { CompressionConfig } from '@/lib/agent/context-compression'
+import type { CompressionConfig } from '@/lib/agent/compression'
 import { loadMemoryIndex } from '@/lib/agent/memory-files'
 import { buildPromptCacheKey, haveSameToolDefinitions } from '@/lib/chat/prompt-cache-key'
 import { refreshDynamicToolCatalog } from '@/lib/tools/dynamic-tool-catalog'
@@ -1184,7 +1183,7 @@ export function useChatActions(): {
                     threshold: resolveCompressionThreshold(resolvedModelConfig),
                     preCompressThreshold: 0.65,
                     reservedOutputBudget:
-                      resolveCompressionReservedOutputBudget(resolvedModelConfig)
+                      resolveCompressionReservedOutput(resolvedModelConfig)
                   }
                 : null
 
@@ -2002,19 +2001,8 @@ export function useChatActions(): {
                 case 'context_compressed':
                   {
                     const compressedMessages = event.messages
-                    const currentMessages =
-                      useChatStore.getState().tasks.find((item) => item.id === taskId)
-                        ?.messages ?? []
-                    const mergedMessages = compressedMessages
-                      ? mergeCompressedMessagesIntoConversation(currentMessages, compressedMessages)
-                      : null
-                    const nextVisibleMessages = mergedMessages ?? compressedMessages ?? null
-                    const shouldPersistMergedMessages =
-                      !!nextVisibleMessages &&
-                      !hasSameMessageIdSequence(currentMessages, nextVisibleMessages)
-
-                    if (shouldPersistMergedMessages) {
-                      chatStore.replaceTaskMessages(taskId!, nextVisibleMessages)
+                    if (compressedMessages && compressedMessages.length > 0) {
+                      chatStore.replaceTaskMessages(taskId!, compressedMessages)
                     }
                   }
                   break

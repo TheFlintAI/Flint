@@ -57,24 +57,26 @@ function parseSearchResults(outputText: string | undefined): {
 // --- WebSearch descriptor ---
 
 function webSearchHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName, t } = ctx
   const query = firstStringInput(input, ['query'])
-  const { results } = parseSearchResults(outputText)
-  const showCount = !!outputText
   return (
     <ToolPanelLead
       icon={<ToolIcon name="WebSearch" />}
       title={query || t('toolPanel.title.WebSearch')}
       subtitle={query ? t('toolPanel.title.WebSearch') : undefined}
-      badges={
-        showCount ? (
-          <Badge tone={results.length > 0 ? 'green' : 'default'}>
-            {t('toolCall.webSearch.resultCount', { count: results.length })}
-          </Badge>
-        ) : null
-      }
       titleAttr={query || displayName}
     />
+  )
+}
+
+function webSearchBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { outputText, t } = ctx
+  if (!outputText) return null
+  const { results } = parseSearchResults(outputText)
+  return (
+    <Badge tone={results.length > 0 ? 'green' : 'default'}>
+      {t('toolCall.webSearch.resultCount', { count: results.length })}
+    </Badge>
   )
 }
 
@@ -112,7 +114,20 @@ function parseFetchPayload(outputText: string | undefined): FetchPayload | null 
 }
 
 function webFetchHeader(ctx: ToolPanelContext): React.ReactNode {
-  const { input, outputText, displayName, t } = ctx
+  const { input, displayName, t } = ctx
+  const url = firstStringInput(input, ['url'])
+  return (
+    <ToolPanelLead
+      icon={<ToolIcon name="WebFetch" />}
+      title={url || t('toolPanel.title.WebFetch')}
+      subtitle={url ? t('toolPanel.title.WebFetch') : undefined}
+      titleAttr={url || displayName}
+    />
+  )
+}
+
+function webFetchBadges(ctx: ToolPanelContext): React.ReactNode {
+  const { input, outputText, t } = ctx
   const url = firstStringInput(input, ['url'])
   const payload = parseFetchPayload(outputText)
   const badges: React.ReactNode[] = []
@@ -126,15 +141,7 @@ function webFetchHeader(ctx: ToolPanelContext): React.ReactNode {
   if (payload?.content) {
     badges.push(<Badge key="chars" tone="blue">{t('toolCall.charCount', { count: payload.content.length })}</Badge>)
   }
-  return (
-    <ToolPanelLead
-      icon={<ToolIcon name="WebFetch" />}
-      title={url || t('toolPanel.title.WebFetch')}
-      subtitle={url ? t('toolPanel.title.WebFetch') : undefined}
-      badges={badges.length ? <>{badges}</> : null}
-      titleAttr={url || displayName}
-    />
-  )
+  return badges.length ? <>{badges}</> : null
 }
 
 function WebFetchBody({ ctx }: { ctx: ToolPanelContext }): React.JSX.Element {
@@ -190,7 +197,7 @@ const webSearchHandler: ToolHandler = {
     return encodeSearchResult(outcome.results, query, outcome.engine)
   },
   groups: ['web-search'],
-  render: { kind: 'native-panel', renderHeader: webSearchHeader, renderBody: webSearchBody }
+  render: { kind: 'native-panel', renderHeader: webSearchHeader, renderBadges: webSearchBadges, renderBody: webSearchBody }
 }
 
 // WebFetch Tool
@@ -199,7 +206,7 @@ const webFetchHandler: ToolHandler = {
   definition: {
     name: 'WebFetch',
     description:
-      'Fetch and extract readable text content from a URL. Use after WebSearch to read full page content.',
+      'Fetch and extract readable text content from a URL. Use after WebSearch to read full page content. Always cite the source URL when referencing information from fetched pages.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -223,7 +230,7 @@ const webFetchHandler: ToolHandler = {
     return encodeFetchResult(url, outcome.result)
   },
   groups: ['web-search'],
-  render: { kind: 'native-panel', renderHeader: webFetchHeader, renderBody: webFetchBody }
+  render: { kind: 'native-panel', renderHeader: webFetchHeader, renderBadges: webFetchBadges, renderBody: webFetchBody }
 }
 
 // Registration

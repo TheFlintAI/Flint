@@ -54,10 +54,17 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   WebFetch: FileText,
 }
 
+/**
+ * Module-namespace imports don't expose an index signature, so dynamic icon
+ * lookup requires a record cast. `lucide-react` exports only LucideIcon
+ * components at runtime — type-only exports like the `LucideIcon` *type* are
+ * erased and resolve to undefined, which resolveLucideIcon handles via the
+ * Puzzle fallback.
+ */
+const lucideRecord = LucideIcons as unknown as Record<string, LucideIcon>
+
 /** Plugin tool icons — registered at runtime. */
 const pluginToolIcons = new Map<string, LucideIcon>()
-
-const lucideRecord = LucideIcons as unknown as Record<string, LucideIcon>
 
 /** Resolve a Lucide icon by name. Falls back to Puzzle if not found. */
 export function resolveLucideIcon(name?: string): LucideIcon {

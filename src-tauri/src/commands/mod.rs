@@ -72,6 +72,16 @@ async fn invoke_app_command(
         "window:isMaximized" => Ok(json!(window
             .is_maximized()
             .map_err(|error| error.to_string())?)),
+        "notification:send" => {
+            let opts = parse_first_arg::<NotifyOptions>(&args)?;
+            let task_id = opts.task_id.clone();
+            let win = window.clone();
+            let app_handle = app.clone();
+
+            send_os_notification(app_handle, opts, task_id, win)?;
+
+            Ok(json!(true))
+        }
         "shell:openExternal" | "shell:openPath" => {
             let target = first_string_arg(&args)
                 .ok_or_else(|| format!("{channel} requires a target path or URL"))?;
@@ -364,6 +374,249 @@ fn handle_misc_channel(
     }
 }
 
+// ── OS notification ──────────────────────────────────────────────────
+
+/// Sends an OS-level notification.
+///
+/// On **Windows** uses `tauri-winrt-notification` directly with an
+/// `on_activated` callback — clicking the toast restores the minimised
+/// window and emits `command:notification:clicked` for task navigation.
+/// A Start Menu shortcut (created during setup) provides the AUMI so
+/// toasts show **Flint** branding even in dev mode.
+///
+/// On **other platforms** delegates to `notify-rust`.
+fn send_os_notification(
+    app_handle: AppHandle,
+    opts: NotifyOptions,
+    task_id: String,
+    win: Window,
+) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let app_id = app_handle.config().identifier.clone();
+        let ah = app_handle.clone();
+        let tid = task_id.clone();
+        let w = win.clone();
+        tauri_winrt_notification::Toast::new(&app_id)
+            .title(&opts.title)
+            .text1(&opts.body)
+            .on_activated(move |_action| {
+                let ah2 = ah.clone();
+                let w2 = w.clone();
+                let tid2 = tid.clone();
+                let _ = ah.run_on_main_thread(move || {
+                    // `hide` first is required on Windows when the
+                    // window is minimised (tauri#8361).
+                    let _ = w2.hide();
+                    let _ = w2.unminimize();
+                    let _ = w2.set_focus();
+                    let _ = w2.show();
+                });
+                let _ = ah2.emit(
+                    "command:notification:clicked",
+                    serde_json::json!({ "taskId": tid2 }),
+                );
+                Ok(())
+            })
+            .show()
+            .map_err(|error| error.to_string())?;
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let app_id = app_handle.config().identifier.clone();
+        let mut notification = notify_rust::Notification::new();
+        notification.app_id(&app_id);
+        notification.summary(&opts.title);
+        notification.body(&opts.body);
+
+        let handle = notification.show().map_err(|error| error.to_string())?;
+
+        let ah = app_handle.clone();
+        let w = win.clone();
+        let tid = task_id.clone();
+        std::thread::spawn(move || {
+            handle.wait_for_action(|action| {
+                if action == "__closed" {
+                    return;
+                }
+                let emit_handle = ah.clone();
+                let _ = ah.run_on_main_thread(move || {
+                    let _ = w.show();
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                    let _ = emit_handle.emit(
+                        "command:notification:clicked",
+                        serde_json::json!({ "taskId": tid }),
+                    );
+                });
+            });
+        });
+    }
+
+    Ok(())
+}
+
+// ── Windows Start Menu shortcut ──────────────────────────────────────
+
+/// Creates a Start Menu shortcut with AppUserModelID.
+/// Step 1: `shortcuts-rs` (pure Rust) creates the basic `.lnk`.
+/// Step 2: `SHGetPropertyStoreFromParsingName` (shell32 FFI) stamps
+///          the AppUserModelID via IPropertyStore COM.
+#[cfg(target_os = "windows")]
+fn ensure_startmenu_shortcut(app_id: &str) {
+    let exe = std::env::current_exe().unwrap_or_default();
+    let shortcut_dir = format!(
+        "{}\\Microsoft\\Windows\\Start Menu\\Programs\\Flint",
+        std::env::var("APPDATA").unwrap_or_default()
+    );
+    let shortcut_path = format!("{}\\Flint.lnk", shortcut_dir);
+
+    let _ = std::fs::remove_file(&shortcut_path);
+    let _ = std::fs::create_dir_all(&shortcut_dir);
+
+    tracing::info!("[startmenu] creating: {}", shortcut_path);
+
+    match shortcuts_rs::ShellLink::new(&exe, None, None, None) {
+        Ok(sl) => {
+            let mut sl = sl;
+            if let Some(parent) = exe.parent() {
+                sl.set_working_dir(Some(parent.to_string_lossy().into_owned()));
+            }
+            if let Err(e) = sl.create_lnk(&shortcut_path) {
+                tracing::warn!("[startmenu] create_lnk failed: {e}");
+                return;
+            }
+        }
+        Err(e) => {
+            tracing::warn!("[startmenu] ShellLink::new failed: {e}");
+            return;
+        }
+    }
+
+    // Stamp AppUserModelID onto the shortcut via IPropertyStore COM.
+    match stamp_app_user_model_id(&shortcut_path, app_id) {
+        Ok(()) => tracing::info!("[startmenu] shortcut created successfully"),
+        Err(e) => tracing::warn!("[startmenu] AUMI stamp failed: {e}"),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn stamp_app_user_model_id(lnk_path: &str, app_id: &str) -> Result<(), String> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
+    // COM interface IDs
+    let iid_property_store: windows_core::GUID =
+        windows_core::GUID::from_u128(0x886D8EEB_8CF2_4446_8D02_CDBA1DBDCF99);
+
+    // PKEY_AppUserModel_ID
+    #[repr(C)]
+    struct PropertyKey {
+        fmtid: windows_core::GUID,
+        pid: u32,
+    }
+
+    #[repr(C)]
+    struct PropVariant {
+        vt: u16,
+        _reserved1: u16,
+        _reserved2: u16,
+        _reserved3: u16,
+        ptr: *const u16,
+    }
+
+    #[repr(C)]
+    struct IPropertyStoreVtbl {
+        // IUnknown
+        query_interface: unsafe extern "system" fn(
+            this: *mut *const IPropertyStoreVtbl,
+            riid: *const windows_core::GUID,
+            ppv: *mut *mut std::ffi::c_void,
+        ) -> i32,
+        add_ref: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl) -> u32,
+        release: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl) -> u32,
+        // IPropertyStore
+        get_count: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl, *mut u32) -> i32,
+        get_at: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl, u32, *mut PropertyKey) -> i32,
+        get_value: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl, *const PropertyKey, *mut PropVariant) -> i32,
+        set_value: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl, *const PropertyKey, *const PropVariant) -> i32,
+        commit: unsafe extern "system" fn(*mut *const IPropertyStoreVtbl) -> i32,
+    }
+
+    // shell32!SHGetPropertyStoreFromParsingName
+    #[link(name = "shell32")]
+    extern "system" {
+        fn SHGetPropertyStoreFromParsingName(
+            pszPath: *const u16,
+            pbc: *const std::ffi::c_void,
+            flags: u32,
+            riid: *const windows_core::GUID,
+            ppv: *mut *mut *const IPropertyStoreVtbl,
+        ) -> i32;
+    }
+
+    let wide_path: Vec<u16> = OsStr::new(lnk_path)
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+
+    let mut store: *mut *const IPropertyStoreVtbl = std::ptr::null_mut();
+
+    // GETPROPERTYSTOREFLAGS_READWRITE = 0x00000002
+    let hr = unsafe {
+        SHGetPropertyStoreFromParsingName(
+            wide_path.as_ptr(),
+            std::ptr::null(),
+            0x00000002, // GPS_READWRITE
+            &iid_property_store,
+            &mut store,
+        )
+    };
+
+    if hr < 0 || store.is_null() {
+        return Err(format!("SHGetPropertyStoreFromParsingName failed: 0x{hr:08X}"));
+    }
+
+    let key = PropertyKey {
+        fmtid: windows_core::GUID::from_u128(0x9F4C2855_9F79_4B39_A8D0_E1D42DE1D5F3),
+        pid: 5,
+    };
+
+    let wide_id: Vec<u16> = OsStr::new(app_id).encode_wide().chain(Some(0)).collect();
+
+    let pv = PropVariant {
+        vt: 31, // VT_LPWSTR
+        _reserved1: 0,
+        _reserved2: 0,
+        _reserved3: 0,
+        ptr: wide_id.as_ptr(),
+    };
+
+    let hr = unsafe {
+        let vtbl = &**store;
+        (vtbl.set_value)(store, &key, &pv)
+    };
+    if hr < 0 {
+        return Err(format!("IPropertyStore::SetValue failed: 0x{hr:08X}"));
+    }
+
+    let hr = unsafe {
+        let vtbl = &**store;
+        (vtbl.commit)(store)
+    };
+    if hr < 0 {
+        return Err(format!("IPropertyStore::Commit failed: 0x{hr:08X}"));
+    }
+
+    unsafe {
+        let vtbl = &**store;
+        (vtbl.release)(store)
+    };
+
+    Ok(())
+}
+
 // ── Entry point ───────────────────────────────────────────────────
 
 pub fn run() {
@@ -381,6 +634,21 @@ pub fn run() {
         ])
         .setup(|_app| {
             tracing::info!("Flint app starting up");
+            // Required for Windows to route toast notification clicks back to
+            // the running process (matching the app_id set on each toast).
+            #[cfg(windows)]
+            {
+                let app_id = _app.config().identifier.clone();
+                let app_id_wide: Vec<u16> = format!("{}\0", app_id).encode_utf16().collect();
+                #[link(name = "shell32")]
+                extern "system" {
+                    fn SetCurrentProcessExplicitAppUserModelID(app_id: *const u16) -> i32;
+                }
+                unsafe { SetCurrentProcessExplicitAppUserModelID(app_id_wide.as_ptr()) };
+                // Create Start Menu shortcut so Windows toast notifications
+                // show Flint branding (requires shortcut with matching AUMI).
+                ensure_startmenu_shortcut(&app_id);
+            }
             // Initialize memory system. The embedding model is bundled as a
             // resource and resolved via Tauri in both dev and production.
             let memory_db_path = flint_path("memory.db");

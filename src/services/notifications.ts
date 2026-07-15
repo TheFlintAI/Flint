@@ -1,22 +1,24 @@
 /**
- * Cross-platform notification service wrapping @tauri-apps/plugin-notification.
+ * Cross-platform OS notification service.
  *
- * Manages app window focus state and dispatches OS-level notifications when
- * the app is in the background and a task needs user attention.
+ * Sends notifications through the Rust backend:
+ * - **Windows**: native WinRT toast via tauri-winrt-notification with
+ *   on_activated callback → restores window + emits
+ *   command:notification:clicked for task navigation.  A Start Menu
+ *   shortcut (created during setup) provides the AUMI for Flint branding.
+ * - **macOS / Linux**: notify-rust.
  *
- * Click handling: the plugin does NOT expose a native click event on desktop.
- * Instead we track window focus — when the user clicks a toast notification,
- * the OS activates the app window, and the focus-change handler navigates to
- * the associated task.
+ * Focus tracking suppresses notifications when the app is in the foreground.
  */
 import {
-  sendNotification,
   isPermissionGranted,
   requestPermission,
 } from '@tauri-apps/plugin-notification'
-import type { UnlistenFn } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
 import { useUIStore } from '@/stores/ui-store'
 import { useChatStore } from '@/stores/chat-store'
+import { tauriCommands } from '@/services/tauri-api/command-client'
 import { createLogger } from '@/lib/logger'
 
 const log = createLogger('Notifications')
@@ -24,7 +26,7 @@ const log = createLogger('Notifications')
 // ── Focus state ──────────────────────────────────────────────────────
 
 let _appFocused = true
-let _focusUnlisten: UnlistenFn | null = null
+let _focusUnlisten: (() => void) | null = null
 
 export function isAppFocused(): boolean {
   return _appFocused
@@ -32,17 +34,10 @@ export function isAppFocused(): boolean {
 
 export async function initFocusTracking(): Promise<void> {
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
     const currentWindow = getCurrentWindow()
 
     _focusUnlisten = await currentWindow.onFocusChanged(({ payload: focused }) => {
-      const wasFocused = _appFocused
       _appFocused = focused
-
-      if (focused && !wasFocused) {
-        // Defer so any in-flight state updates settle first
-        setTimeout(() => drainPendingNavigation(), 50)
-      }
     })
 
     try {
@@ -50,6 +45,26 @@ export async function initFocusTracking(): Promise<void> {
     } catch {
       _appFocused = document.hasFocus()
     }
+
+    // Listen for notification click events from the Rust backend.
+    // The Rust side restores the window then emits this event so the
+    // frontend can navigate to the relevant task.
+    const unlisten = await listen<{ taskId: string }>('command:notification:clicked', (event) => {
+      const { taskId } = event.payload
+      log.info('Notification clicked, navigating to task', { taskId })
+      const chatStore = useChatStore.getState()
+      if (chatStore.tasks.find((t) => t.id === taskId)) {
+        useUIStore.getState().navigateToTask(taskId)
+      }
+    })
+
+    // Chain the unlisten into the focus unlisten for cleanup
+    const origFocusUnlisten = _focusUnlisten
+    _focusUnlisten = () => {
+      origFocusUnlisten?.()
+      unlisten()
+    }
+
     log.info('Focus tracking initialised', { focused: _appFocused })
   } catch (err) {
     log.warn('Tauri focus events unavailable, falling back to document focus', err)
@@ -58,22 +73,16 @@ export async function initFocusTracking(): Promise<void> {
 }
 
 function setupDocumentFocusFallback(): void {
-  const onFocus = (): void => {
-    const wasFocused = _appFocused
-    _appFocused = true
-    if (!wasFocused) setTimeout(() => drainPendingNavigation(), 50)
-  }
-  const onBlur = (): void => {
-    _appFocused = false
-  }
+  const onFocus = (): void => { _appFocused = true }
+  const onBlur = (): void => { _appFocused = false }
   window.addEventListener('focus', onFocus)
   window.addEventListener('blur', onBlur)
   _appFocused = document.hasFocus()
 
-  _focusUnlisten = ((): void => {
+  _focusUnlisten = (): void => {
     window.removeEventListener('focus', onFocus)
     window.removeEventListener('blur', onBlur)
-  }) as unknown as UnlistenFn
+  }
 }
 
 export function destroyFocusTracking(): void {
@@ -103,30 +112,6 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   }
 }
 
-// ── Pending navigation ───────────────────────────────────────────────
-
-let _pendingTaskId: string | null = null
-
-function drainPendingNavigation(): void {
-  const taskId = _pendingTaskId
-  if (!taskId) return
-
-  const chatStore = useChatStore.getState()
-  if (!chatStore.tasks.find((t) => t.id === taskId)) {
-    _pendingTaskId = null
-    return
-  }
-
-  log.info('Navigating to notified task', { taskId })
-  _pendingTaskId = null
-  useUIStore.getState().navigateToTask(taskId)
-
-  // Also try to ensure the window is visible
-  import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-    getCurrentWindow().unminimize().catch(() => {})
-  }).catch(() => {})
-}
-
 // ── Send ─────────────────────────────────────────────────────────────
 
 interface NotifyOptions {
@@ -142,8 +127,7 @@ async function notify({ taskId, title, body }: NotifyOptions): Promise<void> {
   if (!permissionGranted) return
 
   try {
-    _pendingTaskId = taskId
-    sendNotification({ title, body })
+    await tauriCommands.invoke('notification:send', { title, body, taskId })
     log.info('Notification sent', { title, body, taskId })
   } catch (err) {
     log.error('Failed to send notification', err)

@@ -15,7 +15,7 @@ import type { UnifiedMessage, ProviderConfig, TokenUsage } from '@/lib/api/types
 import type { MemoryIndexSnapshot } from '@/protocols/memory-types'
 import type { TeamRuntimeMessageRecord } from '@/protocols/team-runtime-types'
 import type { TeamTask, TeamMemberStatus } from './types'
-import { buildRuntimeCompression } from '../context-compression-runtime'
+import { buildRuntimeCompression } from '../compression'
 import { LEAD_ONLY_TOOLS, MANDATORY_AGENT_DISALLOWED_TOOLS } from './agent-tools'
 import { requestFallbackReport, runSharedAgentRuntime } from '../shared-runtime'
 import { appendTeamRuntimeMessage } from '@/services/tauri-api/team-runtime'
