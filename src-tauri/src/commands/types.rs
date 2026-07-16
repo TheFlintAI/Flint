@@ -43,6 +43,7 @@ pub(crate) struct ListDirArgs {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct GlobArgs {
     pub(crate) cwd: Option<String>,
     pub(crate) pattern: String,
@@ -58,11 +59,8 @@ pub(crate) struct GrepArgs {
     pub(crate) ignore_case: Option<bool>,
     pub(crate) case_sensitive: Option<bool>,
     pub(crate) literal: Option<bool>,
-    #[serde(rename = "output_mode", alias = "outputMode")]
     pub(crate) output_mode: Option<String>,
-    #[serde(alias = "maxResults")]
     pub(crate) max_results: Option<usize>,
-    #[serde(alias = "maxLineLength")]
     pub(crate) max_line_length: Option<usize>,
 }
 

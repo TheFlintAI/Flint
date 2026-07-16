@@ -6,6 +6,7 @@ import {
   Check,
   CheckCheck,
   PanelLeftClose,
+  Pencil,
   Pin,
   PinOff,
   Plus,
@@ -152,6 +153,11 @@ export function WorkspaceSidebar(): React.JSX.Element {
   )
   const deleteTask = useChatStore((state) => state.deleteTask)
   const togglePinTask = useChatStore((state) => state.togglePinTask)
+  const updateTaskTitle = useChatStore((state) => state.updateTaskTitle)
+  const disableAutoTitle = useChatStore((state) => state.disableAutoTitle)
+  const [renamingTaskId, setRenamingTaskId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const renamingInputRef = useRef<HTMLInputElement>(null)
   const runningTasks = useAgentStore((state) => state.runningTasks)
   const runningAgentTaskIdsSig = ''
   const runningBackgroundTaskIdsSig = useAgentStore((state) =>
@@ -223,6 +229,40 @@ export function WorkspaceSidebar(): React.JSX.Element {
 
   const openTask = useCallback((taskId: string) => {
     useUIStore.getState().navigateToTask(taskId)
+  }, [])
+
+  const handleRenameStart = useCallback((taskId: string, currentTitle: string) => {
+    setRenameValue(currentTitle)
+    setRenamingTaskId(taskId)
+  }, [])
+
+  useEffect(() => {
+    if (renamingTaskId) {
+      const input = renamingInputRef.current
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }
+  }, [renamingTaskId])
+
+  const handleRenameConfirm = useCallback(
+    (taskId: string, newTitle: string) => {
+      const trimmed = newTitle.trim()
+      const task = useChatStore.getState().tasks.find((s) => s.id === taskId)
+      if (trimmed && trimmed !== (task?.title ?? '')) {
+        updateTaskTitle(taskId, trimmed)
+        disableAutoTitle(taskId)
+      }
+      setRenamingTaskId(null)
+      setRenameValue('')
+    },
+    [updateTaskTitle, disableAutoTitle]
+  )
+
+  const handleRenameCancel = useCallback(() => {
+    setRenamingTaskId(null)
+    setRenameValue('')
   }, [])
 
   const handleOpenSettings = useCallback(() => {
@@ -498,13 +538,37 @@ export function WorkspaceSidebar(): React.JSX.Element {
             </span>
             <span
               className={cn(
-                'min-w-0 flex-1 truncate font-medium transition-[padding]',
+                'min-w-0 flex-1 font-medium transition-[padding]',
+                !(renamingTaskId === taskItem.id) && 'truncate',
                 isMultiSelectMode || isSelected ? 'pl-5' : 'pl-0 group-hover/session:pl-5',
                 SIDEBAR_TREE_LABEL_CLASS
               )}
             >
               {taskItem.pinned && <Pin className="mr-1 inline size-3 shrink-0 text-muted-foreground" />}
-              {taskItem.title || t('sidebar.defaultTaskTitle')}
+              {renamingTaskId === taskItem.id ? (
+                <input
+                  ref={renamingInputRef}
+                  className="w-full min-w-0 bg-transparent px-0.5 text-[13px] leading-5 font-medium text-foreground outline-none"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleRenameConfirm(taskItem.id, renameValue)
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      handleRenameCancel()
+                    }
+                  }}
+                  onBlur={(e) => {
+                    handleRenameConfirm(taskItem.id, e.target.value)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                taskItem.title || t('sidebar.defaultTaskTitle')
+              )}
             </span>
             <span className="ml-auto flex shrink-0 items-center gap-1">
               {!active && statusKind && (
@@ -576,6 +640,12 @@ export function WorkspaceSidebar(): React.JSX.Element {
               >
                 {taskItem.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
                 {taskItem.pinned ? tCommon('action.unpin') : t('sidebar.pinToTop')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => handleRenameStart(taskItem.id, taskItem.title)}
+              >
+                <Pencil className="size-4" />
+                {tCommon('action.rename')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem

@@ -967,7 +967,12 @@ export function useChatActions(): {
 
         // Auto-title: fire-and-forget AI title + icon generation for the first message (once per task)
         const taskItem = useChatStore.getState().tasks.find((s) => s.id === taskId)
-        if (shouldAppendUserMessage && taskItem && !_autoRenamedTaskIds.has(taskId)) {
+        if (
+          shouldAppendUserMessage &&
+          taskItem &&
+          !taskItem.autoTitleDisabled &&
+          !_autoRenamedTaskIds.has(taskId)
+        ) {
           const capturedTaskId = taskId
           generateTaskTitle(text)
             .then((result) => {

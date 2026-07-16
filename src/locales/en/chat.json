@@ -118,7 +118,8 @@
       "warning": "partial",
       "error": "error",
       "timedOut": "timed out",
-      "truncated": "truncated{{reason}}"
+      "truncated": "truncated{{reason}}",
+      "filesSkipped": "{{count}} binary files skipped"
     },
     "foldersAndFiles": "{{folders}} folders · {{files}} files",
     "lineCount": "{{count}} lines",

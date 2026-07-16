@@ -118,7 +118,8 @@
       "warning": "部分结果",
       "error": "错误",
       "timedOut": "搜索超时",
-      "truncated": "结果已截断{{reason}}"
+      "truncated": "结果已截断{{reason}}",
+      "filesSkipped": "已跳过 {{count}} 个二进制文件"
     },
     "foldersAndFiles": "{{folders}} 个文件夹 · {{files}} 个文件",
     "lineCount": "{{count}} 行",

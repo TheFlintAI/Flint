@@ -3,6 +3,7 @@ mod fs;
 mod image;
 mod process;
 mod reader;
+mod search;
 mod terminal;
 pub(crate) mod types;
 pub(crate) mod utils;
@@ -190,25 +191,8 @@ async fn invoke_app_command(
             std::fs::rename(from, to).map_err(|error| error.to_string())?;
             Ok(json!({ "success": true, "from": from, "to": to }))
         }
-        "fs:glob" => {
-            let input = parse_first_arg::<GlobArgs>(&args)?;
-            let pattern = input
-                .cwd
-                .map(|cwd| {
-                    Path::new(&cwd)
-                        .join(&input.pattern)
-                        .to_string_lossy()
-                        .to_string()
-                })
-                .unwrap_or(input.pattern);
-            let paths = glob::glob(&pattern)
-                .map_err(|error| error.to_string())?
-                .filter_map(Result::ok)
-                .map(|path| path.to_string_lossy().to_string())
-                .collect::<Vec<_>>();
-            Ok(json!({ "success": true, "paths": paths }))
-        }
-        "fs:grep" => fs::grep_files(&args),
+        "fs:glob" => search::glob_files(&args),
+        "fs:grep" => search::grep_files(&args),
         "fs:watch-file" => fs::fs_watch_file(window.clone(), &state, &args),
         "fs:unwatch-file" => fs::fs_unwatch_file(&state, &args),
         "fs:select-file" => Ok(dialog_result(
@@ -617,6 +601,22 @@ fn stamp_app_user_model_id(lnk_path: &str, app_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Cleans up the Start Menu shortcut created during dev setup.
+/// Only meaningful on Windows where the shortcut is created.
+#[cfg(target_os = "windows")]
+fn cleanup_startmenu_shortcut() {
+    let shortcut_path = format!(
+        "{}\\Microsoft\\Windows\\Start Menu\\Programs\\Flint\\Flint.lnk",
+        std::env::var("APPDATA").unwrap_or_default()
+    );
+    if std::path::Path::new(&shortcut_path).exists() {
+        match std::fs::remove_file(&shortcut_path) {
+            Ok(()) => tracing::info!("[startmenu] cleaned up: {}", shortcut_path),
+            Err(e) => tracing::warn!("[startmenu] cleanup failed: {e}"),
+        }
+    }
+}
+
 // ── Entry point ───────────────────────────────────────────────────
 
 pub fn run() {
@@ -675,6 +675,10 @@ pub fn run() {
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::Resized(_) = event {
                         let _ = w.emit("command:window:maximized", w.is_maximized().unwrap_or(false));
+                    }
+                    if let tauri::WindowEvent::Destroyed = event {
+                        #[cfg(all(debug_assertions, target_os = "windows"))]
+                        cleanup_startmenu_shortcut();
                     }
                 });
             }

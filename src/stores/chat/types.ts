@@ -32,6 +32,8 @@ export interface Task {
   modelId?: string
   /** In-memory prompt snapshot reused within the current app task */
   promptSnapshot?: TaskPromptSnapshot
+  /** When true, the task title was manually set and should not be auto-generated */
+  autoTitleDisabled?: boolean
 }
 
 export interface ImageGenerationTiming {

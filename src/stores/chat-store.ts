@@ -186,6 +186,7 @@ export interface ChatStore {
   deleteTask: (id: string) => void
   setActiveTask: (id: string | null) => void
   updateTaskTitle: (id: string, title: string) => void
+  disableAutoTitle: (id: string) => void
   setWorkingFolder: (taskId: string, folder: string) => void
   updateTaskModel: (taskId: string, providerId: string, modelId: string) => void
   clearTaskModelBinding: (taskId: string) => void
@@ -832,6 +833,17 @@ export const useChatStore = create<ChatStore>()(
         }
       })
       dbUpdateTask(id, { title, updatedAt: now })
+    },
+
+    disableAutoTitle: (id) => {
+      set((state) => {
+        const task = state.tasks.find((s) => s.id === id)
+        if (task) {
+          task.autoTitleDisabled = true
+          task.updatedAt = Date.now()
+        }
+      })
+      dbUpdateTask(id, { auto_title_disabled: 1, updatedAt: Date.now() })
     },
 
     setWorkingFolder: (taskId, folder) => {

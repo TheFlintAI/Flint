@@ -22,6 +22,7 @@ export interface TaskRow {
   external_chat_id?: string | null
   provider_id?: string | null
   model_id?: string | null
+  auto_title_disabled?: number
 }
 
 interface MessageRow {
@@ -55,7 +56,8 @@ export function rowToTask(row: TaskRow, messages: UnifiedMessage[] = []): Task {
     planId: row.plan_id ?? undefined,
     pinned: row.pinned === 1,
     providerId: row.provider_id ?? undefined,
-    modelId: row.model_id ?? undefined
+    modelId: row.model_id ?? undefined,
+    autoTitleDisabled: row.auto_title_disabled === 1
   }
 }
 
@@ -83,6 +85,7 @@ export function mergeTaskSummary(
   task.pinned = next.pinned
   task.providerId = next.providerId
   task.modelId = next.modelId
+  task.autoTitleDisabled = next.autoTitleDisabled
   // When preserveLoadedMessages is true the in-memory state may already be
   // ahead of the DB snapshot (e.g. beginUserTurn appended messages that the
   // fire-and-forget persist hasn't landed yet). Accepting a stale lower count
